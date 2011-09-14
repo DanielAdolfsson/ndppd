@@ -211,8 +211,6 @@ ssize_t iface::read(address& saddr, address& daddr, uint8_t *msg, size_t size)
    return len;
 }
 
-//ssize_t iface::write(address& saddr, address& daddr, uint8_t *msg, size_t size)
-
 ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
 {
    struct sockaddr_in6 daddr_tmp;
@@ -220,7 +218,6 @@ ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
    struct iovec iov;
 
    memset(&daddr_tmp, 0, sizeof(struct sockaddr_in6));
-   //daddr_tmp.sin6_len    = sizeof(struct sockaddr_in6);
    daddr_tmp.sin6_family = AF_INET6;
    daddr_tmp.sin6_port   = htons(IPPROTO_ICMPV6); // Needed?
    memcpy(&daddr_tmp.sin6_addr, &daddr.const_addr(), sizeof(struct in6_addr));
@@ -234,9 +231,6 @@ ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
    mhdr.msg_iov = &iov;
    mhdr.msg_iovlen = 1;
 
-   /*mhdr.msg_control = (void *)cmsg;
-   mhdr.msg_controllen = sizeof(chdr);*/
-
    int len;
 
    if((len = sendmsg(_fd, &mhdr, 0)) < 0)
@@ -247,18 +241,18 @@ ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
 
 ssize_t iface::write_solicit(const address& taddr)
 {
-   struct nd_neighbor_solicit msg;
+   struct nd_neighbor_solicit ns;
 
    // FIXME: Alright, I'm lazy.
    static address multicast("ff02::1:ff00:0000");
 
    address daddr;
 
-   memset(&msg, 0, sizeof(struct nd_neighbor_solicit));
+   memset(&ns, 0, sizeof(struct nd_neighbor_solicit));
 
-   msg.nd_ns_hdr.icmp6_type = ND_NEIGHBOR_SOLICIT;
+   ns.nd_ns_type = ND_NEIGHBOR_SOLICIT;
 
-   memcpy(&msg.nd_ns_target, &taddr.const_addr(), sizeof(struct in6_addr));
+   memcpy(&ns.nd_ns_target, &taddr.const_addr(), sizeof(struct in6_addr));
 
    daddr = multicast;
 
@@ -269,14 +263,33 @@ ssize_t iface::write_solicit(const address& taddr)
    DBG("iface::write_solicit() taddr=%s, daddr=%s",
        taddr.to_string().c_str(), daddr.to_string().c_str());
 
-   return write(daddr, (uint8_t *)&msg, sizeof(struct nd_neighbor_solicit));
+   return write(daddr, (uint8_t *)&ns, sizeof(struct nd_neighbor_solicit));
 }
 
 ssize_t iface::write_advert(const address& daddr, const address& taddr)
 {
-   struct nd_neighbor_advert msg;
+   char buf[256];
 
+   memset(buf, 0, sizeof(buf));
 
+   struct nd_neighbor_advert *na =
+      (struct nd_neighbor_advert *)&buf[0];
+
+   struct nd_opt_hdr *opt =
+      (struct nd_opt_hdr *)&buf[sizeof(struct nd_neighbor_advert)];
+
+   opt->nd_opt_type         = ND_OPT_TARGET_LINKADDR;
+   opt->nd_opt_len          = 1;
+
+   na->nd_na_type           = ND_NEIGHBOR_ADVERT;
+   na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED | ND_NA_FLAG_ROUTER;
+
+   memcpy(&na->nd_na_target, &taddr.const_addr(), sizeof(struct in6_addr));
+
+   memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr), &hwaddr, 6);
+
+   return write(daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_advert) +
+      sizeof(struct nd_opt_hdr) + 8);
 }
 
 int iface::read_nd(address& saddr, address& daddr, address& taddr)
@@ -312,7 +325,7 @@ void iface::fixup_pollfds()
    DBG("iface::fixup_pollfds() _map.size()=%d", _map.size());
 
    for(std::map<std::string, ptr<iface> >::iterator it = _map.begin();
-       it != _map.end(); it++)
+      it != _map.end(); it++)
    {
       _pollfds[i].fd      = it->second->_fd;
       _pollfds[i].events  = POLLIN;
@@ -364,19 +377,17 @@ int iface::poll_all()
    if(len == 0)
       return 0;
 
-   std::vector<struct pollfd>::iterator fit;
-   std::map<std::string, ptr<iface> >::iterator iit;
+   std::vector<struct pollfd>::iterator f_it;
+   std::map<std::string, ptr<iface> >::iterator i_it;
 
-   for(fit = _pollfds.begin(), iit = _map.begin(); fit != _pollfds.end(); fit++, iit++)
+   for(f_it = _pollfds.begin(), i_it = _map.begin(); f_it != _pollfds.end(); f_it++, i_it++)
    {
-      if(!(fit->revents & POLLIN))
+      if(!(f_it->revents & POLLIN))
          continue;
 
       // We assume here that _pollfds is perfectly aligned with _map.
 
-      ptr<iface> ifa = iit->second;
-
-      //DBG("POLLIN on %s", ifa->_name.c_str());
+      ptr<iface> ifa = i_it->second;
 
       int icmp6_type;
       address saddr, daddr, taddr;
@@ -391,8 +402,6 @@ int iface::poll_all()
       {
          DBG("ND_NEIGHBOR_SOLICIT");
 
-         // TODO: Check the cache for recent sessions.
-
          ifa->_proxy->handle_solicit(saddr, daddr, taddr);
       }
       else if(icmp6_type == ND_NEIGHBOR_ADVERT)
@@ -402,10 +411,12 @@ int iface::poll_all()
          for(std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
              s_it != ifa->_sessions.end(); s_it++)
          {
-            /*if((*s_it)->addr() == taddr)
-            {
-               (*s_it)->handle_advert();
-            }*/
+            ptr<session> se = *s_it;
+
+            //if((se->daddr() =
+
+
+            //(*s_it)->handle_advert();
          }
       }
    }
@@ -420,4 +431,3 @@ const std::string& iface::name() const
 }
 
 __NDPPD_NS_END
- 

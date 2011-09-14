@@ -57,7 +57,6 @@ session::~session()
    {
       (*it)->remove_session(_weak_ptr);
    }
-
 }
 
 ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
@@ -99,7 +98,6 @@ void session::send_solicit()
    {
       DBG("   on %s", (*it)->name().c_str());
       (*it)->write_solicit(_taddr);
-      // huhh hahh.
    }
 }
 
@@ -133,12 +131,4 @@ int session::status() const
    return _status;
 }
 
-void refresh()
-{
-
-}
-
-
 __NDPPD_NS_END
-
- 

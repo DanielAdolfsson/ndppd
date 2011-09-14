@@ -19,7 +19,7 @@
 __NDPPD_NS_BEGIN
 
 // This template class simplifies the usage of pointers. It's basically
-// a reference-counting smart-pointer that supports both weak and
+// a reference-counting smart pointer that supports both weak and
 // strong references.
 
 template <typename T>
@@ -204,5 +204,3 @@ public:
 __NDPPD_NS_END
 
 #endif // __NDPPD_PTR_H
- 
- 
