@@ -49,8 +49,6 @@ private:
          _ref->ns = 1;
          _ref->nw = 0;
          _weak    = false;
-
-         // DBG("acquire(T*) p=%x, count=%d", p, 1);
       }
    }
 
@@ -68,8 +66,6 @@ private:
             _ref->nw++;
          else
             _ref->ns++;
-
-         // DBG("acquire(const ptr<T>&) p=%x, count=%d", _ref->p, _ref->count);
       }
    }
 
@@ -78,17 +74,18 @@ private:
       if(!_ref)
          return;
 
-      if(!_weak && _ref->ns)
+      if(_weak)
+         _ref->nw--;
+      else if(_ref->ns)
       {
-         if(!--_ref->ns && _ref->p)
+         if((_ref->ns == 1) && _ref->p)
          {
             delete _ref->p;
             _ref->p = 0;
          }
-      }
 
-      if(_weak)
-         _ref->nw--;
+         _ref->ns--;
+      }
 
       if(!_ref->ns && !_ref->nw)
          delete _ref;
