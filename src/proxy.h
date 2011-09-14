@@ -50,6 +50,8 @@ public:
    void handle_solicit(const address& saddr, const address& daddr,
       const address& taddr);
 
+   void remove_session(const ptr<session>& se);
+
    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
 
    ptr<rule> add_rule(const address& addr);

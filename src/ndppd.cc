@@ -18,6 +18,7 @@
 #include <string>
 
 #include <getopt.h>
+#include <sys/time.h>
 
 #include "ndppd.h"
 
@@ -68,10 +69,26 @@ int main(int argc, char *argv[], char *env[])
    if(!conf::load(config_path))
       return -1;
 
-   while(iface::poll_all() >= 0) ;
+
+   struct timeval t1, t2;
+
+   gettimeofday(&t1, 0);
+
+   while(iface::poll_all() >= 0)
+   {
+      int elapsed_time;
+      gettimeofday(&t2, 0);
+
+      elapsed_time =
+         ((t2.tv_sec  - t1.tv_sec)  * 1000) +
+         ((t2.tv_usec - t1.tv_usec) / 1000);
+
+      t1.tv_sec  = t2.tv_sec;
+      t1.tv_usec = t2.tv_usec;
+
+      session::update_all(elapsed_time);
+   }
 
    return 0;
 }
 
- 
- 

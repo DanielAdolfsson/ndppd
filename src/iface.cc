@@ -213,7 +213,7 @@ ssize_t iface::read(address& saddr, address& daddr, uint8_t *msg, size_t size)
 
 //ssize_t iface::write(address& saddr, address& daddr, uint8_t *msg, size_t size)
 
-ssize_t iface::write(address& daddr, uint8_t *msg, size_t size)
+ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
 {
    struct sockaddr_in6 daddr_tmp;
    struct msghdr mhdr;
@@ -223,7 +223,7 @@ ssize_t iface::write(address& daddr, uint8_t *msg, size_t size)
    //daddr_tmp.sin6_len    = sizeof(struct sockaddr_in6);
    daddr_tmp.sin6_family = AF_INET6;
    daddr_tmp.sin6_port   = htons(IPPROTO_ICMPV6); // Needed?
-   memcpy(&daddr_tmp.sin6_addr, &daddr.addr(), sizeof(struct in6_addr));
+   memcpy(&daddr_tmp.sin6_addr, &daddr.const_addr(), sizeof(struct in6_addr));
 
    iov.iov_len = size;
    iov.iov_base = (caddr_t)msg;
@@ -245,7 +245,7 @@ ssize_t iface::write(address& daddr, uint8_t *msg, size_t size)
    return len;
 }
 
-ssize_t iface::write_solicit(address& taddr)
+ssize_t iface::write_solicit(const address& taddr)
 {
    struct nd_neighbor_solicit msg;
 
@@ -258,18 +258,25 @@ ssize_t iface::write_solicit(address& taddr)
 
    msg.nd_ns_hdr.icmp6_type = ND_NEIGHBOR_SOLICIT;
 
-   memcpy(&msg.nd_ns_target, &taddr.addr(), sizeof(struct in6_addr));
+   memcpy(&msg.nd_ns_target, &taddr.const_addr(), sizeof(struct in6_addr));
 
    daddr = multicast;
 
-   daddr.addr().s6_addr[13] = taddr.addr().s6_addr[13];
-   daddr.addr().s6_addr[14] = taddr.addr().s6_addr[14];
-   daddr.addr().s6_addr[15] = taddr.addr().s6_addr[15];
+   daddr.addr().s6_addr[13] = taddr.const_addr().s6_addr[13];
+   daddr.addr().s6_addr[14] = taddr.const_addr().s6_addr[14];
+   daddr.addr().s6_addr[15] = taddr.const_addr().s6_addr[15];
 
    DBG("iface::write_solicit() taddr=%s, daddr=%s",
        taddr.to_string().c_str(), daddr.to_string().c_str());
 
    return write(daddr, (uint8_t *)&msg, sizeof(struct nd_neighbor_solicit));
+}
+
+ssize_t iface::write_advert(const address& daddr, const address& taddr)
+{
+   struct nd_neighbor_advert msg;
+
+
 }
 
 int iface::read_nd(address& saddr, address& daddr, address& taddr)
@@ -314,14 +321,19 @@ void iface::fixup_pollfds()
    }
 }
 
-ptr<proxy> iface::get_proxy() const
+void iface::pr(const ptr<proxy>& pr)
+{
+   _proxy = pr;
+}
+
+const ptr<proxy>& iface::pr() const
 {
    return _proxy;
 }
 
-void iface::set_proxy(const ptr<proxy>& pr)
+void iface::remove_session(const ptr<session>& se)
 {
-   _proxy = pr;
+   _sessions.remove(se);
 }
 
 void iface::add_session(const ptr<session>& se)

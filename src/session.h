@@ -44,8 +44,7 @@ private:
 
    int _status;
 
-   // Constructor.
-   session();
+   static std::list<ptr<session> > _sessions;
 
 public:
    enum
@@ -54,6 +53,11 @@ public:
       VALID,   // Valid;
       INVALID  // Invalid;
    };
+
+   static void update_all(int elapsed_time);
+
+   // Destructor.
+   ~session();
 
    static ptr<session> create(const ptr<proxy>& pr, const address& saddr,
       const address& daddr, const address& taddr);

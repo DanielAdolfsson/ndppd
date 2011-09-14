@@ -36,7 +36,7 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa)
    pr->_weak_ptr = pr.weak_copy();
    pr->_ifa      = ifa;
 
-   ifa->set_proxy(pr);
+   ifa->pr(pr);
 
    DBG("proxy_create() ifa=%x =%x", (iface *)ifa, (proxy *)pr);
 
@@ -117,6 +117,10 @@ ptr<rule> proxy::add_rule(const address& addr)
    return ru;
 }
 
+void proxy::remove_session(const ptr<session>& se)
+{
+   _sessions.remove(se);
+}
+
 __NDPPD_NS_END
- 
- 
+

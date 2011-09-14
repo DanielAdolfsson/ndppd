@@ -42,6 +42,8 @@ public:
 
    struct in6_addr& addr();
 
+   const struct in6_addr& const_addr() const;
+
    struct in6_addr& mask();
 
    // Compare _a/_m against a._a.

@@ -76,21 +76,25 @@ public:
 
    ssize_t read(address& saddr, address& daddr, uint8_t *msg, size_t size);
 
-   ssize_t write(address& daddr, uint8_t *msg, size_t size);
+   ssize_t write(const address& daddr, const uint8_t *msg, size_t size);
 
-   ssize_t write_solicit(address& taddr);
+   ssize_t write_solicit(const address& taddr);
+
+   ssize_t write_advert(const address& daddr, const address& taddr);
 
    int read_nd(address& saddr, address& daddr, address& taddr);
 
    // Returns the name of the interface.
    const std::string& name() const;
 
-   ptr<proxy> get_proxy() const;
+   const ptr<proxy>& pr() const;
 
-   void set_proxy(const ptr<proxy>& pr);
+   void pr(const ptr<proxy>& pr);
 
    // Adds a session to be monitored for ND_NEIGHBOR_ADVERT messages.
    void add_session(const ptr<session>& se);
+
+   void remove_session(const ptr<session>& se);
 
 };
 

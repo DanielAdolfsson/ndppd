@@ -264,12 +264,14 @@ struct in6_addr& address::addr()
    return _addr;
 }
 
+const struct in6_addr& address::const_addr() const
+{
+   return _addr;
+}
+
 struct in6_addr& address::mask()
 {
    return _mask;
 }
 
 __NDPPD_NS_END
-
- 
- 
