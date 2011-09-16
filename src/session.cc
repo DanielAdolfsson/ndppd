@@ -22,14 +22,14 @@
 
 __NDPPD_NS_BEGIN
 
-std::list<ptr<session> > session::_sessions;
+std::list<weak_ptr<session> > session::_sessions;
 
 void session::update_all(int elapsed_time)
 {
-   for(std::list<ptr<session> >::iterator it = _sessions.begin();
+   for(std::list<weak_ptr<session> >::iterator it = _sessions.begin();
        it != _sessions.end(); )
    {
-      ptr<session> se = *it++;
+      strong_ptr<session> se = *it++;
 
       if((se->_ttl -= elapsed_time) >= 0)
          continue;
@@ -50,28 +50,28 @@ void session::update_all(int elapsed_time)
 
 session::~session()
 {
-   _sessions.remove(_weak_ptr);
+   _sessions.remove(_ptr);
 
-   for(std::list<ptr<iface> >::iterator it = _ifaces.begin();
+   for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
        it != _ifaces.end(); it++)
    {
-      (*it)->remove_session(_weak_ptr);
+      (*it)->remove_session(_ptr);
    }
 }
 
-ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
+strong_ptr<session> session::create(const strong_ptr<proxy>& pr, const address& saddr,
    const address& daddr, const address& taddr)
 {
-   ptr<session> se(new session());
+   strong_ptr<session> se(new session());
 
-   se->_weak_ptr = se.weak_copy();
-   se->_pr       = pr;
-   se->_saddr    = saddr;
-   se->_taddr    = taddr;
-   se->_daddr    = daddr;
-   se->_ttl      = 500;
+   se->_ptr   = se;
+   se->_pr    = pr;
+   se->_saddr = saddr;
+   se->_taddr = taddr;
+   se->_daddr = daddr;
+   se->_ttl   = 500;
 
-   _sessions.push_back(se.weak_copy());
+   _sessions.push_back(se);
 
    DBG("session::create() pr=%x, saddr=%s, daddr=%s, taddr=%s, =%x",
       (proxy *)pr, saddr.to_string().c_str(), daddr.to_string().c_str(),
@@ -80,12 +80,12 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
    return se;
 }
 
-void session::add_iface(const ptr<iface>& ifa)
+void session::add_iface(const strong_ptr<iface>& ifa)
 {
    if(std::find(_ifaces.begin(), _ifaces.end(), ifa) != _ifaces.end())
       return;
 
-   ifa->add_session(_weak_ptr);
+   ifa->add_session(_ptr);
    _ifaces.push_back(ifa);
 }
 
@@ -93,7 +93,7 @@ void session::send_solicit()
 {
    DBG("sending solicit");
 
-   for(std::list<ptr<iface> >::iterator it = _ifaces.begin();
+   for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
        it != _ifaces.end(); it++)
    {
       DBG("   on %s", (*it)->name().c_str());

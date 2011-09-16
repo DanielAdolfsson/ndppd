@@ -32,31 +32,31 @@ class rule;
 class proxy
 {
 private:
-   ptr<iface> _ifa;
+   strong_ptr<iface> _ifa;
 
-   std::list<ptr<rule> > _rules;
+   std::list<strong_ptr<rule> > _rules;
 
-   std::list<ptr<session> > _sessions;
+   std::list<strong_ptr<session> > _sessions;
 
-   ptr<proxy> _weak_ptr;
+   weak_ptr<proxy> _ptr;
 
    proxy();
 
 public:
-   static ptr<proxy> create(const ptr<iface>& ifa);
+   static strong_ptr<proxy> create(const strong_ptr<iface>& ifa);
 
-   static ptr<proxy> open(const std::string& ifn);
+   static strong_ptr<proxy> open(const std::string& ifn);
 
    void handle_solicit(const address& saddr, const address& daddr,
       const address& taddr);
 
-   void remove_session(const ptr<session>& se);
+   void remove_session(const strong_ptr<session>& se);
 
-   ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
+   strong_ptr<rule> add_rule(const address& addr, const strong_ptr<iface>& ifa);
 
-   ptr<rule> add_rule(const address& addr);
+   strong_ptr<rule> add_rule(const address& addr);
 
-   const ptr<iface>& ifa() const;
+   const strong_ptr<iface>& ifa() const;
 };
 
 __NDPPD_NS_END

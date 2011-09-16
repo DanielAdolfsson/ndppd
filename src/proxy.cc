@@ -30,11 +30,11 @@ proxy::proxy()
 {
 }
 
-ptr<proxy> proxy::create(const ptr<iface>& ifa)
+strong_ptr<proxy> proxy::create(const strong_ptr<iface>& ifa)
 {
-   ptr<proxy> pr(new proxy());
-   pr->_weak_ptr = pr.weak_copy();
-   pr->_ifa      = ifa;
+   strong_ptr<proxy> pr(new proxy());
+   pr->_ptr = pr;
+   pr->_ifa = ifa;
 
    ifa->pr(pr);
 
@@ -43,9 +43,14 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa)
    return pr;
 }
 
-ptr<proxy> proxy::open(const std::string& ifname)
+strong_ptr<proxy> proxy::open(const std::string& ifname)
 {
-   return create(iface::open_pfd(ifname));
+   strong_ptr<iface> ifa = iface::open_pfd(ifname);
+
+   if(ifa.is_null())
+      return strong_ptr<proxy>();
+
+   return create(ifa);
 }
 
 void proxy::handle_solicit(const address& saddr, const address& daddr,
@@ -57,7 +62,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
    // Let's check this proxy's list of sessions to see if we can
    // find one with the same target address.
 
-   for(std::list<ptr<session> >::iterator sit = _sessions.begin();
+   for(std::list<strong_ptr<session> >::iterator sit = _sessions.begin();
        sit != _sessions.end(); sit++)
    {
       if((*sit)->taddr() == taddr)
@@ -79,9 +84,9 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
    // Since we couldn't find a session that matched, we'll try to find
    // a matching rule instead, and then set up a new session.
 
-   ptr<session> se;
+   strong_ptr<session> se;
 
-   for(std::list<ptr<rule> >::iterator it = _rules.begin();
+   for(std::list<strong_ptr<rule> >::iterator it = _rules.begin();
        it != _rules.end(); it++)
    {
       DBG("comparing %s against %s",
@@ -90,7 +95,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
       if((*it)->addr() == taddr)
       {
          if(se.is_null())
-            se = session::create(_weak_ptr.strong_copy(), saddr, daddr, taddr);
+            se = session::create(_ptr, saddr, daddr, taddr);
 
          se->add_iface((*it)->ifa());
       }
@@ -103,26 +108,26 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
    }
 }
 
-ptr<rule> proxy::add_rule(const address& addr, const ptr<iface>& ifa)
+strong_ptr<rule> proxy::add_rule(const address& addr, const strong_ptr<iface>& ifa)
 {
-   ptr<rule> ru(rule::create(_weak_ptr.strong_copy(), addr, ifa));
+   strong_ptr<rule> ru(rule::create(_ptr, addr, ifa));
    _rules.push_back(ru);
    return ru;
 }
 
-ptr<rule> proxy::add_rule(const address& addr)
+strong_ptr<rule> proxy::add_rule(const address& addr)
 {
-   ptr<rule> ru(rule::create(_weak_ptr.strong_copy(), addr));
+   strong_ptr<rule> ru(rule::create(_ptr, addr));
    _rules.push_back(ru);
    return ru;
 }
 
-void proxy::remove_session(const ptr<session>& se)
+void proxy::remove_session(const strong_ptr<session>& se)
 {
    _sessions.remove(se);
 }
 
-const ptr<iface>& proxy::ifa() const
+const strong_ptr<iface>& proxy::ifa() const
 {
    return _ifa;
 }

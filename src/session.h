@@ -28,15 +28,15 @@ class iface;
 class session
 {
 private:
-   ptr<session> _weak_ptr;
+   weak_ptr<session> _ptr;
 
-   ptr<proxy> _pr;
+   strong_ptr<proxy> _pr;
 
    address _saddr, _daddr, _taddr;
 
    // An array of interfaces this session is monitoring for
    // ND_NEIGHBOR_ADVERT on.
-   std::list<ptr<iface> > _ifaces;
+   std::list<strong_ptr<iface> > _ifaces;
 
    // The remaining time in miliseconds the object will stay in the
    // interface's session array or cache.
@@ -44,7 +44,7 @@ private:
 
    int _status;
 
-   static std::list<ptr<session> > _sessions;
+   static std::list<weak_ptr<session> > _sessions;
 
 public:
    enum
@@ -59,10 +59,10 @@ public:
    // Destructor.
    ~session();
 
-   static ptr<session> create(const ptr<proxy>& pr, const address& saddr,
+   static strong_ptr<session> create(const strong_ptr<proxy>& pr, const address& saddr,
       const address& daddr, const address& taddr);
 
-   void add_iface(const ptr<iface>& ifa);
+   void add_iface(const strong_ptr<iface>& ifa);
 
    const address& taddr() const;
 

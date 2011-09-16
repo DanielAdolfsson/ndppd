@@ -31,7 +31,8 @@ using namespace ndppd;
 
 int main(int argc, char *argv[], char *env[])
 {
-   std::string config_path("/etc/ndppd.conf");
+//   std::string config_path("/etc/ndppd.conf");
+   std::string config_path("../ndppd.conf");
 
    std::cout << "ndppd - NDP Proxy Daemon" << std::endl;
    std::cout << "Version " NDPPD_VERSION << std::endl;

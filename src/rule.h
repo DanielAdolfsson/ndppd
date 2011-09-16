@@ -32,24 +32,24 @@ class proxy;
 class rule
 {
 private:
-   ptr<rule> _weak_ptr;
+   weak_ptr<rule> _ptr;
 
-   ptr<proxy> _pr;
+   strong_ptr<proxy> _pr;
 
-   ptr<iface> _ifa;
+   strong_ptr<iface> _ifa;
 
    address _addr;
 
    rule();
 
 public:
-   static ptr<rule> create(const ptr<proxy>& pr, const address& addr, const ptr<iface>& ifa);
+   static strong_ptr<rule> create(const strong_ptr<proxy>& pr, const address& addr, const strong_ptr<iface>& ifa);
 
-   static ptr<rule> create(const ptr<proxy>& pr, const address& addr);
+   static strong_ptr<rule> create(const strong_ptr<proxy>& pr, const address& addr);
 
    const address& addr() const;
 
-   ptr<iface> ifa() const;
+   strong_ptr<iface> ifa() const;
 
    bool is_static() const;
 

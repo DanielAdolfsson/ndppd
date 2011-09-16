@@ -38,37 +38,25 @@
 #include <map>
 
 #include "ndppd.h"
-#include "iface.h"
-#include "proxy.h"
-#include "session.h"
-#include "rule.h"
-
-#if defined IPV6_PKTINFO && !defined IPV6_RECVPKTINFO
-#define IPV6_RECVPKTINFO IPV6_PKTINFO
-#endif
 
 __NDPPD_NS_BEGIN
 
-std::map<std::string, ptr<iface> > iface::_map;
+std::map<std::string, strong_ptr<iface> > iface::_map;
 
 std::vector<struct pollfd> iface::_pollfds;
-
-iface::iface()
-{
-}
 
 iface::~iface()
 {
    DBG("iface destroyed");
 }
 
-ptr<iface> iface::open_pfd(const std::string& name)
+strong_ptr<iface> iface::open_pfd(const std::string& name)
 {
    int fd;
 
-   std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
+   std::map<std::string, strong_ptr<iface> >::iterator it = _map.find(name);
 
-   ptr<iface> ifa;
+   strong_ptr<iface> ifa;
 
    if(it != _map.end())
    {
@@ -84,14 +72,14 @@ ptr<iface> iface::open_pfd(const std::string& name)
    }
 
    if(ifa.is_null())
-      return ptr<iface>();
+      return strong_ptr<iface>();
 
    // Create a socket.
 
    if((fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))) < 0)
    {
       ERR("Unable to create socket");
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Bind to the specified interface.
@@ -106,7 +94,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
    {
       close(fd);
       ERR("Failed to bind to interface '%s'", name.c_str());
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Switch to non-blocking mode.
@@ -117,7 +105,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
    {
       close(fd);
       ERR("Failed to switch to non-blocking on interface '%s'", name.c_str());
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Set up filter.
@@ -153,7 +141,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
    if(setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
    {
       ERR("Failed to set filter");
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Set up an instance of 'iface'.
@@ -165,11 +153,11 @@ ptr<iface> iface::open_pfd(const std::string& name)
    return ifa;
 }
 
-ptr<iface> iface::open_ifd(const std::string& name)
+strong_ptr<iface> iface::open_ifd(const std::string& name)
 {
    int fd;
 
-   std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
+   std::map<std::string, strong_ptr<iface> >::iterator it = _map.find(name);
 
    if((it != _map.end()) && it->second->_ifd)
       return it->second;
@@ -179,7 +167,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
    if((fd = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0)
    {
       ERR("Unable to create socket");
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Bind to the specified interface.
@@ -194,7 +182,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
    {
       close(fd);
       ERR("Failed to bind to interface '%s'", name.c_str());
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Detect the link-layer address.
@@ -207,7 +195,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
    {
       close(fd);
       ERR("Failed to detect link-layer address for interface '%s'", name.c_str());
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    DBG("fd=%d, hwaddr=%s", fd, ether_ntoa((const struct ether_addr *)&ifr.ifr_hwaddr.sa_data));
@@ -220,7 +208,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
    {
       close(fd);
       ERR("iface::open_ifd() failed IPV6_MULTICAST_HOPS");
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Switch to non-blocking mode.
@@ -231,7 +219,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
    {
       close(fd);
       ERR("Failed to switch to non-blocking on interface '%s'", name.c_str());
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Set up filter.
@@ -243,22 +231,21 @@ ptr<iface> iface::open_ifd(const std::string& name)
    if(setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) < 0)
    {
       ERR("Failed to set filter");
-      return ptr<iface>();
+      return strong_ptr<iface>();
    }
 
    // Set up an instance of 'iface'.
 
-   ptr<iface> ifa;
+   strong_ptr<iface> ifa;
 
    if(it == _map.end())
    {
       ifa = new iface();
 
-      ifa->_name     = name;
-      ifa->_weak_ptr = ifa.weak_copy();
+      ifa->_name = name;
+/*      ifa->_ptr  = ifa;
 
-      _map[name] = ifa;
-
+      _map[name] = ifa;*/
    }
    else
    {
@@ -302,7 +289,7 @@ ssize_t iface::read(int fd, address& saddr, uint8_t *msg, size_t size)
 
    saddr = saddr_tmp.sin6_addr;
 
-   DBG("recv() saddr=%s, len=%d", saddr.to_string().c_str(), len);
+   DBG("iface::read() saddr=%s, len=%d", saddr.to_string().c_str(), len);
 
    return len;
 }
@@ -326,6 +313,8 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t *msg, size_t si
    mhdr.msg_namelen = sizeof(sockaddr_in6);
    mhdr.msg_iov = &iov;
    mhdr.msg_iovlen = 1;
+
+   DBG("iface::write() daddr=%s, len=%d", daddr.to_string().c_str(), size);
 
    int len;
 
@@ -450,7 +439,7 @@ void iface::fixup_pollfds()
 
    DBG("iface::fixup_pollfds() _map.size()=%d", _map.size());
 
-   for(std::map<std::string, ptr<iface> >::iterator it = _map.begin();
+   for(std::map<std::string, strong_ptr<iface> >::iterator it = _map.begin();
       it != _map.end(); it++)
    {
       _pollfds[i].fd      = (i % 2) ? it->second->_pfd : it->second->_ifd;
@@ -460,25 +449,12 @@ void iface::fixup_pollfds()
    }
 }
 
-void iface::pr(const ptr<proxy>& pr)
-{
-   if((_old_allmulti = allmulti(1)) < 0)
-      ERR("iface::allmulti() failed");
-
-   _proxy = pr;
-}
-
-const ptr<proxy>& iface::pr() const
-{
-   return _proxy;
-}
-
-void iface::remove_session(const ptr<session>& se)
+void iface::remove_session(const strong_ptr<session>& se)
 {
    _sessions.remove(se);
 }
 
-void iface::add_session(const ptr<session>& se)
+void iface::add_session(const strong_ptr<session>& se)
 {
    _sessions.push_back(se);
 }
@@ -491,12 +467,7 @@ int iface::poll_all()
       return 0;
    }
 
-#if 0
-   DBG("iface::poll() _pollfds.size()=%d, _map.size()=%d",
-       _pollfds.size(), _map.size());
-#endif
-
-   // TODO: Assert _pollfds.size() == _map.size().
+   // TODO: Assert _pollfds.size() == _map.size() * 2.
 
    int len;
 
@@ -507,7 +478,7 @@ int iface::poll_all()
       return 0;
 
    std::vector<struct pollfd>::iterator f_it;
-   std::map<std::string, ptr<iface> >::iterator i_it;
+   std::map<std::string, strong_ptr<iface> >::iterator i_it;
 
    int i = 0;
 
@@ -518,9 +489,7 @@ int iface::poll_all()
       if(!(f_it->revents & POLLIN))
          continue;
 
-      // We assume here that _pollfds is perfectly aligned with _map.
-
-      ptr<iface> ifa = i_it->second;
+      strong_ptr<iface> ifa = i_it->second;
 
       if(was_pfd)
          i_it++;
@@ -536,21 +505,17 @@ int iface::poll_all()
             continue;
          }
 
-         DBG("ND_NEIGHBOR_SOLICIT");
-
-         ifa->_proxy->handle_solicit(saddr, daddr, taddr);
+         ifa->_pr->handle_solicit(saddr, daddr, taddr);
       }
       else
       {
-         DBG("ND_NEIGHBOR_ADVERT");
-
          if(ifa->read_advert(saddr, taddr) < 0)
          {
             ERR("Failed to read from interface '%s'", ifa->_name.c_str());
             continue;
          }
 
-         for(std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
+         for(std::list<strong_ptr<session> >::iterator s_it = ifa->_sessions.begin();
              s_it != ifa->_sessions.end(); s_it++)
          {
             if(((*s_it)->taddr() == taddr) && ((*s_it)->status() == session::WAITING))
@@ -560,32 +525,6 @@ int iface::poll_all()
             }
          }
       }
-
-#if 0
-      if((icmp6_type = ifa->read_nd(saddr, daddr, taddr)) < 0)
-      {
-         ERR("Failed to read from interface '%s'", ifa->_name.c_str());
-         continue;
-      }
-
-      if((icmp6_type == ND_NEIGHBOR_SOLICIT) && ifa->_proxy)
-      {
-         DBG("ND_NEIGHBOR_SOLICIT");
-
-      }
-      else if(icmp6_type == ND_NEIGHBOR_ADVERT)
-      {
-         for(std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
-             s_it != ifa->_sessions.end(); s_it++)
-         {
-            if(((*s_it)->taddr() == taddr) && ((*s_it)->status() == session::WAITING))
-            {
-               (*s_it)->handle_advert();
-               break;
-            }
-         }
-      }
-#endif
    }
 
    return 0;
@@ -624,6 +563,16 @@ int iface::allmulti(int state)
 const std::string& iface::name() const
 {
    return _name;
+}
+
+void iface::pr(const strong_ptr<proxy>& pr)
+{
+   _pr = pr;
+}
+
+const strong_ptr<proxy>& iface::pr() const
+{
+   return _pr;
 }
 
 __NDPPD_NS_END

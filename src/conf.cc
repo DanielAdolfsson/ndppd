@@ -74,7 +74,10 @@ bool conf::setup(::cfg_t *cfg)
          ::cfg_t *rule_cfg;
          int i2;
 
-         ptr<proxy> pr = proxy::open(::cfg_title(proxy_cfg));
+         strong_ptr<proxy> pr = proxy::open(::cfg_title(proxy_cfg));
+
+         if(pr.is_null())
+            continue;
 
          for(i2 = 0; i2 < ::cfg_size(proxy_cfg, "rule"); i2++)
          {

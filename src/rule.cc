@@ -28,25 +28,25 @@ rule::rule()
 {
 }
 
-ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<iface>& ifa)
+strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr, const strong_ptr<iface>& ifa)
 {
-   ptr<rule> ru(new rule());
-   ru->_weak_ptr = ru.weak_copy();
-   ru->_pr       = pr;
-   ru->_ifa      = ifa;
-   ru->_addr     = addr;
+   strong_ptr<rule> ru(new rule());
+   ru->_ptr  = ru;
+   ru->_pr   = pr;
+   ru->_ifa  = ifa;
+   ru->_addr = addr;
 
    DBG("rule addr set to %s", addr.to_string().c_str());
 
    return ru;
 }
 
-ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr)
+strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr)
 {
-   ptr<rule> ru(new rule());
-   ru->_weak_ptr = ru.weak_copy();
-   ru->_pr       = pr;
-   ru->_addr     = addr;
+   strong_ptr<rule> ru(new rule());
+   ru->_ptr   = ru;
+   ru->_pr    = pr;
+   ru->_addr  = addr;
 
    DBG("rule addr set to %s", addr.to_string().c_str());
 
@@ -59,7 +59,7 @@ const address& rule::addr() const
    return _addr;
 }
 
-ptr<iface> rule::ifa() const
+strong_ptr<iface> rule::ifa() const
 {
    return _ifa;
 }

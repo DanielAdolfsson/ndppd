@@ -16,6 +16,8 @@
 #ifndef __NDPPD_PTR_H
 #define __NDPPD_PTR_H
 
+#include <stdlib.h>
+
 __NDPPD_NS_BEGIN
 
 // This template class simplifies the usage of pointers. It's basically
@@ -25,17 +27,18 @@ __NDPPD_NS_BEGIN
 template <typename T>
 class ptr
 {
-private:
+protected:
    struct ref
    {
    public:
-      T* p;   // Pointer.
-      int ns; // Number of strong references.
-      int nw; // Number of weak references.
+      T* p;
+      int n_strong;
+      int n_weak;
    };
 
    ref *_ref;
-   bool _weak;
+
+   bool _strong;
 
    void acquire(T* p)
    {
@@ -44,28 +47,26 @@ private:
 
       if(p)
       {
-         _ref     = new ref;
-         _ref->p  = p;
-         _ref->ns = 1;
-         _ref->nw = 0;
-         _weak    = false;
+         _ref           = new ref;
+         _ref->p        = p;
+         _ref->n_strong = _strong ? 1 : 0;
+         _ref->n_weak   = _strong ? 0 : 1;
       }
    }
 
-   void acquire(const ptr<T>& p, bool weak = false)
+   void acquire(const ptr<T>& p)
    {
       if(_ref)
          release();
 
-      if(p._ref && p._ref->ns)
+      if(p._ref && p._ref->n_strong)
       {
-         _ref  = p._ref;
-         _weak = weak;
+         _ref = p._ref;
 
-         if(_weak)
-            _ref->nw++;
+         if(_strong)
+            _ref->n_strong++;
          else
-            _ref->ns++;
+            _ref->n_weak++;
       }
    }
 
@@ -74,60 +75,54 @@ private:
       if(!_ref)
          return;
 
-      if(_weak)
-         _ref->nw--;
-      else if(_ref->ns)
+      if(_strong)
       {
-         if((_ref->ns == 1) && _ref->p)
+         // Assert _ref->n_strong > 0.
+
+         if(_ref->n_strong == 1)
          {
             delete _ref->p;
             _ref->p = 0;
          }
 
-         _ref->ns--;
+         _ref->n_strong--;
+      }
+      else
+      {
+         _ref->n_weak--;
       }
 
-      if(!_ref->ns && !_ref->nw)
+      if(!_ref->n_weak && !_ref->n_strong)
          delete _ref;
 
       _ref = 0;
-      _weak = false;
    }
 
-public:
-   ptr() :
-      _ref(0), _weak(false)
+   ptr(bool strong) :
+      _strong(strong), _ref(0)
    {
    }
 
-   explicit ptr(T* p) :
-      _ref(0), _weak(false)
+   ptr(bool strong, T* p) :
+      _strong(strong), _ref(0)
+   {
+      if(p)
+         acquire(p);
+   }
+
+   ptr(bool strong, const ptr<T>& p) :
+      _strong(strong), _ref(0)
    {
       acquire(p);
    }
 
-   ptr(const ptr<T>& p) :
-      _ref(0), _weak(false)
-   {
-      acquire(p, p._weak);
-   }
-
-   ptr(const ptr<T>& p, bool weak) :
-      _ref(0), _weak(false)
-   {
-      acquire(p, weak);
-   }
-
-   ~ptr()
+   virtual ~ptr()
    {
       if(_ref)
          release();
    }
 
-   static ptr null()
-   {
-      return ptr();
-   }
+public:
 
    void operator=(T* p)
    {
@@ -136,7 +131,7 @@ public:
 
    void operator=(const ptr<T>& p)
    {
-      acquire(p, p._weak);
+      acquire(p);
    }
 
    bool operator==(const ptr<T>& other) const
@@ -152,26 +147,6 @@ public:
    bool is_null() const
    {
       return !((_ref != 0) && (_ref->p != 0));
-   }
-
-   bool is_weak() const
-   {
-      return _weak;
-   }
-
-   bool is_strong() const
-   {
-      return !_weak;
-   }
-
-   ptr<T> weak_copy() const
-   {
-      return ptr<T>(*this, true);
-   }
-
-   ptr<T> strong_copy() const
-   {
-      return ptr<T>(*this, false);
    }
 
    T& operator*() const
@@ -194,11 +169,73 @@ public:
       return !is_null();
    }
 
+   bool is_strong() const
+   {
+      return _strong;
+   }
+
+   bool is_weak() const
+   {
+      return !_strong;
+   }
+
    void reset(T *p = 0)
    {
       acquire(p);
    }
+};
 
+template <typename T>
+class weak_ptr;
+
+template <typename T>
+class strong_ptr : public ptr<T>
+{
+public:
+   strong_ptr() : ptr<T>(true)
+   {
+   }
+
+   strong_ptr(T* p) : ptr<T>(true, p)
+   {
+   }
+
+   strong_ptr(const ptr<T>& p) : ptr<T>(true, p)
+   {
+   }
+
+   strong_ptr(const strong_ptr<T>& p) : ptr<T>(true, p)
+   {
+   }
+
+   strong_ptr(const weak_ptr<T>& p) : ptr<T>(true, p)
+   {
+   }
+};
+
+template <typename T>
+class weak_ptr : public ptr<T>
+{
+public:
+   weak_ptr() : ptr<T>(false)
+   {
+   }
+
+   weak_ptr(T* p) : ptr<T>(false, p)
+   {
+   }
+
+   weak_ptr(const ptr<T>& p) : ptr<T>(false, p)
+   {
+   }
+
+   weak_ptr(const strong_ptr<T>& p) : ptr<T>(false, p)
+   {
+   }
+
+   weak_ptr(const weak_ptr<T>& p) : ptr<T>(false, p)
+   {
+   }
 };
 
 __NDPPD_NS_END

@@ -28,16 +28,16 @@
 
 __NDPPD_NS_BEGIN
 
-class proxy;
 class session;
+class proxy;
 
 class iface
 {
 private:
    // Weak pointer so this object can reference itself.
-   ptr<iface> _weak_ptr;
+   weak_ptr<iface> _ptr;
 
-   static std::map<std::string, ptr<iface> > _map;
+   static std::map<std::string, strong_ptr<iface> > _map;
 
    // An array of objects used with ::poll.
    static std::vector<struct pollfd> _pollfds;
@@ -45,43 +45,41 @@ private:
    // Updates the array above.
    static void fixup_pollfds();
 
-   // The "generic" ICMPv6 socket.
+   // The "generic" ICMPv6 socket for reading/writing NB_NEIGHBOR_ADVERT
+   // messages as well as writing NB_NEIGHBOR_SOLICIT messages.
    int _ifd;
 
    // This is the PF_PACKET socket we use in order to read
    // NB_NEIGHBOR_SOLICIT messages.
    int _pfd;
 
-   int _old_allmulti;
+   // Previous state of ALLMULTI for the interface.
+   int _prev_allmulti;
 
    // Name of this interface.
    std::string _name;
 
    // An array of sessions that are monitoring this interface for
    // ND_NEIGHBOR_ADVERT messages.
-   std::list<ptr<session> > _sessions;
+   std::list<strong_ptr<session> > _sessions;
 
-   ptr<proxy> _proxy;
+   strong_ptr<proxy> _pr;
 
    // The link-layer address of this interface.
    struct ether_addr hwaddr;
 
-   // Constructor.
-   iface();
-
-   enum
-   {
-      SFD, GFD
-   };
+   // Turns on/off ALLMULTI for this interface - returns the previous state
+   // or -1 if there was an error.
+   int allmulti(int state);
 
 public:
 
    // Destructor.
    ~iface();
 
-   static ptr<iface> open_ifd(const std::string& name);
+   static strong_ptr<iface> open_ifd(const std::string& name);
 
-   static ptr<iface> open_pfd(const std::string& name);
+   static strong_ptr<iface> open_pfd(const std::string& name);
 
    static int poll_all();
 
@@ -89,27 +87,29 @@ public:
 
    static ssize_t write(int fd, const address& daddr, const uint8_t *msg, size_t size);
 
+   // Writes a NB_NEIGHBOR_SOLICIT message to the _ifd socket.
    ssize_t write_solicit(const address& taddr);
 
+   // Writes a NB_NEIGHBOR_ADVERT message to the _ifd socket;
    ssize_t write_advert(const address& daddr, const address& taddr);
 
+   // Reads a NB_NEIGHBOR_SOLICIT message from the _pfd socket.
    ssize_t read_solicit(address& saddr, address& daddr, address& taddr);
 
+   // Reads a NB_NEIGHBOR_ADVERT message from the _ifd socket;
    ssize_t read_advert(address& saddr, address& taddr);
 
    // Returns the name of the interface.
    const std::string& name() const;
 
-   const ptr<proxy>& pr() const;
-
-   void pr(const ptr<proxy>& pr);
-
    // Adds a session to be monitored for ND_NEIGHBOR_ADVERT messages.
-   void add_session(const ptr<session>& se);
+   void add_session(const strong_ptr<session>& se);
 
-   void remove_session(const ptr<session>& se);
+   void remove_session(const strong_ptr<session>& se);
 
-   int allmulti(int state);
+   void pr(const strong_ptr<proxy>& pr);
+
+   const strong_ptr<proxy>& pr() const;
 };
 
 __NDPPD_NS_END
