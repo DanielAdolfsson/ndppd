@@ -90,7 +90,7 @@ bool conf::setup(::cfg_t *cfg)
             if(ifname == "static")
                pr->add_rule(addr);
             else
-               pr->add_rule(addr, iface::open(ifname));
+               pr->add_rule(addr, iface::open_ifd(ifname));
          }
       }
    }
@@ -147,5 +147,3 @@ bool conf::load(const std::string& path)
 }
 
 __NDPPD_NS_END
- 
- 

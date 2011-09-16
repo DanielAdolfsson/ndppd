@@ -75,5 +75,3 @@ bool rule::check(const address& addr) const
 }
 
 __NDPPD_NS_END
- 
- 

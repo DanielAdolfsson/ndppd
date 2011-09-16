@@ -74,6 +74,8 @@ public:
 
    void handle_advert();
 
+   void send_advert();
+
    void send_solicit();
 
    void refesh();

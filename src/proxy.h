@@ -56,10 +56,9 @@ public:
 
    ptr<rule> add_rule(const address& addr);
 
+   const ptr<iface>& ifa() const;
 };
 
 __NDPPD_NS_END
 
 #endif // __NDPPD_PROXY_H
- 
- 

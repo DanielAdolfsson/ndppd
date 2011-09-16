@@ -45,7 +45,7 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa)
 
 ptr<proxy> proxy::open(const std::string& ifname)
 {
-   return create(iface::open(ifname));
+   return create(iface::open_pfd(ifname));
 }
 
 void proxy::handle_solicit(const address& saddr, const address& daddr,
@@ -69,7 +69,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
             break;
 
          case session::VALID:
-            DBG("valid session..");
+            (*sit)->send_solicit();
          }
 
          return;
@@ -120,6 +120,11 @@ ptr<rule> proxy::add_rule(const address& addr)
 void proxy::remove_session(const ptr<session>& se)
 {
    _sessions.remove(se);
+}
+
+const ptr<iface>& proxy::ifa() const
+{
+   return _ifa;
 }
 
 __NDPPD_NS_END

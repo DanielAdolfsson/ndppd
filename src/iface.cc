@@ -31,6 +31,8 @@
 #include <sys/socket.h>
 #include <sys/poll.h>
 
+#include <linux/filter.h>
+
 #include <string>
 #include <vector>
 #include <map>
@@ -60,25 +62,124 @@ iface::~iface()
    DBG("iface destroyed");
 }
 
-ptr<iface> iface::open(const std::string& name)
+ptr<iface> iface::open_pfd(const std::string& name)
 {
    int fd;
 
-   DBG("iface::open() name=\"%s\"", name.c_str());
+   std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
 
-   // Check if the interface is already opened.
+   ptr<iface> ifa;
+
+   if(it != _map.end())
+   {
+      if(it->second->_pfd)
+         return it->second;
+
+      ifa = it->second;
+   }
+   else
+   {
+      // We need an _ifs, so let's set one up.
+      ifa = open_ifd(name);
+   }
+
+   if(ifa.is_null())
+      return ptr<iface>();
+
+   // Create a socket.
+
+   if((fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))) < 0)
+   {
+      ERR("Unable to create socket");
+      return ptr<iface>();
+   }
+
+   // Bind to the specified interface.
+
+   struct ifreq ifr;
+
+   memset(&ifr, 0, sizeof(ifr));
+   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
+   ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+   if(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+   {
+      close(fd);
+      ERR("Failed to bind to interface '%s'", name.c_str());
+      return ptr<iface>();
+   }
+
+   // Switch to non-blocking mode.
+
+   int on = 1;
+
+   if(ioctl(fd, FIONBIO, (char *)&on) < 0)
+   {
+      close(fd);
+      ERR("Failed to switch to non-blocking on interface '%s'", name.c_str());
+      return ptr<iface>();
+   }
+
+   // Set up filter.
+
+   struct sock_fprog fprog;
+
+   static const struct sock_filter filter[] =
+   {
+      // Load the ether_type.
+      BPF_STMT(BPF_LD | BPF_H | BPF_ABS,
+         offsetof(struct ether_header, ether_type)),
+      // Bail if it's *not* ETHERTYPE_IPV6.
+      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ETHERTYPE_IPV6, 0, 5),
+      // Load the next header type.
+      BPF_STMT(BPF_LD | BPF_B | BPF_ABS,
+         sizeof(struct ether_header) + offsetof(struct ip6_hdr, ip6_nxt)),
+      // Bail if it's *not* IPPROTO_ICMPV6.
+      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, IPPROTO_ICMPV6, 0, 3),
+      // Load the ICMPv6 type.
+      BPF_STMT(BPF_LD | BPF_B | BPF_ABS,
+         sizeof(struct ether_header) + sizeof(ip6_hdr) + offsetof(struct icmp6_hdr, icmp6_type)),
+      // Bail if it's *not* ND_NEIGHBOR_SOLICIT.
+      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ND_NEIGHBOR_SOLICIT, 0, 1),
+      // Keep packet.
+      BPF_STMT(BPF_RET | BPF_K, -1),
+      // Drop packet.
+      BPF_STMT(BPF_RET | BPF_K, 0)
+   };
+
+   fprog.filter = (struct sock_filter *)filter;
+   fprog.len    = 8;
+
+   if(setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
+   {
+      ERR("Failed to set filter");
+      return ptr<iface>();
+   }
+
+   // Set up an instance of 'iface'.
+
+   ifa->_pfd = fd;
+
+   fixup_pollfds();
+
+   return ifa;
+}
+
+ptr<iface> iface::open_ifd(const std::string& name)
+{
+   int fd;
 
    std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
 
-   if(it != _map.end())
-      return (*it).second;
+   if((it != _map.end()) && it->second->_ifd)
+      return it->second;
 
    // Create a socket.
 
    if((fd = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0)
    {
       ERR("Unable to create socket");
-      return ptr<iface>::null();
+      return ptr<iface>();
    }
 
    // Bind to the specified interface.
@@ -111,6 +212,17 @@ ptr<iface> iface::open(const std::string& name)
 
    DBG("fd=%d, hwaddr=%s", fd, ether_ntoa((const struct ether_addr *)&ifr.ifr_hwaddr.sa_data));
 
+   // Set max hops.
+
+   int hops = 255;
+
+   if(setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops)) < 0)
+   {
+      close(fd);
+      ERR("iface::open_ifd() failed IPV6_MULTICAST_HOPS");
+      return ptr<iface>();
+   }
+
    // Switch to non-blocking mode.
 
    int on = 1;
@@ -122,20 +234,10 @@ ptr<iface> iface::open(const std::string& name)
       return ptr<iface>();
    }
 
-   // We need the destination address, so let's turn on (RECV)PKTINFO.
-
-   if(setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) < 0)
-   {
-      ERR("IPV6_RECVPKTINFO failed");
-      return ptr<iface>();
-   }
-
    // Set up filter.
 
    struct icmp6_filter filter;
-
    ICMP6_FILTER_SETBLOCKALL(&filter);
-   ICMP6_FILTER_SETPASS(ND_NEIGHBOR_SOLICIT, &filter);
    ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
 
    if(setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) < 0)
@@ -146,22 +248,33 @@ ptr<iface> iface::open(const std::string& name)
 
    // Set up an instance of 'iface'.
 
-   ptr<iface> ifa(new iface());
+   ptr<iface> ifa;
 
-   ifa->_name     = name;
-   ifa->_fd       = fd;
-   ifa->_weak_ptr = ifa.weak_copy();
+   if(it == _map.end())
+   {
+      ifa = new iface();
+
+      ifa->_name     = name;
+      ifa->_weak_ptr = ifa.weak_copy();
+
+      _map[name] = ifa;
+
+   }
+   else
+   {
+      ifa = it->second;
+   }
+
+   ifa->_ifd = fd;
 
    memcpy(&ifa->hwaddr, ifr.ifr_hwaddr.sa_data, sizeof(struct ether_addr));
-
-   _map[name] = ifa;
 
    fixup_pollfds();
 
    return ifa;
 }
 
-ssize_t iface::read(address& saddr, address& daddr, uint8_t *msg, size_t size)
+ssize_t iface::read(int fd, address& saddr, uint8_t *msg, size_t size)
 {
    struct sockaddr_in6 saddr_tmp;
    struct msghdr mhdr;
@@ -173,45 +286,28 @@ ssize_t iface::read(address& saddr, address& daddr, uint8_t *msg, size_t size)
       return -1;
 
    iov.iov_len = size;
-   iov.iov_base = (caddr_t) msg;
+   iov.iov_base = (caddr_t)msg;
 
    memset(&mhdr, 0, sizeof(mhdr));
    mhdr.msg_name = (caddr_t)&saddr_tmp;
    mhdr.msg_namelen = sizeof(saddr_tmp);
    mhdr.msg_iov = &iov;
    mhdr.msg_iovlen = 1;
-   mhdr.msg_control = cbuf;
-   mhdr.msg_controllen = sizeof(cbuf);
 
-   if((len = recvmsg(_fd, &mhdr, 0)) < 0)
+   if((len = recvmsg(fd, &mhdr, 0)) < 0)
       return -1;
 
    if(len < sizeof(struct icmp6_hdr))
       return -1;
 
-   // Get the destination address.
-
-   struct cmsghdr *cmsg;
-
-   for(cmsg = CMSG_FIRSTHDR(&mhdr); cmsg; cmsg = CMSG_NXTHDR(&mhdr, cmsg))
-   {
-      if(cmsg->cmsg_type == IPV6_PKTINFO)
-         break;
-   }
-
-   if(!cmsg)
-      return -1;
-
    saddr = saddr_tmp.sin6_addr;
-   daddr = ((struct in6_pktinfo *)CMSG_DATA(cmsg))->ipi6_addr;
 
-   DBG("recv() saddr=%s, daddr=%s, len=%d",
-       saddr.to_string().c_str(), daddr.to_string().c_str(), len);
+   DBG("recv() saddr=%s, len=%d", saddr.to_string().c_str(), len);
 
    return len;
 }
 
-ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
+ssize_t iface::write(int fd, const address& daddr, const uint8_t *msg, size_t size)
 {
    struct sockaddr_in6 daddr_tmp;
    struct msghdr mhdr;
@@ -233,26 +329,61 @@ ssize_t iface::write(const address& daddr, const uint8_t *msg, size_t size)
 
    int len;
 
-   if((len = sendmsg(_fd, &mhdr, 0)) < 0)
+   if((len = sendmsg(fd, &mhdr, 0)) < 0)
       return -1;
+
+   return len;
+}
+
+ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
+{
+   uint8_t msg[256];
+   ssize_t len;
+
+   if((len = read(_pfd, saddr, msg, sizeof(msg))) < 0)
+      return -1;
+
+   struct ip6_hdr              *ip6h =
+        (struct ip6_hdr *)(msg + ETH_HLEN);
+
+   struct icmp6_hdr            *icmph =
+        (struct icmp6_hdr *)(msg + ETH_HLEN + sizeof( struct ip6_hdr));
+
+   struct nd_neighbor_solicit  *ns =
+      (struct nd_neighbor_solicit *)(msg + ETH_HLEN + sizeof( struct ip6_hdr));
+
+   taddr = ns->nd_ns_target;
+   daddr = ip6h->ip6_dst;
+   saddr = ip6h->ip6_src;
 
    return len;
 }
 
 ssize_t iface::write_solicit(const address& taddr)
 {
-   struct nd_neighbor_solicit ns;
+   char buf[128];
+
+   memset(buf, 0, sizeof(buf));
+
+   struct nd_neighbor_solicit *ns =
+      (struct nd_neighbor_solicit *)&buf[0];
+
+   struct nd_opt_hdr *opt =
+      (struct nd_opt_hdr *)&buf[sizeof(struct nd_neighbor_solicit)];
+
+   opt->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
+   opt->nd_opt_len  = 1;
+
+   ns->nd_ns_type   = ND_NEIGHBOR_SOLICIT;
+
+   memcpy(&ns->nd_ns_target, &taddr.const_addr(), sizeof(struct in6_addr));
+
+   memcpy(buf + sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr), &hwaddr, 6);
 
    // FIXME: Alright, I'm lazy.
    static address multicast("ff02::1:ff00:0000");
 
    address daddr;
-
-   memset(&ns, 0, sizeof(struct nd_neighbor_solicit));
-
-   ns.nd_ns_type = ND_NEIGHBOR_SOLICIT;
-
-   memcpy(&ns.nd_ns_target, &taddr.const_addr(), sizeof(struct in6_addr));
 
    daddr = multicast;
 
@@ -263,12 +394,12 @@ ssize_t iface::write_solicit(const address& taddr)
    DBG("iface::write_solicit() taddr=%s, daddr=%s",
        taddr.to_string().c_str(), daddr.to_string().c_str());
 
-   return write(daddr, (uint8_t *)&ns, sizeof(struct nd_neighbor_solicit));
+   return write(_ifd, daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr) + 6);
 }
 
 ssize_t iface::write_advert(const address& daddr, const address& taddr)
 {
-   char buf[256];
+   char buf[128];
 
    memset(buf, 0, sizeof(buf));
 
@@ -288,37 +419,32 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr)
 
    memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr), &hwaddr, 6);
 
-   return write(daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_advert) +
-      sizeof(struct nd_opt_hdr) + 8);
+   DBG("iface::write_advert() daddr=%s, taddr=%s",
+       daddr.to_string().c_str(), taddr.to_string().c_str());
+
+   return write(_ifd, daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_advert) +
+      sizeof(struct nd_opt_hdr) + 6);
 }
 
-int iface::read_nd(address& saddr, address& daddr, address& taddr)
+ssize_t iface::read_advert(address& saddr, address& taddr)
 {
    uint8_t msg[256];
+   ssize_t len;
 
-   if(read(saddr, daddr, msg, sizeof(msg)) < 0)
+   if((len = read(_ifd, saddr, msg, sizeof(msg))) < 0)
       return -1;
 
-   switch(((struct icmp6_hdr *)msg)->icmp6_type)
-   {
-   case ND_NEIGHBOR_SOLICIT:
-      taddr = ((struct nd_neighbor_solicit *)msg)->nd_ns_target;
-      break;
-
-   case ND_NEIGHBOR_ADVERT:
-      break;
-
-   default:
+   if(((struct icmp6_hdr *)msg)->icmp6_type != ND_NEIGHBOR_ADVERT)
       return -1;
-   }
 
-   return ((struct icmp6_hdr *)msg)->icmp6_type;
+   taddr = ((struct nd_neighbor_solicit *)msg)->nd_ns_target;
+
+   return len;
 }
-
 
 void iface::fixup_pollfds()
 {
-   _pollfds.resize(_map.size());
+   _pollfds.resize(_map.size() * 2);
 
    int i = 0;
 
@@ -327,7 +453,7 @@ void iface::fixup_pollfds()
    for(std::map<std::string, ptr<iface> >::iterator it = _map.begin();
       it != _map.end(); it++)
    {
-      _pollfds[i].fd      = it->second->_fd;
+      _pollfds[i].fd      = (i % 2) ? it->second->_pfd : it->second->_ifd;
       _pollfds[i].events  = POLLIN;
       _pollfds[i].revents = 0;
       i++;
@@ -336,6 +462,9 @@ void iface::fixup_pollfds()
 
 void iface::pr(const ptr<proxy>& pr)
 {
+   if((_old_allmulti = allmulti(1)) < 0)
+      ERR("iface::allmulti() failed");
+
    _proxy = pr;
 }
 
@@ -380,8 +509,12 @@ int iface::poll_all()
    std::vector<struct pollfd>::iterator f_it;
    std::map<std::string, ptr<iface> >::iterator i_it;
 
-   for(f_it = _pollfds.begin(), i_it = _map.begin(); f_it != _pollfds.end(); f_it++, i_it++)
+   int i = 0;
+
+   for(f_it = _pollfds.begin(), i_it = _map.begin(); f_it != _pollfds.end(); f_it++)
    {
+      bool was_pfd = i++ % 2;
+
       if(!(f_it->revents & POLLIN))
          continue;
 
@@ -389,9 +522,46 @@ int iface::poll_all()
 
       ptr<iface> ifa = i_it->second;
 
+      if(was_pfd)
+         i_it++;
+
       int icmp6_type;
       address saddr, daddr, taddr;
 
+      if(was_pfd)
+      {
+         if(ifa->read_solicit(saddr, daddr, taddr) < 0)
+         {
+            ERR("Failed to read from interface '%s'", ifa->_name.c_str());
+            continue;
+         }
+
+         DBG("ND_NEIGHBOR_SOLICIT");
+
+         ifa->_proxy->handle_solicit(saddr, daddr, taddr);
+      }
+      else
+      {
+         DBG("ND_NEIGHBOR_ADVERT");
+
+         if(ifa->read_advert(saddr, taddr) < 0)
+         {
+            ERR("Failed to read from interface '%s'", ifa->_name.c_str());
+            continue;
+         }
+
+         for(std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
+             s_it != ifa->_sessions.end(); s_it++)
+         {
+            if(((*s_it)->taddr() == taddr) && ((*s_it)->status() == session::WAITING))
+            {
+               (*s_it)->handle_advert();
+               break;
+            }
+         }
+      }
+
+#if 0
       if((icmp6_type = ifa->read_nd(saddr, daddr, taddr)) < 0)
       {
          ERR("Failed to read from interface '%s'", ifa->_name.c_str());
@@ -402,28 +572,54 @@ int iface::poll_all()
       {
          DBG("ND_NEIGHBOR_SOLICIT");
 
-         ifa->_proxy->handle_solicit(saddr, daddr, taddr);
       }
       else if(icmp6_type == ND_NEIGHBOR_ADVERT)
       {
-         DBG("ND_NEIGHBOR_ADVERT");
-
          for(std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
              s_it != ifa->_sessions.end(); s_it++)
          {
-            ptr<session> se = *s_it;
-
-            //if((se->daddr() =
-
-
-            //(*s_it)->handle_advert();
+            if(((*s_it)->taddr() == taddr) && ((*s_it)->status() == session::WAITING))
+            {
+               (*s_it)->handle_advert();
+               break;
+            }
          }
       }
+#endif
    }
 
    return 0;
 }
 
+int iface::allmulti(int state)
+{
+   struct ifreq ifr;
+
+   DBG("iface::allmulti() state=%d, _name=\"%s\"",
+      state, _name.c_str());
+
+   state = !!state;
+
+   strncpy(ifr.ifr_name, _name.c_str(), IFNAMSIZ);
+
+   if(ioctl(_pfd, SIOCGIFFLAGS, &ifr) < 0)
+      return -1;
+
+   int old_state = !!(ifr.ifr_flags & IFF_ALLMULTI);
+
+   if(state == old_state)
+      return old_state;
+
+   if(state)
+      ifr.ifr_flags |= IFF_ALLMULTI;
+   else
+      ifr.ifr_flags &= ~IFF_ALLMULTI;
+
+   if(ioctl(_pfd, SIOCSIFFLAGS, &ifr) < 0)
+      return -1;
+
+   return old_state;
+}
 
 const std::string& iface::name() const
 {

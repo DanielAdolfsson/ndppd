@@ -45,8 +45,14 @@ private:
    // Updates the array above.
    static void fixup_pollfds();
 
-   // Socket.
-   int _fd;
+   // The "generic" ICMPv6 socket.
+   int _ifd;
+
+   // This is the PF_PACKET socket we use in order to read
+   // NB_NEIGHBOR_SOLICIT messages.
+   int _pfd;
+
+   int _old_allmulti;
 
    // Name of this interface.
    std::string _name;
@@ -63,26 +69,33 @@ private:
    // Constructor.
    iface();
 
+   enum
+   {
+      SFD, GFD
+   };
+
 public:
 
    // Destructor.
    ~iface();
 
-   // Opens the specified interface, and returns a pointer to
-   // the object, or null if there was a problem.
-   static ptr<iface> open(const std::string& name);
+   static ptr<iface> open_ifd(const std::string& name);
+
+   static ptr<iface> open_pfd(const std::string& name);
 
    static int poll_all();
 
-   ssize_t read(address& saddr, address& daddr, uint8_t *msg, size_t size);
+   static ssize_t read(int fd, address& saddr, uint8_t *msg, size_t size);
 
-   ssize_t write(const address& daddr, const uint8_t *msg, size_t size);
+   static ssize_t write(int fd, const address& daddr, const uint8_t *msg, size_t size);
 
    ssize_t write_solicit(const address& taddr);
 
    ssize_t write_advert(const address& daddr, const address& taddr);
 
-   int read_nd(address& saddr, address& daddr, address& taddr);
+   ssize_t read_solicit(address& saddr, address& daddr, address& taddr);
+
+   ssize_t read_advert(address& saddr, address& taddr);
 
    // Returns the name of the interface.
    const std::string& name() const;
@@ -96,6 +109,7 @@ public:
 
    void remove_session(const ptr<session>& se);
 
+   int allmulti(int state);
 };
 
 __NDPPD_NS_END

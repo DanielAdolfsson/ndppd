@@ -101,14 +101,19 @@ void session::send_solicit()
    }
 }
 
-/*void session::send_advert()
+void session::send_advert()
 {
-}*/
+   _pr->ifa()->write_advert(_saddr, _taddr);
+}
 
 void session::handle_advert()
 {
+   _status = VALID;
+   _ttl = 500;
 
+   DBG("handle_advert");
 
+   send_advert();
 }
 
 const address& session::taddr() const
