@@ -38,7 +38,7 @@ strong_ptr<proxy> proxy::create(const strong_ptr<iface>& ifa)
 
    ifa->pr(pr);
 
-   DBG("proxy_create() ifa=%x =%x", (iface *)ifa, (proxy *)pr);
+   DBG("proxy::create() if=%x", ifa->name().c_str());
 
    return pr;
 }

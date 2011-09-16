@@ -91,12 +91,12 @@ void session::add_iface(const strong_ptr<iface>& ifa)
 
 void session::send_solicit()
 {
-   DBG("sending solicit");
+   DBG("session::send_solicit() (%d)", _ifaces.size());
 
    for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
        it != _ifaces.end(); it++)
    {
-      DBG("   on %s", (*it)->name().c_str());
+      DBG(" - %s", (*it)->name().c_str());
       (*it)->write_solicit(_taddr);
    }
 }
@@ -110,8 +110,6 @@ void session::handle_advert()
 {
    _status = VALID;
    _ttl = 500;
-
-   DBG("handle_advert");
 
    send_advert();
 }

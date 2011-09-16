@@ -72,6 +72,9 @@ private:
    // or -1 if there was an error.
    int allmulti(int state);
 
+   // Constructor.
+   iface();
+
 public:
 
    // Destructor.

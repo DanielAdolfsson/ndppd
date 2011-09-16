@@ -23,6 +23,8 @@
 
 #define NDPPD_VERSION "0.1-alpha"
 
+#include <assert.h>
+
 #include "log.h"
 #include "ptr.h"
 #include "conf.h"

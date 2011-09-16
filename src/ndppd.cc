@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 #include <iostream>
 #include <string>
 
@@ -21,11 +20,6 @@
 #include <sys/time.h>
 
 #include "ndppd.h"
-
-#include "iface.h"
-#include "proxy.h"
-#include "rule.h"
-#include "session.h"
 
 using namespace ndppd;
 
@@ -70,7 +64,6 @@ int main(int argc, char *argv[], char *env[])
    if(!conf::load(config_path))
       return -1;
 
-
    struct timeval t1, t2;
 
    gettimeofday(&t1, 0);
@@ -89,6 +82,8 @@ int main(int argc, char *argv[], char *env[])
 
       session::update_all(elapsed_time);
    }
+
+   ERR("iface::poll_all() failed");
 
    return 0;
 }

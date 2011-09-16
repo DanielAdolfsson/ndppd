@@ -45,9 +45,14 @@ std::map<std::string, strong_ptr<iface> > iface::_map;
 
 std::vector<struct pollfd> iface::_pollfds;
 
+iface::iface() :
+   _ifd(-1), _pfd(-1)
+{
+}
+
 iface::~iface()
 {
-   DBG("iface destroyed");
+   DBG("iface::~iface()");
 }
 
 strong_ptr<iface> iface::open_pfd(const std::string& name)
@@ -60,7 +65,7 @@ strong_ptr<iface> iface::open_pfd(const std::string& name)
 
    if(it != _map.end())
    {
-      if(it->second->_pfd)
+      if(it->second->_pfd >= 0)
          return it->second;
 
       ifa = it->second;
@@ -243,9 +248,9 @@ strong_ptr<iface> iface::open_ifd(const std::string& name)
       ifa = new iface();
 
       ifa->_name = name;
-/*      ifa->_ptr  = ifa;
+      ifa->_ptr  = ifa;
 
-      _map[name] = ifa;*/
+      _map[name] = ifa;
    }
    else
    {
@@ -332,10 +337,10 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
    if((len = read(_pfd, saddr, msg, sizeof(msg))) < 0)
       return -1;
 
-   struct ip6_hdr              *ip6h =
+   struct ip6_hdr *ip6h =
         (struct ip6_hdr *)(msg + ETH_HLEN);
 
-   struct icmp6_hdr            *icmph =
+   struct icmp6_hdr *icmph =
         (struct icmp6_hdr *)(msg + ETH_HLEN + sizeof( struct ip6_hdr));
 
    struct nd_neighbor_solicit  *ns =
@@ -344,6 +349,10 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
    taddr = ns->nd_ns_target;
    daddr = ip6h->ip6_dst;
    saddr = ip6h->ip6_src;
+
+   DBG("iface::read_solicit() saddr=%s, daddr=%s, taddr=%s, len=%d",
+      daddr.to_string().c_str(), saddr.to_string().c_str(),
+      taddr.to_string().c_str(), len);
 
    return len;
 }
@@ -428,6 +437,9 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
 
    taddr = ((struct nd_neighbor_solicit *)msg)->nd_ns_target;
 
+   DBG("iface::read_advert() saddr=%s, taddr=%s, len=%d",
+      saddr.to_string().c_str(), taddr.to_string().c_str(), len);
+
    return len;
 }
 
@@ -442,7 +454,12 @@ void iface::fixup_pollfds()
    for(std::map<std::string, strong_ptr<iface> >::iterator it = _map.begin();
       it != _map.end(); it++)
    {
-      _pollfds[i].fd      = (i % 2) ? it->second->_pfd : it->second->_ifd;
+      _pollfds[i].fd      = it->second->_ifd;
+      _pollfds[i].events  = POLLIN;
+      _pollfds[i].revents = 0;
+      i++;
+
+      _pollfds[i].fd      = it->second->_pfd;
       _pollfds[i].events  = POLLIN;
       _pollfds[i].revents = 0;
       i++;
@@ -467,37 +484,38 @@ int iface::poll_all()
       return 0;
    }
 
-   // TODO: Assert _pollfds.size() == _map.size() * 2.
+   assert(_pollfds.size() == _map.size() * 2);
 
    int len;
 
-   if((len = ::poll(&_pollfds[0], _pollfds.size(), 100)) < 0)
+   if((len = ::poll(&_pollfds[0], _pollfds.size(), 50)) < 0)
       return -1;
 
    if(len == 0)
       return 0;
 
-   std::vector<struct pollfd>::iterator f_it;
-   std::map<std::string, strong_ptr<iface> >::iterator i_it;
+   std::map<std::string, strong_ptr<iface> >::iterator i_it = _map.begin();
 
    int i = 0;
 
-   for(f_it = _pollfds.begin(), i_it = _map.begin(); f_it != _pollfds.end(); f_it++)
+   for(std::vector<struct pollfd>::iterator f_it = _pollfds.begin();
+       f_it != _pollfds.end(); f_it++)
    {
-      bool was_pfd = i++ % 2;
+      assert(i_it != _map.end());
+
+      if(i && !(i % 2))
+         i_it++;
+
+      bool is_pfd = i++ % 2;
 
       if(!(f_it->revents & POLLIN))
          continue;
 
       strong_ptr<iface> ifa = i_it->second;
 
-      if(was_pfd)
-         i_it++;
-
-      int icmp6_type;
       address saddr, daddr, taddr;
 
-      if(was_pfd)
+      if(is_pfd)
       {
          if(ifa->read_solicit(saddr, daddr, taddr) < 0)
          {

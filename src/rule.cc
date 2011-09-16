@@ -36,7 +36,8 @@ strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr, 
    ru->_ifa  = ifa;
    ru->_addr = addr;
 
-   DBG("rule addr set to %s", addr.to_string().c_str());
+   DBG("rule::create() if=%s, addr=%s",
+       pr->ifa()->name().c_str(), addr.to_string().c_str());
 
    return ru;
 }
@@ -48,14 +49,14 @@ strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr)
    ru->_pr    = pr;
    ru->_addr  = addr;
 
-   DBG("rule addr set to %s", addr.to_string().c_str());
+   DBG("rule::create() if=%s, addr=%s",
+       pr->ifa()->name().c_str(), addr.to_string().c_str());
 
    return ru;
 }
 
 const address& rule::addr() const
 {
-   DBG("rule addr set to %s", _addr.to_string().c_str());
    return _addr;
 }
 

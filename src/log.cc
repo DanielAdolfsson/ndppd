@@ -22,9 +22,27 @@ using namespace ndppd;
 
 __NDPPD_NS_BEGIN
 
+const char *log::_level_str[] =
+{
+   "fatal",
+   "error",
+   "warning",
+   "bug",
+   "notice",
+   "info",
+   "debug"
+};
+
 void log::puts(int level, const char *str)
 {
-   fprintf(stderr, "(%d) : %s\n", level, str);
+   const char *ls;
+
+   if((level < 0) || (level >= MAX_L))
+      ls = "unknown";
+   else
+      ls = _level_str[level];
+
+   fprintf(stderr, "% 7s : %s\n", ls, str);
 }
 
 void log::printf(int level, const char *fmt, ...)
@@ -37,6 +55,7 @@ void log::printf(int level, const char *fmt, ...)
 
    if(vsnprintf(buf, sizeof(buf), fmt, args) > 0)
    {
+
       puts(level, buf);
    }
 
@@ -44,5 +63,3 @@ void log::printf(int level, const char *fmt, ...)
 }
 
 __NDPPD_NS_END
- 
- 

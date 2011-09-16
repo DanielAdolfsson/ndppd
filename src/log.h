@@ -33,6 +33,9 @@ __NDPPD_NS_BEGIN
 
 class log
 {
+private:
+   static const char *_level_str[];
+
 public:
    enum
    {
@@ -42,7 +45,8 @@ public:
       L_BUG,
       L_NOTICE,
       L_INFO,
-      L_DEBUG
+      L_DEBUG,
+      MAX_L
    };
 
    static void puts(int level, const char *str);
@@ -53,5 +57,3 @@ public:
 __NDPPD_NS_END
 
 #endif // __NDPPD_LOG_H
- 
- 
