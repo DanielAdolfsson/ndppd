@@ -53,6 +53,15 @@ iface::iface() :
 iface::~iface()
 {
    DBG("iface::~iface()");
+
+   if(_ifd >= 0)
+      close(_ifd);
+
+   if(_pfd >= 0)
+   {
+      allmulti(_prev_allmulti);
+      close(_pfd);
+   }
 }
 
 strong_ptr<iface> iface::open_pfd(const std::string& name)
