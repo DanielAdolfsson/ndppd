@@ -50,6 +50,8 @@ void session::update_all(int elapsed_time)
 
 session::~session()
 {
+   DBG("session::~session() this=%x", this);
+
    _sessions.remove(_ptr);
 
    for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
@@ -109,7 +111,7 @@ void session::send_advert()
 void session::handle_advert()
 {
    _status = VALID;
-   _ttl = 500;
+   _ttl    = 30 * 1000;
 
    send_advert();
 }

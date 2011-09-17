@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdio>
 #include <cstdarg>
+#include <syslog.h>
 
 #include "ndppd.h"
 
@@ -25,24 +26,30 @@ __NDPPD_NS_BEGIN
 const char *log::_level_str[] =
 {
    "fatal",
+   "alert",
+   "critical",
    "error",
    "warning",
-   "bug",
    "notice",
    "info",
    "debug"
 };
 
+bool log::_syslog = false;
+
 void log::puts(int level, const char *str)
 {
    const char *ls;
 
-   if((level < 0) || (level >= MAX_L))
+   if((level < 0) || (level > LOG_DEBUG))
       ls = "unknown";
    else
       ls = _level_str[level];
 
-   fprintf(stderr, "% 7s : %s\n", ls, str);
+   if(_syslog)
+      ::syslog(level, "(%s) %s", ls, str);
+   else
+      fprintf(stderr, "(% 8s) %s\n", ls, str);
 }
 
 void log::printf(int level, const char *fmt, ...)
@@ -55,11 +62,31 @@ void log::printf(int level, const char *fmt, ...)
 
    if(vsnprintf(buf, sizeof(buf), fmt, args) > 0)
    {
-
       puts(level, buf);
    }
 
    va_end(args);
+}
+
+void log::syslog(bool sl)
+{
+   if(sl == _syslog)
+      return;
+
+   if(_syslog = sl)
+   {
+#ifdef DEBUG
+      setlogmask(LOG_UPTO(LOG_DEBUG));
+      openlog("ndppd", LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
+#else
+      setlogmask(LOG_UPTO(LOG_INFO));
+      openlog("ndppd", LOG_CONS, LOG_USER);
+#endif
+   }
+   else
+   {
+      closelog();
+   }
 }
 
 __NDPPD_NS_END

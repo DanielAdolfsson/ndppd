@@ -74,7 +74,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
             break;
 
          case session::VALID:
-            (*sit)->send_solicit();
+            (*sit)->send_advert();
          }
 
          return;

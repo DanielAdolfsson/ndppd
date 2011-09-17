@@ -32,13 +32,13 @@ class rule;
 class proxy
 {
 private:
+   weak_ptr<proxy> _ptr;
+
    strong_ptr<iface> _ifa;
 
    std::list<strong_ptr<rule> > _rules;
 
    std::list<strong_ptr<session> > _sessions;
-
-   weak_ptr<proxy> _ptr;
 
    proxy();
 

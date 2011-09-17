@@ -19,17 +19,40 @@
 #include <getopt.h>
 #include <sys/time.h>
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "ndppd.h"
 
 using namespace ndppd;
+
+int daemonize()
+{
+   pid_t pid = fork();
+
+   if(pid < 0)
+      return -1;
+
+   if(pid > 0)
+      exit(0);
+
+   pid_t sid = setsid();
+
+   if(sid < 0)
+      return -1;
+
+   close(STDIN_FILENO);
+   close(STDOUT_FILENO);
+   close(STDERR_FILENO);
+
+   return 0;
+}
 
 int main(int argc, char *argv[], char *env[])
 {
 //   std::string config_path("/etc/ndppd.conf");
    std::string config_path("../ndppd.conf");
-
-   std::cout << "ndppd - NDP Proxy Daemon" << std::endl;
-   std::cout << "Version " NDPPD_VERSION << std::endl;
+   bool daemon = false;
 
    while(1)
    {
@@ -38,10 +61,11 @@ int main(int argc, char *argv[], char *env[])
       static struct option long_options[] =
       {
          { "config", 1, 0, 'c' },
+         { "daemon", 0, 0, 'd' },
          { 0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "c:v", long_options, &opt);
+      c = getopt_long(argc, argv, "c:d", long_options, &opt);
 
       if(c == -1)
          break;
@@ -56,6 +80,22 @@ int main(int argc, char *argv[], char *env[])
          }
 
          config_path = optarg;
+         break;
+
+      case 'd':
+         daemon = true;
+         break;
+      }
+   }
+
+   if(daemon)
+   {
+      log::syslog(true);
+
+      if(daemonize() < 0)
+      {
+         ERR("Failed to daemonize process");
+         return 1;
       }
    }
 

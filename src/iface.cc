@@ -542,7 +542,7 @@ int iface::poll_all()
             continue;
          }
 
-         for(std::list<strong_ptr<session> >::iterator s_it = ifa->_sessions.begin();
+         for(std::list<weak_ptr<session> >::iterator s_it = ifa->_sessions.begin();
              s_it != ifa->_sessions.end(); s_it++)
          {
             if(((*s_it)->taddr() == taddr) && ((*s_it)->status() == session::WAITING))
