@@ -50,8 +50,7 @@ int daemonize()
 
 int main(int argc, char *argv[], char *env[])
 {
-//   std::string config_path("/etc/ndppd.conf");
-   std::string config_path("../ndppd.conf");
+   std::string config_path("/etc/ndppd.conf");
    bool daemon = false;
 
    while(1)

@@ -49,6 +49,8 @@ public:
    // Compare _a/_m against a._a.
    bool operator==(const address& addr) const;
 
+   bool operator!=(const address& addr) const;
+
    const std::string to_string() const;
 
    bool parse_string(const std::string& str);
@@ -56,6 +58,10 @@ public:
    int prefix() const;
 
    void prefix(int n);
+
+   bool is_unicast() const;
+
+   bool is_multicast() const;
 
    operator std::string() const;
 

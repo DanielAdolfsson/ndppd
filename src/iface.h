@@ -86,7 +86,7 @@ public:
 
    static int poll_all();
 
-   static ssize_t read(int fd, address& saddr, uint8_t *msg, size_t size);
+   static ssize_t read(int fd, struct sockaddr *saddr, uint8_t *msg, size_t size);
 
    static ssize_t write(int fd, const address& daddr, const uint8_t *msg, size_t size);
 

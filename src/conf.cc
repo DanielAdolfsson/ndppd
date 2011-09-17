@@ -83,7 +83,7 @@ bool conf::setup(::cfg_t *cfg)
          {
             ::cfg_t *rule_cfg;
 
-            if(!(rule_cfg = ::cfg_getnsec(proxy_cfg, "rule", i)))
+            if(!(rule_cfg = ::cfg_getnsec(proxy_cfg, "rule", i2)))
                continue;
 
             address addr(::cfg_title(rule_cfg));

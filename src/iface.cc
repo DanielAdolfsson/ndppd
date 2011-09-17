@@ -282,9 +282,8 @@ strong_ptr<iface> iface::open_ifd(const std::string& name)
    return ifa;
 }
 
-ssize_t iface::read(int fd, address& saddr, uint8_t *msg, size_t size)
+ssize_t iface::read(int fd, struct sockaddr *saddr, uint8_t *msg, size_t size)
 {
-   struct sockaddr_in6 saddr_tmp;
    struct msghdr mhdr;
    struct iovec iov;
    char cbuf[256];
@@ -297,8 +296,8 @@ ssize_t iface::read(int fd, address& saddr, uint8_t *msg, size_t size)
    iov.iov_base = (caddr_t)msg;
 
    memset(&mhdr, 0, sizeof(mhdr));
-   mhdr.msg_name = (caddr_t)&saddr_tmp;
-   mhdr.msg_namelen = sizeof(saddr_tmp);
+   mhdr.msg_name = (caddr_t)saddr;
+   mhdr.msg_namelen = sizeof(struct sockaddr);
    mhdr.msg_iov = &iov;
    mhdr.msg_iovlen = 1;
 
@@ -308,9 +307,7 @@ ssize_t iface::read(int fd, address& saddr, uint8_t *msg, size_t size)
    if(len < sizeof(struct icmp6_hdr))
       return -1;
 
-   saddr = saddr_tmp.sin6_addr;
-
-   DBG("iface::read() saddr=%s, len=%d", saddr.to_string().c_str(), len);
+   DBG("iface::read() len=%d", len);
 
    return len;
 }
@@ -347,10 +344,11 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t *msg, size_t si
 
 ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
 {
+   struct sockaddr_ll t_saddr;
    uint8_t msg[256];
    ssize_t len;
 
-   if((len = read(_pfd, saddr, msg, sizeof(msg))) < 0)
+   if((len = read(_pfd, (struct sockaddr *)&t_saddr, msg, sizeof(msg))) < 0)
       return -1;
 
    struct ip6_hdr *ip6h =
@@ -367,7 +365,7 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
    saddr = ip6h->ip6_src;
 
    DBG("iface::read_solicit() saddr=%s, daddr=%s, taddr=%s, len=%d",
-      daddr.to_string().c_str(), saddr.to_string().c_str(),
+      saddr.to_string().c_str(), daddr.to_string().c_str(),
       taddr.to_string().c_str(), len);
 
    return len;
@@ -442,11 +440,14 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr)
 
 ssize_t iface::read_advert(address& saddr, address& taddr)
 {
+   struct sockaddr_in6 t_saddr;
    uint8_t msg[256];
    ssize_t len;
 
-   if((len = read(_ifd, saddr, msg, sizeof(msg))) < 0)
+   if((len = read(_ifd, (struct sockaddr *)&t_saddr, msg, sizeof(msg))) < 0)
       return -1;
+
+   saddr = t_saddr.sin6_addr;
 
    if(((struct icmp6_hdr *)msg)->icmp6_type != ND_NEIGHBOR_ADVERT)
       return -1;
@@ -538,6 +539,9 @@ int iface::poll_all()
             ERR("Failed to read from interface '%s'", ifa->_name.c_str());
             continue;
          }
+
+         if(!saddr.is_unicast() || !daddr.is_multicast())
+            continue;
 
          ifa->_pr->handle_solicit(saddr, daddr, taddr);
       }

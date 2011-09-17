@@ -131,6 +131,14 @@ bool address::operator==(const address& addr) const
             ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
 }
 
+bool address::operator!=(const address& addr) const
+{
+   return !!(((_addr.s6_addr32[0] ^ addr._addr.s6_addr32[0]) & _mask.s6_addr32[0]) |
+             ((_addr.s6_addr32[1] ^ addr._addr.s6_addr32[1]) & _mask.s6_addr32[1]) |
+             ((_addr.s6_addr32[2] ^ addr._addr.s6_addr32[2]) & _mask.s6_addr32[2]) |
+             ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
+}
+
 int address::prefix() const
 {
    if(!_mask.s6_addr[0])
@@ -272,6 +280,16 @@ const struct in6_addr& address::const_addr() const
 struct in6_addr& address::mask()
 {
    return _mask;
+}
+
+bool address::is_multicast() const
+{
+   return _addr.s6_addr[0] == 0xff;
+}
+
+bool address::is_unicast() const
+{
+   return _addr.s6_addr[0] != 0xff;
 }
 
 __NDPPD_NS_END
