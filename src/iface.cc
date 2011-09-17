@@ -225,6 +225,13 @@ strong_ptr<iface> iface::open_ifd(const std::string& name)
       return strong_ptr<iface>();
    }
 
+   if(setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops)) < 0)
+   {
+      close(fd);
+      ERR("iface::open_ifd() failed IPV6_UNICAST_HOPS");
+      return strong_ptr<iface>();
+   }
+
    // Switch to non-blocking mode.
 
    int on = 1;
@@ -420,7 +427,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr)
    opt->nd_opt_len          = 1;
 
    na->nd_na_type           = ND_NEIGHBOR_ADVERT;
-   na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED | ND_NA_FLAG_ROUTER;
+   na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED; // | ND_NA_FLAG_ROUTER;
 
    memcpy(&na->nd_na_target, &taddr.const_addr(), sizeof(struct in6_addr));
 
