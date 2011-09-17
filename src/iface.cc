@@ -98,13 +98,20 @@ strong_ptr<iface> iface::open_pfd(const std::string& name)
 
    // Bind to the specified interface.
 
-   struct ifreq ifr;
+   struct sockaddr_ll lladdr;
 
-   memset(&ifr, 0, sizeof(ifr));
-   strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ - 1);
-   ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+   memset(&lladdr, 0, sizeof(struct sockaddr_ll));
+   lladdr.sll_family   = AF_PACKET;
+   lladdr.sll_protocol = htons(ETH_P_IPV6);
 
-   if(setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0)
+   if(!(lladdr.sll_ifindex = if_nametoindex(name.c_str())))
+   {
+      close(fd);
+      ERR("Failed to bind to interface '%s'", name.c_str());
+      return strong_ptr<iface>();
+   }
+
+   if(bind(fd, (struct sockaddr *)&lladdr, sizeof(struct sockaddr_ll)) < 0)
    {
       close(fd);
       ERR("Failed to bind to interface '%s'", name.c_str());
