@@ -39,7 +39,7 @@ void session::update_all(int elapsed_time)
       case session::WAITING:
          DBG("session is now invalid");
          se->_status = session::INVALID;
-         se->_ttl    = 30 * 1000;
+         se->_ttl    = se->_pr->ttl();
          break;
 
       default:
@@ -71,7 +71,7 @@ strong_ptr<session> session::create(const strong_ptr<proxy>& pr, const address& 
    se->_saddr = saddr;
    se->_taddr = taddr;
    se->_daddr = daddr;
-   se->_ttl   = 500;
+   se->_ttl   = pr->timeout();
 
    _sessions.push_back(se);
 
@@ -111,7 +111,7 @@ void session::send_advert()
 void session::handle_advert()
 {
    _status = VALID;
-   _ttl    = 30 * 1000;
+   _ttl    = _pr->ttl();
 
    send_advert();
 }

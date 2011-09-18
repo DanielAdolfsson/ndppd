@@ -66,6 +66,10 @@ bool conf::setup(cfg_t *cfg)
 
          pr->router(cfg_getbool(proxy_cfg, "router"));
 
+         pr->ttl(cfg_getint(proxy_cfg, "ttl"));
+
+         pr->timeout(cfg_getint(proxy_cfg, "timeout"));
+
          for(i2 = 0; i2 < cfg_size(proxy_cfg, "rule"); i2++)
          {
             cfg_t *rule_cfg;
@@ -112,6 +116,8 @@ bool conf::load(const std::string& path)
    {
       CFG_SEC  (_S "rule",    rule_opts,     CFGF_MULTI | CFGF_TITLE),
       CFG_BOOL (_S "router",  cfg_true,      CFGF_NONE),
+      CFG_INT  (_S "ttl",     30000,         CFGF_NONE),
+      CFG_INT  (_S "timeout", 500,           CFGF_NONE),
       CFG_END  ()
    };
 

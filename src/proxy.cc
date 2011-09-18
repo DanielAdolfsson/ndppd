@@ -26,7 +26,8 @@
 
 __NDPPD_NS_BEGIN
 
-proxy::proxy()
+proxy::proxy() :
+   _router(true), _ttl(30000), _timeout(500)
 {
 }
 
@@ -151,6 +152,26 @@ bool proxy::router() const
 void proxy::router(bool val)
 {
    _router = val;
+}
+
+int proxy::ttl() const
+{
+   return _ttl;
+}
+
+void proxy::ttl(int val)
+{
+   _ttl = (val >= 0) ? val : 30000;
+}
+
+int proxy::timeout() const
+{
+   return _timeout;
+}
+
+void proxy::timeout(int val)
+{
+   _timeout = (val >= 0) ? val : 500;
 }
 
 __NDPPD_NS_END

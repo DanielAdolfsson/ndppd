@@ -42,6 +42,8 @@ private:
 
    bool _router;
 
+   int _ttl, _timeout;
+
    proxy();
 
 public:
@@ -63,6 +65,14 @@ public:
    bool router() const;
 
    void router(bool val);
+
+   int timeout() const;
+
+   void timeout(int val);
+
+   int ttl() const;
+
+   void ttl(int val);
 };
 
 __NDPPD_NS_END
