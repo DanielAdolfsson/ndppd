@@ -1,0 +1,52 @@
+# proxy <interface>
+# This sets up a listener, that will listen for any Neighbor Solicitation
+# messages, and respond to them according to a set of rules (see below).
+# <interface> is required.
+
+# You may have several 'proxy' sections.
+
+proxy eth0 {
+   
+   # router = <yes|no|true|false>
+   # This option turns on or off the router flag for Neighbor Advertisement
+   # messages. Default value is 'true'.
+   
+   router = yes
+
+   # timeout = <integer>
+   # Controls how long to wait for a Neighbor Advertisment message before 
+   # invalidating the entry, in milliseconds. Default value is '500'.
+
+   timeout = 500   
+   
+   # ttl = <integer>
+   # Controls how long a valid or invalid entry remains in the cache, in 
+   # milliseconds. Default value is '30000' (30 seconds).
+   
+   ttl = 30000
+
+   # rule <ip>[/<mask>]
+   # This is a rule that the target address is to match against. If no netmask
+   # is provided, /128 is assumed. You may have several rule sections, and the
+   # addresses may or may not overlap.
+
+   rule 1111:: {
+
+      # iface = <interface> 
+      # By setting this option, ndppd will forward the Neighbor Solicitation
+      # message to this interface and wait for a response. Only if a client
+      # responds with a Neighbor Advertisement message will the proxy respond.
+
+      # Note that if you do not provide an interface, this rule will match
+      # and immediately send a response through the proxy. It's recommended
+      # that you use the "iface" option as much as possible.
+
+      # Using a prefix <= /120 without an interface will trigger a notice.
+
+      iface = eth1
+   }
+
+   rule 1111::1/96 {
+      iface = eth2
+   }
+}
