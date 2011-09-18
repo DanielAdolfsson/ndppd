@@ -89,13 +89,24 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
    for(std::list<strong_ptr<rule> >::iterator it = _rules.begin();
        it != _rules.end(); it++)
    {
-      DBG("comparing %s against %s",
-         (*it)->addr().to_string().c_str(), taddr.to_string().c_str());
+      strong_ptr<rule> ru = *it;
 
-      if((*it)->addr() == taddr)
+      DBG("comparing %s against %s",
+          ru->addr().to_string().c_str(), taddr.to_string().c_str());
+
+      if(ru->addr() == taddr)
       {
          if(se.is_null())
             se = session::create(_ptr, saddr, daddr, taddr);
+
+         if(ru->ifa().is_null())
+         {
+            // This rule doesn't have an interface, and thus we'll consider
+            // it "static" and immediately send the response.
+
+            se->handle_advert();
+            return;
+         }
 
          se->add_iface((*it)->ifa());
       }

@@ -136,4 +136,9 @@ int session::status() const
    return _status;
 }
 
+void session::status(int val)
+{
+   _status = val;
+}
+
 __NDPPD_NS_END

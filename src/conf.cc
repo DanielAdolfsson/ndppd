@@ -77,10 +77,17 @@ bool conf::setup(cfg_t *cfg)
 
             std::string ifname(cfg_getstr(rule_cfg, "iface"));
 
-            if(ifname == "")
+            if(ifname.empty())
+            {
+               if(addr.prefix() <= 120)
+                  NCE("Static rule prefix /%d <= 120 - is this what you want?", addr.prefix());
+
                pr->add_rule(addr);
+            }
             else
+            {
                pr->add_rule(addr, iface::open_ifd(ifname));
+            }
          }
       }
    }

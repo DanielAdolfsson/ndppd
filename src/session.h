@@ -72,6 +72,8 @@ public:
 
    int status() const;
 
+   void status(int val);
+
    void handle_advert();
 
    void send_advert();
