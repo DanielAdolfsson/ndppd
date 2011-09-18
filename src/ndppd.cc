@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include <getopt.h>
@@ -51,6 +52,7 @@ int daemonize()
 int main(int argc, char *argv[], char *env[])
 {
    std::string config_path("/etc/ndppd.conf");
+   std::string pidfile;
    bool daemon = false;
 
    while(1)
@@ -64,7 +66,7 @@ int main(int argc, char *argv[], char *env[])
          { 0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "c:d", long_options, &opt);
+      c = getopt_long(argc, argv, "c:dp:", long_options, &opt);
 
       if(c == -1)
          break;
@@ -72,17 +74,15 @@ int main(int argc, char *argv[], char *env[])
       switch(c)
       {
       case 'c':
-         if(!optarg)
-         {
-            ERR("Invalid arguments");
-            return -1;
-         }
-
          config_path = optarg;
          break;
 
       case 'd':
          daemon = true;
+         break;
+
+      case 'p':
+         pidfile = optarg;
          break;
       }
    }
@@ -96,6 +96,14 @@ int main(int argc, char *argv[], char *env[])
          ERR("Failed to daemonize process");
          return 1;
       }
+   }
+
+   if(!pidfile.empty())
+   {
+      std::ofstream pf;
+      pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
+      pf << getpid() << std::endl;
+      pf.close();
    }
 
    NFO("ndppd (NDP Proxy Daemon) version " NDPPD_VERSION);
