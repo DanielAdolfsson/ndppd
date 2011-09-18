@@ -61,13 +61,14 @@
    Unfortunately, it doesn't support listing proxies, and as I said,
    only individual IPs are supported. No subnets.
 
-   'ndppd' circumvents this by listening for Neighbor Solicitation
-   messages on an interface, then query the internal interfaces for
-   that target IP before finally sending a Neighbor Advertisement
-   message. You can create rules to query one interface for one subnet,
-   and another interface for another. 'ndppd' can even respond directly
-   to Neighbor Solicitation messages without querying anything, should
-   you need that.
+   'ndppd' solves this by listening for Neighbor Solicitation messages 
+   on an interface, then query the internal interfaces for that target
+   IP before finally sending a Neighbor Advertisement message. 
+
+   You can create rules to query one interface for one subnet, and 
+   another interface for another. 'ndppd' can even respond directly to 
+   Neighbor Solicitation messages without querying anything, should you 
+   need that.
 
 ------------------------------------------------------------------------
 3. Dependencies
