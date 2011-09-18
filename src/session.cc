@@ -105,7 +105,7 @@ void session::send_solicit()
 
 void session::send_advert()
 {
-   _pr->ifa()->write_advert(_saddr, _taddr);
+   _pr->ifa()->write_advert(_saddr, _taddr, _pr->router());
 }
 
 void session::handle_advert()

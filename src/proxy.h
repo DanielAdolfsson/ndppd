@@ -40,6 +40,8 @@ private:
 
    std::list<strong_ptr<session> > _sessions;
 
+   bool _router;
+
    proxy();
 
 public:
@@ -57,6 +59,10 @@ public:
    strong_ptr<rule> add_rule(const address& addr);
 
    const strong_ptr<iface>& ifa() const;
+
+   bool router() const;
+
+   void router(bool val);
 };
 
 __NDPPD_NS_END

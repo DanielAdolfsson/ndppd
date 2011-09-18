@@ -98,6 +98,8 @@ int main(int argc, char *argv[], char *env[])
       }
    }
 
+   NFO("ndppd (NDP Proxy Daemon) version " NDPPD_VERSION);
+
    NFO("Using configuration file '%s'", config_path.c_str());
 
    if(!conf::load(config_path))

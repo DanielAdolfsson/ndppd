@@ -132,5 +132,15 @@ const strong_ptr<iface>& proxy::ifa() const
    return _ifa;
 }
 
+bool proxy::router() const
+{
+   return _router;
+}
+
+void proxy::router(bool val)
+{
+   _router = val;
+}
+
 __NDPPD_NS_END
 

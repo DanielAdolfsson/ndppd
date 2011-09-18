@@ -94,7 +94,7 @@ public:
    ssize_t write_solicit(const address& taddr);
 
    // Writes a NB_NEIGHBOR_ADVERT message to the _ifd socket;
-   ssize_t write_advert(const address& daddr, const address& taddr);
+   ssize_t write_advert(const address& daddr, const address& taddr, bool router);
 
    // Reads a NB_NEIGHBOR_SOLICIT message from the _pfd socket.
    ssize_t read_solicit(address& saddr, address& daddr, address& taddr);

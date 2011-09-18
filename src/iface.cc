@@ -416,7 +416,7 @@ ssize_t iface::write_solicit(const address& taddr)
    return write(_ifd, daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr) + 6);
 }
 
-ssize_t iface::write_advert(const address& daddr, const address& taddr)
+ssize_t iface::write_advert(const address& daddr, const address& taddr, bool router)
 {
    char buf[128];
 
@@ -432,7 +432,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr)
    opt->nd_opt_len          = 1;
 
    na->nd_na_type           = ND_NEIGHBOR_ADVERT;
-   na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED; // | ND_NA_FLAG_ROUTER;
+   na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED | (router ? ND_NA_FLAG_ROUTER : 0);
 
    memcpy(&na->nd_na_target, &taddr.const_addr(), sizeof(struct in6_addr));
 
