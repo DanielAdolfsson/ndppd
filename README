@@ -1,6 +1,128 @@
-ndppd - NDP Proxy Daemon
+                     ndppd - NDP Proxy Daemon
 
+                          Version 0.2-beta
 
+------------------------------------------------------------------------
+1. Legal
+------------------------------------------------------------------------
 
- 
- 
+   ndppd - NDP Proxy Daemon
+   Copyright (C) 2011  Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+  
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+  
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+  
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+------------------------------------------------------------------------
+2. About 'ndppd'
+------------------------------------------------------------------------
+
+   ndppd, or 'NDP Proxy Daemon', is a daemon (!!) that proxies NDP
+   (Neighbor Discovery Protocol) messages between interfaces. 
+
+   The Neighbor Discovery Protocol (NDP) is a protocol in the Internet 
+   Protocol Suite used with Internet Protocol Version 6 (IPv6). It 
+   operates in the Link Layer of the Internet model (RFC 1122) and is 
+   responsible for address autoconfiguration of nodes, discovery of 
+   other nodes on the link, determining the Link Layer addresses 
+   of other nodes, duplicate address detection, finding available 
+   routers and Domain Name System (DNS) servers, address prefix 
+   discovery, and maintaining reachability information about the paths 
+   to other active neighbor nodes (RFC 4861). (Wikipedia)
+
+   Before an IPv6 packet can be sent to a host, that host's link-layer
+   address must first be found. This is done by sending a Neighbor
+   Solicitation message containing the requested target IPv6 address
+   to a specific multicast address.  If a host have configured a
+   matching IP, that host will then respond with a Neighbor 
+   Advertisement message, and provide it's link-layer address. 
+
+   Let's say you want to route some IPs to another interface, and
+   your ISP isn't truly routing your subnet to your host. It means
+   that your host will have respond to Neighbor Solicitation messages
+   for IPs it haven't configured in order to be able to route them.
+
+   Linux have a limited support for proxying Neighbor Solicitation 
+   messages to other interfaces, by turning on 'proxy_ndp'. But in
+   order for this to work, each individual IP you want to proxy needs
+   to be added to the neighbor proxy table using:
+
+      ip -6 neigh add proxy <ip> dev <if>
+
+   Unfortunately, it doesn't support listing proxies, and as I said,
+   only individual IPs are supported. No subnets.
+
+   'ndppd' circumvents this by listening for Neighbor Solicitation
+   messages on an interface, then query the internal interfaces for
+   that target IP before finally sending a Neighbor Advertisement
+   message. You can create rules to query one interface for one subnet,
+   and another interface for another. 'ndppd' can even respond directly
+   to Neighbor Solicitation messages without querying anything, should
+   you need that.
+
+------------------------------------------------------------------------
+3. Dependencies
+------------------------------------------------------------------------
+
+   This daemon depends on 'libconfuse'. If you're running Debian or
+   Ubuntu you should be able to get that from the repositories.
+   
+      apt-get install libconfuse0-dev
+
+   You can get it here otherwise:
+      
+      http://www.nongnu.org/confuse/
+
+------------------------------------------------------------------------
+4. Compiling
+------------------------------------------------------------------------
+
+   First, make sure you have g++ and make installed.
+
+   It should be as easy as:
+
+      make all && make install
+
+   If you want to enable debugging, you can type:
+
+      make DEBUG=1 all
+   
+   Note that this version of the binary is much bigger, and the daemon
+   produces a lot of messages.
+
+------------------------------------------------------------------------
+5. Usage
+------------------------------------------------------------------------
+
+   Read through 'ndppd.conf.example' for guidelines how to configure
+   the daemon. 
+
+   Usage: ndppd [-d] [-c <config>]
+
+   If '-d' is specified, the daemon will 'daemonize' itself, and enable
+   syslogging.  With '-c' you can specify configuration file; the 
+   default location for it is '/etc/ndppd.conf'.
+
+------------------------------------------------------------------------
+5. Website and contact
+------------------------------------------------------------------------
+
+   Contact : Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+
+   Website : http://www.tuhox.com/ndppd 
+
+       Git : git://github.com/Tuhox/ndppd.git
+             https://github.com/Tuhox/ndppd
+
+If you want to report a bug, you can either send me a mail directly,
+or submit an issue on github.com.
+
