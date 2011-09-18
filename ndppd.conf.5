@@ -1,0 +1,79 @@
+.\" Process this file with
+.\" groff -man -Tascii ndppd.conf.5
+.\"
+.TH NDPPD\&.CONF 5 "9/18/2011" "NDP Proxy Daemon Manual" "NDP Proxy Daemon Manual"
+.SH NAME
+ndppd.conf \- configuration file for ndppd
+.SH DESCRIPTION
+The syntax is as follows:
+.PP
+.EX
+proxy eth0 {
+   rule 1234:5678::/96 {
+   }
+}
+.EE
+.PP
+The configuration file must contain one or more
+.B proxy
+sections, and each of these section must contain one or more
+.B rule
+sections.
+.PP
+The
+.B ndppd
+daemon listens on the interface specified as an argument to the
+.B proxy
+section. Once a
+.B Neighbor Solicitation
+message arrives, it will try to match the target address against
+the address specified as the argument of the
+.B rule
+section. 
+.SH OPTIONS
+.IP "proxy <interface>"
+Adds a proxy and binds it to the specified
+.IR interface .
+See below for information about
+.BR "proxy options" .
+.SH PROXY OPTIONS
+.IP "rule <address>"
+Adds a rule with the specified
+.I address
+to the proxy. It may be a an IP such as 1234::1 or a subnet such
+as 1111::/96. See below for information about
+.BR "rule options" .
+.IP "ttl <value>"
+Controls how long
+.B ndppd
+will cache an entry. This is in milliseconds, and the default value 
+is 30000 (30 seconds).
+.IP "timeout <value>"
+Controls how long
+.B ndppd
+will wait for a Neighbor Advertisement message after forwarding
+a Neighbor Solicitation message according to the rule. This is
+in milliseconds, and the default value is 500 (.5 second).
+.IP "router <yes|no>"
+Controls if
+.B ndppd
+should send the
+.I router
+bit when sending Neighbor Advertisement messages. The default
+value here is
+.B yes.
+.SH RULE OPTIONS
+.IP "iface <interface>"
+Specify which
+.I interface
+the Neighbor Solicitation message will be sent out through.
+If this option is not specified,
+.B ndppd
+will immediately answer with a Neighbor Advertisement message
+if the rule matches, without querying an interface. It's recommended
+that you set this value to avoid sending responses for IPs that does
+not exist.
+.SH AUTHOR
+Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+.SH "SEE ALSO"
+.BR ndppd(1)

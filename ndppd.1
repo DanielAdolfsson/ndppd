@@ -1,0 +1,59 @@
+.\" Process this file with
+.\" groff -man -Tascii ndppd.1
+.\"
+.TH NDPPD 1 "9/18/2011" "NDP Proxy Daemon Manual" "NDP Proxy Daemon Manual"
+.SH NAME
+ndppd \- NDP Proxy Daemon
+.SH SYNOPSIS
+.B ndppd [-d] [-c <config-file>]
+.SH DESCRIPTION
+.B ndppd
+frobnicates the bar library by tweaking internal
+symbol tables. By default it parses all baz segments
+and rearranges them in reverse order by time for the
+.BR xyzzy (1)
+linker to find them. The symdef entry is then compressed
+using the WBG (Whiz-Bang-Gizmo) algorithm.
+All files are processed in the order specified.
+.SH OPTIONS
+.IP "-c <config-file>"
+Use the alternate
+.I config-file
+instead of
+.IR /etc/ndppd.conf .
+.IP -d
+Daemonizes
+.B ndppd
+and puts it into the background. It also
+enables syslogging.
+.SH FILES
+.I /etc/ndppd.conf
+.RS
+Default configuration file. See
+.BR ndppd (5)
+for further details.
+.RE
+.SH BUGS
+No known bugs at the time of this writing.
+.SH LICENSE
+.EX
+Copyright (C) 2011  Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+.EE
+.SH AUTHOR
+Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+.SH "SEE ALSO"
+.BR ndppd.conf(5)
+
