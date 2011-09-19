@@ -40,7 +40,7 @@
    to other active neighbor nodes (RFC 4861). (Wikipedia)
 
    Before an IPv6 packet can be sent to a host, that host's link-layer
-   address must first be found. This is done by sending a Neighbor
+   address must first be discovered. This is done by sending a Neighbor
    Solicitation message containing the requested target IPv6 address
    to a specific multicast address.  If a host have configured a
    matching IP, that host will then respond with a Neighbor 
@@ -52,9 +52,10 @@
    for IPs it haven't configured in order to be able to route them.
 
    Linux have a limited support for proxying Neighbor Solicitation 
-   messages to other interfaces, by turning on 'proxy_ndp'. But in
-   order for this to work, each individual IP you want to proxy needs
-   to be added to the neighbor proxy table using:
+   messages by simply answering to any messages where the target IP 
+   can be found in the host's neighbor proxy table. To make this work 
+   you need to enable "proxy_ndp", and then add each single host to the
+   neighbor proxy table by typing something like:
 
       ip -6 neigh add proxy <ip> dev <if>
 
@@ -107,11 +108,17 @@
    Read through 'ndppd.conf.example' for guidelines how to configure
    the daemon. 
 
-   Usage: ndppd [-d] [-c <config>]
+   Usage: ndppd [-d] [-c <config>] [-p <pidfile>]
 
-   If '-d' is specified, the daemon will 'daemonize' itself, and enable
-   syslogging.  With '-c' you can specify configuration file; the 
-   default location for it is '/etc/ndppd.conf'.
+   -p <pidfile>
+         Create a pidfile at the specified location.
+
+   -c <config>
+         Read configuration from the specified location, instead of
+         the default which is /etc/ndppd.conf.
+
+   -d    Daemonize the process, putting it in the background.
+         Also enables syslogging.
 
 ------------------------------------------------------------------------
 5. Website and contact
