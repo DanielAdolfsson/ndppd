@@ -1,15 +1,14 @@
-PREFIX   =
-MANDIR   = ${PREFIX}/usr/share/man
-BINDIR   = ${PREFIX}/usr/local/bin
-
-install: all
-	mkdir -p ${BINDIR} ${MANDIR}
-	cp ndppd ${BINDIR}
-	chmod +x ${BINDIR}/ndppd
-	cp ndppd.1.gz ${MANDIR}/man1
-	cp ndppd.conf.5.gz ${MANDIR}/man5
+MANDIR  = ${DESTDIR}/usr/share/man
+SBINDIR = ${DESTDIR}/usr/sbin
 
 all: ndppd ndppd.1.gz ndppd.conf.5.gz
+
+install: all
+	mkdir -p ${SBINDIR} ${MANDIR} ${MANDIR}/man1 ${MANDIR}/man5
+	cp ndppd ${SBINDIR}
+	chmod +x ${SBINDIR}/ndppd
+	cp ndppd.1.gz ${MANDIR}/man1
+	cp ndppd.conf.5.gz ${MANDIR}/man5
 
 ndppd:
 	cd src && make all && cp ndppd ..
