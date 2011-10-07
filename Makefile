@@ -1,3 +1,9 @@
+ifdef DEBUG
+MFLAGS   = DEBUG=${DEBUG}
+else
+MFLAGS   =
+endif
+
 MANDIR  = ${DESTDIR}/usr/share/man
 SBINDIR = ${DESTDIR}/usr/sbin
 
@@ -11,7 +17,7 @@ install: all
 	cp ndppd.conf.5.gz ${MANDIR}/man5
 
 ndppd:
-	cd src && make all && cp ndppd ..
+	cd src && make ${MFLAGS} all && cp ndppd ..
 
 clean:
 	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz

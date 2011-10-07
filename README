@@ -1,6 +1,6 @@
                      ndppd - NDP Proxy Daemon
 
-                          Version 0.2-beta
+                          Version 0.2.1
 
 ------------------------------------------------------------------------
 1. Legal
@@ -26,8 +26,8 @@
 2. About 'ndppd'
 ------------------------------------------------------------------------
 
-   ndppd, or 'NDP Proxy Daemon', is a daemon (!!) that proxies NDP
-   (Neighbor Discovery Protocol) messages between interfaces. 
+   'ndppd', or NDP Proxy Daemon, is a daemon that proxies NDP (Neighbor 
+   Discovery Protocol) messages between interfaces.
 
    The Neighbor Discovery Protocol (NDP) is a protocol in the Internet 
    Protocol Suite used with Internet Protocol Version 6 (IPv6). It 
@@ -38,6 +38,9 @@
    routers and Domain Name System (DNS) servers, address prefix 
    discovery, and maintaining reachability information about the paths 
    to other active neighbor nodes (RFC 4861). (Wikipedia)
+
+   'ndppd' currently only supports Neighbor Solicitation Messages and 
+   Neighbor Advertisement Messages.
 
    Before an IPv6 packet can be sent to a host, that host's link-layer
    address must first be discovered. This is done by sending a Neighbor
