@@ -1,4 +1,6 @@
 #!/usr/bin/make -f
 
+export PREFIX=/usr
+
 %:
 	dh $@ 
