@@ -6,12 +6,14 @@ endif
 
 PREFIX  ?= /usr/local
 CXX     ?= g++
-LDFLAGS ?= -lconfuse
-OBJ     ?= src/log.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
-           src/rule.o src/session.o src/conf.o
 GZIP    ?= /bin/gzip
 MANDIR  ?= ${DESTDIR}${PREFIX}/share/man
 SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
+
+LIBS     = -lconfuse
+
+OBJS     = src/log.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
+           src/rule.o src/session.o src/conf.o
 
 all: ndppd ndppd.1.gz ndppd.conf.5.gz
 
@@ -28,11 +30,11 @@ ndppd.1.gz:
 ndppd.conf.5.gz:
 	${GZIP} < ndppd.conf.5 > ndppd.conf.5.gz
 
-ndppd: ${OBJ}
-	${CXX} -o ndppd ${LDFLAGS} ${OBJ}
+ndppd: ${OBJS}
+	${CXX} -o ndppd ${LDFLAGS} ${LIBS} ${OBJS}
 
 .cc.o:
 	${CXX} -c $(CXXFLAGS) -o $@ $<
 
 clean:
-	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz ${OBJ}
+	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz ${OBJS}
