@@ -7,7 +7,7 @@
 ------------------------------------------------------------------------
 
    ndppd - NDP Proxy Daemon
-   Copyright (C) 2011  Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+   Copyright (C) 2011  Daniel Adolfsson <daniel@priv.nu>
   
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -127,9 +127,9 @@
 5. Website and contact
 ------------------------------------------------------------------------
 
-   Contact : Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+   Contact : Daniel Adolfsson <daniel@priv.nu>
 
-   Website : http://www.tuhox.com/ndppd 
+   Website : http://www.priv.nu/projects/ndppd 
 
        Git : git://github.com/Tuhox/ndppd.git
              https://github.com/Tuhox/ndppd
