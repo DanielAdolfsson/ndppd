@@ -20,6 +20,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <cctype>
 
 #include <netinet/ip6.h>
 #include <arpa/inet.h>
