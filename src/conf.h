@@ -30,11 +30,11 @@ __NDPPD_NS_BEGIN
 class conf
 {
 private:
-   static bool setup(::cfg_t *cfg);
-   static void error_printf(::cfg_t *cfg, const char *fmt, va_list ap);
-   static int validate_rule(::cfg_t *cfg, ::cfg_opt_t *opt);
+    static bool setup(::cfg_t *cfg);
+    static void error_printf(::cfg_t *cfg, const char *fmt, va_list ap);
+    static int validate_rule(::cfg_t *cfg, ::cfg_opt_t *opt);
 public:
-   static bool load(const std::string& path);
+    static bool load(const std::string& path);
 };
 
 __NDPPD_NS_END

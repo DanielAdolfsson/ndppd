@@ -22,123 +22,125 @@
 
 __NDPPD_NS_BEGIN
 
-std::list<weak_ptr<session> > session::_sessions;
+std::list<std::weak_ptr<session> > session::_sessions;
 
 void session::update_all(int elapsed_time)
 {
-   for(std::list<weak_ptr<session> >::iterator it = _sessions.begin();
-       it != _sessions.end(); )
-   {
-      strong_ptr<session> se = *it++;
+    for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
+            it != _sessions.end(); ) {
+        std::shared_ptr<session> se = (*it++).lock();
 
-      if((se->_ttl -= elapsed_time) >= 0)
-         continue;
+        if ((se->_ttl -= elapsed_time) >= 0)
+            continue;
 
-      switch(se->_status)
-      {
-      case session::WAITING:
-         DBG("session is now invalid");
-         se->_status = session::INVALID;
-         se->_ttl    = se->_pr->ttl();
-         break;
+        switch (se->_status) {
+        case session::WAITING:
+            DBG("session is now invalid");
+            se->_status = session::INVALID;
+            se->_ttl    = se->_pr->ttl();
+            break;
 
-      default:
-         se->_pr->remove_session(se);
-      }
-   }
+        default:
+            se->_pr->remove_session(se);
+        }
+    }
 }
 
 session::~session()
 {
-   DBG("session::~session() this=%x", this);
+    DBG("session::~session() this=%x", this);
 
-   _sessions.remove(_ptr);
+    for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
+            it != _sessions.end(); it++) {
+        if (it->lock() == _ptr.lock()) {
+            _sessions.erase(it);
+            break;
+        }        
+    }
 
-   for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
-       it != _ifaces.end(); it++)
-   {
-      (*it)->remove_session(_ptr);
-   }
+    for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
+            it != _ifaces.end(); it++) {
+        (*it)->remove_session(_ptr.lock());
+    }
 }
 
-strong_ptr<session> session::create(const strong_ptr<proxy>& pr, const address& saddr,
-   const address& daddr, const address& taddr)
+std::shared_ptr<session> session::create(const std::shared_ptr<proxy>& pr, const address& saddr,
+    const address& daddr, const address& taddr)
 {
-   strong_ptr<session> se(new session());
+    std::shared_ptr<session> se(new session());
 
-   se->_ptr   = se;
-   se->_pr    = pr;
-   se->_saddr = saddr;
-   se->_taddr = taddr;
-   se->_daddr = daddr;
-   se->_ttl   = pr->timeout();
+    se->_ptr   = se;
+    se->_pr    = pr;
+    se->_saddr = saddr;
+    se->_taddr = taddr;
+    se->_daddr = daddr;
+    se->_ttl   = pr->timeout();
 
-   _sessions.push_back(se);
+    _sessions.push_back(se);
 
-   DBG("session::create() pr=%x, saddr=%s, daddr=%s, taddr=%s, =%x",
-      (proxy *)pr, saddr.to_string().c_str(), daddr.to_string().c_str(),
-      taddr.to_string().c_str(), (session *)se);
+    DBG("session::create() pr=%x, saddr=%s, daddr=%s, taddr=%s, =%x",
+        (proxy *)pr, saddr.to_string().c_str(), daddr.to_string().c_str(),
+        taddr.to_string().c_str(), (session *)se);
 
-   return se;
+    return se;
 }
 
-void session::add_iface(const strong_ptr<iface>& ifa)
+void session::add_iface(const std::shared_ptr<iface>& ifa)
 {
-   if(std::find(_ifaces.begin(), _ifaces.end(), ifa) != _ifaces.end())
-      return;
+    if (std::find(_ifaces.begin(), _ifaces.end(), ifa) != _ifaces.end())
+        return;
 
-   ifa->add_session(_ptr);
-   _ifaces.push_back(ifa);
+    ifa->add_session(_ptr.lock());
+    _ifaces.push_back(ifa);
 }
 
 void session::send_solicit()
 {
-   DBG("session::send_solicit() (%d)", _ifaces.size());
+    DBG("session::send_solicit() (%d)", _ifaces.size());
 
-   for(std::list<strong_ptr<iface> >::iterator it = _ifaces.begin();
-       it != _ifaces.end(); it++)
-   {
-      DBG(" - %s", (*it)->name().c_str());
-      (*it)->write_solicit(_taddr);
-   }
+    for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
+            it != _ifaces.end(); it++) {
+        DBG(" - %s", (*it)->name().c_str());
+        (*it)->write_solicit(_taddr);
+    }
 }
 
 void session::send_advert()
 {
-   _pr->ifa()->write_advert(_saddr, _taddr, _pr->router());
+    _pr->ifa()->write_advert(_saddr, _taddr, _pr->router());
 }
 
 void session::handle_advert()
 {
-   _status = VALID;
-   _ttl    = _pr->ttl();
+    _status = VALID;
+    _ttl    = _pr->ttl();
 
-   send_advert();
+    send_advert();
 }
 
 const address& session::taddr() const
 {
-   return _taddr;
+    return _taddr;
 }
 
 const address& session::saddr() const
 {
-   return _saddr;
+    return _saddr;
 }
 
 const address& session::daddr() const
 {
-   return _daddr;
+    return _daddr;
 }
 
 int session::status() const
 {
-   return _status;
+    return _status;
 }
 
 void session::status(int val)
 {
-   _status = val;
+    _status = val;
 }
 
 __NDPPD_NS_END

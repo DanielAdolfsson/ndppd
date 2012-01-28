@@ -32,265 +32,245 @@ __NDPPD_NS_BEGIN
 
 address::address()
 {
-   _addr.s6_addr32[0] = 0;
-   _addr.s6_addr32[1] = 0;
-   _addr.s6_addr32[2] = 0;
-   _addr.s6_addr32[3] = 0;
-
-   _mask.s6_addr32[0] = 0xffffffff;
-   _mask.s6_addr32[1] = 0xffffffff;
-   _mask.s6_addr32[2] = 0xffffffff;
-   _mask.s6_addr32[3] = 0xffffffff;
+    reset();
 }
 
 address::address(const address& addr)
 {
-   _addr.s6_addr32[0] = addr._addr.s6_addr32[0];
-   _addr.s6_addr32[1] = addr._addr.s6_addr32[1];
-   _addr.s6_addr32[2] = addr._addr.s6_addr32[2];
-   _addr.s6_addr32[3] = addr._addr.s6_addr32[3];
+    _addr.s6_addr32[0] = addr._addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr._addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr._addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr._addr.s6_addr32[3];
 
-   _mask.s6_addr32[0] = addr._mask.s6_addr32[0];
-   _mask.s6_addr32[1] = addr._mask.s6_addr32[1];
-   _mask.s6_addr32[2] = addr._mask.s6_addr32[2];
-   _mask.s6_addr32[3] = addr._mask.s6_addr32[3];
+    _mask.s6_addr32[0] = addr._mask.s6_addr32[0];
+    _mask.s6_addr32[1] = addr._mask.s6_addr32[1];
+    _mask.s6_addr32[2] = addr._mask.s6_addr32[2];
+    _mask.s6_addr32[3] = addr._mask.s6_addr32[3];
 }
 
 address::address(const std::string& str)
 {
-   if(!parse_string(str))
-   {
-      _addr.s6_addr32[0] = 0;
-      _addr.s6_addr32[1] = 0;
-      _addr.s6_addr32[2] = 0;
-      _addr.s6_addr32[3] = 0;
-
-      _mask.s6_addr32[0] = 0xffffffff;
-      _mask.s6_addr32[1] = 0xffffffff;
-      _mask.s6_addr32[2] = 0xffffffff;
-      _mask.s6_addr32[3] = 0xffffffff;
-   }
+    parse_string(str);
 }
 
 address::address(const char *str)
 {
-   if(!parse_string(str))
-   {
-      _addr.s6_addr32[0] = 0;
-      _addr.s6_addr32[1] = 0;
-      _addr.s6_addr32[2] = 0;
-      _addr.s6_addr32[3] = 0;
-
-      _mask.s6_addr32[0] = 0xffffffff;
-      _mask.s6_addr32[1] = 0xffffffff;
-      _mask.s6_addr32[2] = 0xffffffff;
-      _mask.s6_addr32[3] = 0xffffffff;
-   }
+    parse_string(str);
 }
 
 address::address(const in6_addr& addr)
 {
-   _addr.s6_addr32[0] = addr.s6_addr32[0];
-   _addr.s6_addr32[1] = addr.s6_addr32[1];
-   _addr.s6_addr32[2] = addr.s6_addr32[2];
-   _addr.s6_addr32[3] = addr.s6_addr32[3];
+    _addr.s6_addr32[0] = addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr.s6_addr32[3];
 
-   _mask.s6_addr32[0] = 0xffffffff;
-   _mask.s6_addr32[1] = 0xffffffff;
-   _mask.s6_addr32[2] = 0xffffffff;
-   _mask.s6_addr32[3] = 0xffffffff;
+    _mask.s6_addr32[0] = 0xffffffff;
+    _mask.s6_addr32[1] = 0xffffffff;
+    _mask.s6_addr32[2] = 0xffffffff;
+    _mask.s6_addr32[3] = 0xffffffff;
 }
 
 address::address(const in6_addr& addr, const in6_addr& mask)
 {
-   _addr.s6_addr32[0] = addr.s6_addr32[0];
-   _addr.s6_addr32[1] = addr.s6_addr32[1];
-   _addr.s6_addr32[2] = addr.s6_addr32[2];
-   _addr.s6_addr32[3] = addr.s6_addr32[3];
+    _addr.s6_addr32[0] = addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr.s6_addr32[3];
 
-   _mask.s6_addr32[0] = mask.s6_addr32[0];
-   _mask.s6_addr32[1] = mask.s6_addr32[1];
-   _mask.s6_addr32[2] = mask.s6_addr32[2];
-   _mask.s6_addr32[3] = mask.s6_addr32[3];
+    _mask.s6_addr32[0] = mask.s6_addr32[0];
+    _mask.s6_addr32[1] = mask.s6_addr32[1];
+    _mask.s6_addr32[2] = mask.s6_addr32[2];
+    _mask.s6_addr32[3] = mask.s6_addr32[3];
 }
 
 address::address(const in6_addr& addr, int pf)
 {
-   _addr.s6_addr32[0] = addr.s6_addr32[0];
-   _addr.s6_addr32[1] = addr.s6_addr32[1];
-   _addr.s6_addr32[2] = addr.s6_addr32[2];
-   _addr.s6_addr32[3] = addr.s6_addr32[3];
+    _addr.s6_addr32[0] = addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr.s6_addr32[3];
 
-   prefix(pf);
+    prefix(pf);
 }
 
 bool address::operator==(const address& addr) const
 {
-   return !(((_addr.s6_addr32[0] ^ addr._addr.s6_addr32[0]) & _mask.s6_addr32[0]) |
-            ((_addr.s6_addr32[1] ^ addr._addr.s6_addr32[1]) & _mask.s6_addr32[1]) |
-            ((_addr.s6_addr32[2] ^ addr._addr.s6_addr32[2]) & _mask.s6_addr32[2]) |
-            ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
-}
-
-bool address::operator!=(const address& addr) const
-{
-   return !!(((_addr.s6_addr32[0] ^ addr._addr.s6_addr32[0]) & _mask.s6_addr32[0]) |
+    return !(((_addr.s6_addr32[0] ^ addr._addr.s6_addr32[0]) & _mask.s6_addr32[0]) |
              ((_addr.s6_addr32[1] ^ addr._addr.s6_addr32[1]) & _mask.s6_addr32[1]) |
              ((_addr.s6_addr32[2] ^ addr._addr.s6_addr32[2]) & _mask.s6_addr32[2]) |
              ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
 }
 
+bool address::operator!=(const address& addr) const
+{
+    return !!(((_addr.s6_addr32[0] ^ addr._addr.s6_addr32[0]) & _mask.s6_addr32[0]) |
+              ((_addr.s6_addr32[1] ^ addr._addr.s6_addr32[1]) & _mask.s6_addr32[1]) |
+              ((_addr.s6_addr32[2] ^ addr._addr.s6_addr32[2]) & _mask.s6_addr32[2]) |
+              ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
+}
+
+void address::reset()
+{
+    _addr.s6_addr32[0] = 0;
+    _addr.s6_addr32[1] = 0;
+    _addr.s6_addr32[2] = 0;
+    _addr.s6_addr32[3] = 0;
+
+    _mask.s6_addr32[0] = 0xffffffff;
+    _mask.s6_addr32[1] = 0xffffffff;
+    _mask.s6_addr32[2] = 0xffffffff;
+    _mask.s6_addr32[3] = 0xffffffff;
+}
+
 int address::prefix() const
 {
-   if(!_mask.s6_addr[0])
-      return 0;
+    if (!_mask.s6_addr[0])
+        return 0;
 
-   for(int p = 0; p < 128; p++)
-   {
-      int byi = p / 8, bii = 7 - (p % 8);
-      if(!(_mask.s6_addr[byi] & (1 << bii)))
-         return p;
-   }
+    for (int p = 0; p < 128; p++) {
+        int byi = p / 8, bii = 7 - (p % 8);
+        if (!(_mask.s6_addr[byi] & (1 << bii)))
+            return p;
+    }
 
-   return 128;
+    return 128;
 }
 
 void address::prefix(int pf)
 {
-   if((pf < 0) || (pf > 128))
-      return;
+    if ((pf < 0) || (pf > 128))
+        return;
 
-   _mask.s6_addr32[0] = 0;
-   _mask.s6_addr32[1] = 0;
-   _mask.s6_addr32[2] = 0;
-   _mask.s6_addr32[3] = 0;
+    _mask.s6_addr32[0] = 0;
+    _mask.s6_addr32[1] = 0;
+    _mask.s6_addr32[2] = 0;
+    _mask.s6_addr32[3] = 0;
 
-   while(pf--)
-   {
-      int byi = pf / 8, bii = 7 - (pf % 8);
-      _mask.s6_addr[byi] |= 1 << bii;
-   }
+    while (pf--) {
+        int byi = pf / 8, bii = 7 - (pf % 8);
+        _mask.s6_addr[byi] |= 1 << bii;
+    }
 }
 
 const std::string address::to_string() const
 {
-   char buf[INET6_ADDRSTRLEN + 8];
+    char buf[INET6_ADDRSTRLEN + 8];
 
-   if(!inet_ntop(AF_INET6, &_addr, buf, INET6_ADDRSTRLEN))
-      return "::1";
+    if (!inet_ntop(AF_INET6, &_addr, buf, INET6_ADDRSTRLEN))
+        return "::1";
 
-   // TODO: What to do about invalid ip?
+    // TODO: What to do about invalid ip?
 
-   int p;
+    int p;
 
-   if((p = prefix()) < 128)
-      sprintf(buf + strlen(buf), "/%d", p);
+    if ((p = prefix()) < 128)
+        sprintf(buf + strlen(buf), "/%d", p);
 
-   return buf;
+    return buf;
 }
 
 bool address::parse_string(const std::string& str)
 {
-   char buf[INET6_ADDRSTRLEN], *b;
-   int sz, pfx;
+    char buf[INET6_ADDRSTRLEN], *b;
+    int sz, pfx;
 
-   sz = 0;
-   b  = buf;
+    sz = 0;
+    b  = buf;
 
-   const char *p = str.c_str();
+    reset();
 
-   while(*p && isspace(*p))
-      p++;
+    const char *p = str.c_str();
 
-   while(*p)
-   {
-      if((*p == '/') || isspace(*p))
-         break;
+    while (*p && isspace(*p))
+        p++;
 
-      if((*p != ':') && !isxdigit(*p))
-         return false;
+    while (*p) {
+        if ((*p == '/') || isspace(*p))
+            break;
 
-      if(sz >= (INET6_ADDRSTRLEN - 1))
-         return false;
+        if ((*p != ':') && !isxdigit(*p))
+            return false;
 
-      *b++ = *p++;
+        if (sz >= (INET6_ADDRSTRLEN - 1))
+            return false;
 
-      sz++;
-   }
+        *b++ = *p++;
 
-   *b = '\0';
+        sz++;
+    }
 
-   if(inet_pton(AF_INET6, buf, &_addr) <= 0)
-      return false;
+    *b = '\0';
 
-   while(*p && isspace(*p))
-      p++;
+    if (inet_pton(AF_INET6, buf, &_addr) <= 0)
+        return false;
 
-   if(*p == '\0')
-   {
-      _mask.s6_addr32[0] = 0xffffffff;
-      _mask.s6_addr32[1] = 0xffffffff;
-      _mask.s6_addr32[2] = 0xffffffff;
-      _mask.s6_addr32[3] = 0xffffffff;
-      return true;
-   }
+    while (*p && isspace(*p))
+        p++;
 
-   if(*p++ != '/')
-      return false;
+    if (*p == '\0') {
+        _mask.s6_addr32[0] = 0xffffffff;
+        _mask.s6_addr32[1] = 0xffffffff;
+        _mask.s6_addr32[2] = 0xffffffff;
+        _mask.s6_addr32[3] = 0xffffffff;
+        return true;
+    }
 
-   while(*p && isspace(*p))
-      p++;
+    if (*p++ != '/')
+        return false;
 
-   sz = 0;
-   b  = buf;
+    while (*p && isspace(*p))
+        p++;
 
-   while(*p)
-   {
-      if(!isdigit(*p))
-         return false;
+    sz = 0;
+    b  = buf;
 
-      if(sz > 3)
-         return false;
+    while (*p) {
+        if (!isdigit(*p))
+            return false;
 
-      *b++ = *p++;
-      sz++;
-   }
+        if (sz > 3)
+            return false;
 
-   *b = '\0';
+        *b++ = *p++;
+        sz++;
+    }
 
-   prefix(atoi(buf));
+    *b = '\0';
 
-   return true;
+    prefix(atoi(buf));
+
+    return true;
 }
 
 address::operator std::string() const
 {
-   return to_string();
+    return to_string();
 }
 
 struct in6_addr& address::addr()
 {
-   return _addr;
+    return _addr;
 }
 
 const struct in6_addr& address::const_addr() const
 {
-   return _addr;
+    return _addr;
 }
 
 struct in6_addr& address::mask()
 {
-   return _mask;
+    return _mask;
 }
 
 bool address::is_multicast() const
 {
-   return _addr.s6_addr[0] == 0xff;
+    return _addr.s6_addr[0] == 0xff;
 }
 
 bool address::is_unicast() const
 {
-   return _addr.s6_addr[0] != 0xff;
+    return _addr.s6_addr[0] != 0xff;
 }
 
 __NDPPD_NS_END

@@ -32,47 +32,47 @@ class rule;
 class proxy
 {
 private:
-   weak_ptr<proxy> _ptr;
+    std::weak_ptr<proxy> _ptr;
 
-   strong_ptr<iface> _ifa;
+    std::shared_ptr<iface> _ifa;
 
-   std::list<strong_ptr<rule> > _rules;
+    std::list<std::shared_ptr<rule> > _rules;
 
-   std::list<strong_ptr<session> > _sessions;
+    std::list<std::shared_ptr<session> > _sessions;
 
-   bool _router;
+    bool _router;
 
-   int _ttl, _timeout;
+    int _ttl, _timeout;
 
-   proxy();
+    proxy();
 
 public:
-   static strong_ptr<proxy> create(const strong_ptr<iface>& ifa);
+    static std::shared_ptr<proxy> create(const std::shared_ptr<iface>& ifa);
 
-   static strong_ptr<proxy> open(const std::string& ifn);
+    static std::shared_ptr<proxy> open(const std::string& ifn);
 
-   void handle_solicit(const address& saddr, const address& daddr,
-      const address& taddr);
+    void handle_solicit(const address& saddr, const address& daddr,
+        const address& taddr);
 
-   void remove_session(const strong_ptr<session>& se);
+    void remove_session(const std::shared_ptr<session>& se);
 
-   strong_ptr<rule> add_rule(const address& addr, const strong_ptr<iface>& ifa);
+    std::shared_ptr<rule> add_rule(const address& addr, const std::shared_ptr<iface>& ifa);
 
-   strong_ptr<rule> add_rule(const address& addr);
+    std::shared_ptr<rule> add_rule(const address& addr);
 
-   const strong_ptr<iface>& ifa() const;
+    const std::shared_ptr<iface>& ifa() const;
 
-   bool router() const;
+    bool router() const;
 
-   void router(bool val);
+    void router(bool val);
 
-   int timeout() const;
+    int timeout() const;
 
-   void timeout(int val);
+    void timeout(int val);
 
-   int ttl() const;
+    int ttl() const;
 
-   void ttl(int val);
+    void ttl(int val);
 };
 
 __NDPPD_NS_END

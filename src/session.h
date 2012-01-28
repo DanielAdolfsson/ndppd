@@ -28,59 +28,59 @@ class iface;
 class session
 {
 private:
-   weak_ptr<session> _ptr;
+    std::weak_ptr<session> _ptr;
 
-   strong_ptr<proxy> _pr;
+    std::shared_ptr<proxy> _pr;
 
-   address _saddr, _daddr, _taddr;
+    address _saddr, _daddr, _taddr;
 
-   // An array of interfaces this session is monitoring for
-   // ND_NEIGHBOR_ADVERT on.
-   std::list<strong_ptr<iface> > _ifaces;
+    // An array of interfaces this session is monitoring for
+    // ND_NEIGHBOR_ADVERT on.
+    std::list<std::shared_ptr<iface> > _ifaces;
 
-   // The remaining time in miliseconds the object will stay in the
-   // interface's session array or cache.
-   int _ttl;
+    // The remaining time in miliseconds the object will stay in the
+    // interface's session array or cache.
+    int _ttl;
 
-   int _status;
+    int _status;
 
-   static std::list<weak_ptr<session> > _sessions;
+    static std::list<std::weak_ptr<session> > _sessions;
 
 public:
-   enum
-   {
-      WAITING, // Waiting for an advert response.
-      VALID,   // Valid;
-      INVALID  // Invalid;
-   };
+    enum
+    {
+        WAITING, // Waiting for an advert response.
+        VALID,   // Valid;
+        INVALID  // Invalid;
+    };
 
-   static void update_all(int elapsed_time);
+    static void update_all(int elapsed_time);
 
-   // Destructor.
-   ~session();
+    // Destructor.
+    ~session();
 
-   static strong_ptr<session> create(const strong_ptr<proxy>& pr, const address& saddr,
-      const address& daddr, const address& taddr);
+    static std::shared_ptr<session> create(const std::shared_ptr<proxy>& pr, const address& saddr,
+        const address& daddr, const address& taddr);
 
-   void add_iface(const strong_ptr<iface>& ifa);
+    void add_iface(const std::shared_ptr<iface>& ifa);
 
-   const address& taddr() const;
+    const address& taddr() const;
 
-   const address& daddr() const;
+    const address& daddr() const;
 
-   const address& saddr() const;
+    const address& saddr() const;
 
-   int status() const;
+    int status() const;
 
-   void status(int val);
+    void status(int val);
 
-   void handle_advert();
+    void handle_advert();
 
-   void send_advert();
+    void send_advert();
 
-   void send_solicit();
+    void send_solicit();
 
-   void refesh();
+    void refesh();
 
 
 };

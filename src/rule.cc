@@ -28,51 +28,51 @@ rule::rule()
 {
 }
 
-strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr, const strong_ptr<iface>& ifa)
+std::shared_ptr<rule> rule::create(const std::shared_ptr<proxy>& pr, const address& addr, const std::shared_ptr<iface>& ifa)
 {
-   strong_ptr<rule> ru(new rule());
-   ru->_ptr  = ru;
-   ru->_pr   = pr;
-   ru->_ifa  = ifa;
-   ru->_addr = addr;
+    std::shared_ptr<rule> ru(new rule());
+    ru->_ptr  = ru;
+    ru->_pr   = pr;
+    ru->_ifa  = ifa;
+    ru->_addr = addr;
 
-   DBG("rule::create() if=%s, addr=%s",
-       pr->ifa()->name().c_str(), addr.to_string().c_str());
+    DBG("rule::create() if=%s, addr=%s",
+         pr->ifa()->name().c_str(), addr.to_string().c_str());
 
-   return ru;
+    return ru;
 }
 
-strong_ptr<rule> rule::create(const strong_ptr<proxy>& pr, const address& addr)
+std::shared_ptr<rule> rule::create(const std::shared_ptr<proxy>& pr, const address& addr)
 {
-   strong_ptr<rule> ru(new rule());
-   ru->_ptr   = ru;
-   ru->_pr    = pr;
-   ru->_addr  = addr;
+    std::shared_ptr<rule> ru(new rule());
+    ru->_ptr   = ru;
+    ru->_pr    = pr;
+    ru->_addr  = addr;
 
-   DBG("rule::create() if=%s, addr=%s",
-       pr->ifa()->name().c_str(), addr.to_string().c_str());
+    DBG("rule::create() if=%s, addr=%s",
+         pr->ifa()->name().c_str(), addr.to_string().c_str());
 
-   return ru;
+    return ru;
 }
 
 const address& rule::addr() const
 {
-   return _addr;
+    return _addr;
 }
 
-strong_ptr<iface> rule::ifa() const
+std::shared_ptr<iface> rule::ifa() const
 {
-   return _ifa;
+    return _ifa;
 }
 
 bool rule::is_static() const
 {
-   return !!_ifa;
+    return !!_ifa;
 }
 
 bool rule::check(const address& addr) const
 {
-   return _addr == addr;
+    return _addr == addr;
 }
 
 __NDPPD_NS_END

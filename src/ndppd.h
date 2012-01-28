@@ -17,6 +17,7 @@
 #define __NDPPD_H
 
 #include <netinet/ip6.h>
+#include <memory>
 
 #define __NDPPD_NS_BEGIN   namespace ndppd {
 #define __NDPPD_NS_END     }
@@ -26,7 +27,6 @@
 #include <assert.h>
 
 #include "log.h"
-#include "ptr.h"
 #include "conf.h"
 #include "address.h"
 

@@ -1,7 +1,7 @@
 ifdef DEBUG
-CXXFLAGS ?= -g -DDEBUG
+CXXFLAGS ?= -g -std=c++0x -DDEBUG
 else
-CXXFLAGS ?= -O3
+CXXFLAGS ?= -O3 -std=c++0x
 endif
 
 PREFIX  ?= /usr/local

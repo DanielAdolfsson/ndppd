@@ -35,16 +35,16 @@ __NDPPD_NS_BEGIN
 class log
 {
 private:
-   static const char *_level_str[];
+    static const char *_level_str[];
 
-   static bool _syslog;
+    static bool _syslog;
 
 public:
-   static void puts(int level, const char *str);
+    static void puts(int level, const char *str);
 
-   static void printf(int level, const char *fmt, ...);
+    static void printf(int level, const char *fmt, ...);
 
-   static void syslog(bool enable);
+    static void syslog(bool enable);
 };
 
 __NDPPD_NS_END

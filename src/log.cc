@@ -25,68 +25,66 @@ __NDPPD_NS_BEGIN
 
 const char *log::_level_str[] =
 {
-   "fatal",
-   "alert",
-   "critical",
-   "error",
-   "warning",
-   "notice",
-   "info",
-   "debug"
+    "fatal",
+    "alert",
+    "critical",
+    "error",
+    "warning",
+    "notice",
+    "info",
+    "debug"
 };
 
 bool log::_syslog = false;
 
 void log::puts(int level, const char *str)
 {
-   const char *ls;
+    const char *ls;
 
-   if((level < 0) || (level > LOG_DEBUG))
-      ls = "unknown";
-   else
-      ls = _level_str[level];
+    if ((level < 0) || (level > LOG_DEBUG))
+        ls = "unknown";
+    else
+        ls = _level_str[level];
 
-   if(_syslog)
-      ::syslog(level, "(%s) %s", ls, str);
-   else
-      fprintf(stderr, "(% 8s) %s\n", ls, str);
+    if (_syslog)
+        ::syslog(level, "(%s) %s", ls, str);
+    else
+        fprintf(stderr, "(% 8s) %s\n", ls, str);
 }
 
 void log::printf(int level, const char *fmt, ...)
 {
-   char buf[256];
-   va_list args;
-   int ret;
+    char buf[256];
+    va_list args;
+    int ret;
 
-   va_start(args, fmt);
+    va_start(args, fmt);
 
-   if(vsnprintf(buf, sizeof(buf), fmt, args) > 0)
-   {
-      puts(level, buf);
-   }
+    if (vsnprintf(buf, sizeof(buf), fmt, args) > 0) {
+        puts(level, buf);
+    }
 
-   va_end(args);
+    va_end(args);
 }
 
 void log::syslog(bool sl)
 {
-   if(sl == _syslog)
-      return;
+    if (sl == _syslog)
+        return;
 
-   if(_syslog = sl)
-   {
+    if (_syslog = sl) {
 #ifdef DEBUG
-      setlogmask(LOG_UPTO(LOG_DEBUG));
-      openlog("ndppd", LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
+        setlogmask(LOG_UPTO(LOG_DEBUG));
+        openlog("ndppd", LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
 #else
-      setlogmask(LOG_UPTO(LOG_INFO));
-      openlog("ndppd", LOG_CONS, LOG_USER);
+        setlogmask(LOG_UPTO(LOG_INFO));
+        openlog("ndppd", LOG_CONS, LOG_USER);
 #endif
-   }
-   else
-   {
-      closelog();
-   }
+    }
+    else
+    {
+        closelog();
+    }
 }
 
 __NDPPD_NS_END

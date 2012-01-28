@@ -29,111 +29,105 @@ using namespace ndppd;
 
 int daemonize()
 {
-   pid_t pid = fork();
+    pid_t pid = fork();
 
-   if(pid < 0)
-      return -1;
+    if (pid < 0)
+        return -1;
 
-   if(pid > 0)
-      exit(0);
+    if (pid > 0)
+        exit(0);
 
-   pid_t sid = setsid();
+    pid_t sid = setsid();
 
-   if(sid < 0)
-      return -1;
+    if (sid < 0)
+        return -1;
 
-   close(STDIN_FILENO);
-   close(STDOUT_FILENO);
-   close(STDERR_FILENO);
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
 
-   return 0;
+    return 0;
 }
 
 int main(int argc, char *argv[], char *env[])
 {
-   std::string config_path("/etc/ndppd.conf");
-   std::string pidfile;
-   bool daemon = false;
+    std::string config_path("/etc/ndppd.conf");
+    std::string pidfile;
+    bool daemon = false;
 
-   while(1)
-   {
-      int c, opt;
+    while (1) {
+        int c, opt;
 
-      static struct option long_options[] =
-      {
-         { "config", 1, 0, 'c' },
-         { "daemon", 0, 0, 'd' },
-         { 0, 0, 0, 0}
-      };
+        static struct option long_options[] =
+        {
+            { "config", 1, 0, 'c' },
+            { "daemon", 0, 0, 'd' },
+            { 0, 0, 0, 0}
+        };
 
-      c = getopt_long(argc, argv, "c:dp:", long_options, &opt);
+        c = getopt_long(argc, argv, "c:dp:", long_options, &opt);
 
-      if(c == -1)
-         break;
+        if (c == -1)
+            break;
 
-      switch(c)
-      {
-      case 'c':
-         config_path = optarg;
-         break;
+        switch (c) {
+        case 'c':
+            config_path = optarg;
+            break;
 
-      case 'd':
-         daemon = true;
-         break;
+        case 'd':
+            daemon = true;
+            break;
 
-      case 'p':
-         pidfile = optarg;
-         break;
-      }
-   }
+        case 'p':
+            pidfile = optarg;
+            break;
+        }
+    }
 
-   if(daemon)
-   {
-      log::syslog(true);
+    if (daemon) {
+        log::syslog(true);
 
-      if(daemonize() < 0)
-      {
-         ERR("Failed to daemonize process");
-         return 1;
-      }
-   }
+        if (daemonize() < 0) {
+            ERR("Failed to daemonize process");
+            return 1;
+        }
+    }
 
-   if(!pidfile.empty())
-   {
-      std::ofstream pf;
-      pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
-      pf << getpid() << std::endl;
-      pf.close();
-   }
+    if (!pidfile.empty()) {
+        std::ofstream pf;
+        pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
+        pf << getpid() << std::endl;
+        pf.close();
+    }
 
-   NFO("ndppd (NDP Proxy Daemon) version " NDPPD_VERSION);
+    NFO("ndppd (NDP Proxy Daemon) version " NDPPD_VERSION);
 
-   NFO("Using configuration file '%s'", config_path.c_str());
+    NFO("Using configuration file '%s'", config_path.c_str());
 
-   if(!conf::load(config_path))
-      return -1;
+    if (!conf::load(config_path))
+        return -1;
 
-   struct timeval t1, t2;
+    struct timeval t1, t2;
 
-   gettimeofday(&t1, 0);
+    gettimeofday(&t1, 0);
 
-   while(iface::poll_all() >= 0)
-   {
-      int elapsed_time;
-      gettimeofday(&t2, 0);
+    while (iface::poll_all() >= 0) {
+        int elapsed_time;
+        gettimeofday(&t2, 0);
 
-      elapsed_time =
-         ((t2.tv_sec  - t1.tv_sec)  * 1000) +
-         ((t2.tv_usec - t1.tv_usec) / 1000);
+        elapsed_time =
+            ((t2.tv_sec  - t1.tv_sec)  * 1000) +
+            ((t2.tv_usec - t1.tv_usec) / 1000);
 
-      t1.tv_sec  = t2.tv_sec;
-      t1.tv_usec = t2.tv_usec;
+        t1.tv_sec  = t2.tv_sec;
+        t1.tv_usec = t2.tv_usec;
 
-      session::update_all(elapsed_time);
-   }
+        session::update_all(elapsed_time);
+    }
 
-   ERR("iface::poll_all() failed");
+    ERR("iface::poll_all() failed");
 
-   return 0;
+    return 0;
 }
 

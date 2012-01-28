@@ -29,41 +29,43 @@ class iface;
 class address
 {
 private:
-   struct in6_addr _addr, _mask;
+    struct in6_addr _addr, _mask;
 
 public:
-   address();
-   address(const address& addr);
-   address(const std::string& str);
-   address(const char *str);
-   address(const in6_addr& addr);
-   address(const in6_addr& addr, const in6_addr& mask);
-   address(const in6_addr& addr, int prefix);
+    address();
+    address(const address& addr);
+    address(const std::string& str);
+    address(const char *str);
+    address(const in6_addr& addr);
+    address(const in6_addr& addr, const in6_addr& mask);
+    address(const in6_addr& addr, int prefix);
 
-   struct in6_addr& addr();
+    struct in6_addr& addr();
 
-   const struct in6_addr& const_addr() const;
+    const struct in6_addr& const_addr() const;
 
-   struct in6_addr& mask();
+    struct in6_addr& mask();
 
-   // Compare _a/_m against a._a.
-   bool operator==(const address& addr) const;
+    // Compare _a/_m against a._a.
+    bool operator==(const address& addr) const;
 
-   bool operator!=(const address& addr) const;
+    bool operator!=(const address& addr) const;
 
-   const std::string to_string() const;
+    void reset();
 
-   bool parse_string(const std::string& str);
+    const std::string to_string() const;
 
-   int prefix() const;
+    bool parse_string(const std::string& str);
 
-   void prefix(int n);
+    int prefix() const;
 
-   bool is_unicast() const;
+    void prefix(int n);
 
-   bool is_multicast() const;
+    bool is_unicast() const;
 
-   operator std::string() const;
+    bool is_multicast() const;
+
+    operator std::string() const;
 
 };
 
