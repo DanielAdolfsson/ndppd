@@ -16,23 +16,56 @@
 #pragma once
 
 #include <string>
+#include <map>
+#include <memory>
+#include <vector>
 #include <cstdarg>
 
 #include "ndppd.h"
-
-struct cfg_t;
-struct cfg_opt_t;
 
 NDPPD_NS_BEGIN
 
 class conf
 {
-private:
-    static bool setup(::cfg_t *cfg);
-    static void error_printf(::cfg_t *cfg, const char *fmt, va_list ap);
-    static int validate_rule(::cfg_t *cfg, ::cfg_opt_t *opt);
 public:
-    static bool load(const std::string& path);
+
+private:
+    std::string _value;
+
+    bool _is_block;
+
+    std::multimap<std::string, std::shared_ptr<conf> > _map;
+
+    void dump(logger &l, int level) const;
+
+    static const char *skip(const char *str, bool all = true);
+
+    bool parse_block(const char **str);
+
+    bool parse(const char **str);
+
+public:
+    conf();
+
+    const std::string &value() const;
+
+    bool bool_value() const;
+
+    int int_value() const;
+
+    void value(const std::string &value);
+
+    static std::shared_ptr<conf> load(const std::string &path);
+
+    bool is_block() const;
+
+    std::shared_ptr<conf> operator[](const std::string &name) const;
+    std::vector<std::shared_ptr<conf> > find(const std::string &name) const;
+
+    void dump() const;
+
+    operator const std::string&();
+
 };
 
 NDPPD_NS_END

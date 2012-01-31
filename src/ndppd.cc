@@ -16,6 +16,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <memory>
 
 #include <getopt.h>
 #include <sys/time.h>
@@ -47,6 +48,77 @@ int daemonize()
     close(STDERR_FILENO);
 
     return 0;
+}
+
+bool configure(const std::string &path)
+{
+    std::shared_ptr<conf> cf;
+
+    if (!(cf = conf::load(path)))
+        return false;
+
+    std::vector<std::shared_ptr<conf> >::const_iterator p_it;
+
+    std::vector<std::shared_ptr<conf> > proxies(cf->find("proxy"));
+
+    for (p_it = proxies.begin(); p_it != proxies.end(); p_it++) {
+        std::shared_ptr<conf> pr_cf = *p_it, x_cf;
+
+        if (pr_cf->value() == "") {
+            logger::error() << "'proxy' section is missing interface name";
+            return false;
+        }
+
+        std::shared_ptr<proxy> pr = proxy::open(pr_cf->value());
+
+        if (!pr) {
+            logger::error() << "Configuration failed for proxy '" << pr_cf->value() << "'";
+            return false;
+        }
+
+        if (!(x_cf = (*pr_cf)["router"]))
+            pr->router(true);
+        else
+            pr->router(x_cf->bool_value());
+
+        if (!(x_cf = (*pr_cf)["ttl"]))
+            pr->ttl(30000);
+        else
+            pr->ttl(x_cf->int_value());
+
+        if (!(x_cf = (*pr_cf)["timeout"]))
+            pr->timeout(500);
+        else
+            pr->timeout(x_cf->int_value());
+
+        std::vector<std::shared_ptr<conf> >::const_iterator r_it;
+
+        std::vector<std::shared_ptr<conf> > rules(pr_cf->find("rule"));
+
+        for (r_it = rules.begin(); r_it != rules.end(); r_it++) {
+            std::shared_ptr<conf> ru_cf = *r_it;
+
+            if (ru_cf->value() == "") {
+                logger::error() << "'rule' is missing an IPv6 address/net";
+                return false;
+            }
+
+            address addr(ru_cf->value());
+
+            if (!(x_cf = (*ru_cf)["iface"])) {
+                if (addr.prefix() <= 120) {
+                    logger::warning() << "Static rule prefix /" << addr.prefix() << " <= 120 - is this what you want?";
+                    pr->add_rule(addr);
+                }
+            } else if (x_cf->value() == "") {
+                logger::error() << "'iface' expected an interface name or 'auto' as argument";
+            } else {
+                pr->add_rule(addr, iface::open_ifd(x_cf->value()));
+            }
+        }
+    }
+
+    return true;
 }
 
 int main(int argc, char *argv[], char *env[])
@@ -116,8 +188,12 @@ int main(int argc, char *argv[], char *env[])
         << "ndppd (NDP Proxy Daemon) version " NDPPD_VERSION << logger::endl
         << "Using configuration file '" << config_path << "'";
 
-    if (!conf::load(config_path))
+    // Load configuration.
+
+    if (!configure(config_path))
         return -1;
+
+    // Time stuff.
 
     struct timeval t1, t2;
 
