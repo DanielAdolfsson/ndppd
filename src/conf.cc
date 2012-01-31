@@ -20,7 +20,7 @@
 
 #include "ndppd.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 void conf::error_printf(cfg_t *cfg, const char *fmt, va_list ap)
 {
@@ -29,7 +29,7 @@ void conf::error_printf(cfg_t *cfg, const char *fmt, va_list ap)
     if (vsnprintf(buf, sizeof(buf), fmt, ap) <= 0)
         return;
 
-    ERR("[Config] %s", buf);
+    logger::error() << "[Config] " << buf;
 }
 
 int conf::validate_rule(cfg_t *cfg, cfg_opt_t *opt)
@@ -79,8 +79,9 @@ bool conf::setup(cfg_t *cfg)
                 std::string ifname(cfg_getstr(rule_cfg, "iface"));
 
                 if (ifname.empty()) {
-                    if (addr.prefix() <= 120)
-                        NCE("Static rule prefix /%d <= 120 - is this what you want?", addr.prefix());
+                    if (addr.prefix() <= 120) {
+                        logger::warning() << "Static rule prefix /" << addr.prefix() << " <= 120 - is this what you want?";
+                    }
 
                     pr->add_rule(addr);
                 }
@@ -135,7 +136,7 @@ bool conf::load(const std::string& path)
             break;
 
         default:
-            ERR("Failed to load configuration file '%s'", path.c_str());
+            logger::error() << "Failed to load configuration file '" << path << "'";
             return false;
     }
 
@@ -146,4 +147,4 @@ bool conf::load(const std::string& path)
     return true;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END

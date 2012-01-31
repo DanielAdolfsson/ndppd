@@ -24,7 +24,7 @@
 #include "rule.h"
 #include "session.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 proxy::proxy() :
     _router(true), _ttl(30000), _timeout(500)
@@ -39,7 +39,7 @@ std::shared_ptr<proxy> proxy::create(const std::shared_ptr<iface>& ifa)
 
     ifa->pr(pr);
 
-    DBG("proxy::create() if=%x", ifa->name().c_str());
+    logger::debug() << "proxy::create() if=" << ifa->name();
 
     return pr;
 }
@@ -57,15 +57,15 @@ std::shared_ptr<proxy> proxy::open(const std::string& ifname)
 void proxy::handle_solicit(const address& saddr, const address& daddr,
     const address& taddr)
 {
-    DBG("proxy::handle_solicit() saddr=%s, taddr=%s",
-         saddr.to_string().c_str(), taddr.to_string().c_str());
+    logger::debug() << "proxy::handle_solicit() saddr=" << saddr.to_string()
+                << ", taddr=" << taddr.to_string();
 
     // Let's check this proxy's list of sessions to see if we can
     // find one with the same target address.
 
     for (std::list<std::shared_ptr<session> >::iterator sit = _sessions.begin();
             sit != _sessions.end(); sit++) {
-            
+
         if ((*sit)->taddr() == taddr) {
             switch ((*sit)->status()) {
             case session::WAITING:
@@ -89,8 +89,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
          it != _rules.end(); it++) {
         std::shared_ptr<rule> ru = *it;
 
-        DBG("comparing %s against %s",
-             ru->addr().to_string().c_str(), taddr.to_string().c_str());
+        logger::debug() << "checking " << ru->addr().to_string() << " against " << taddr;
 
         if (ru->addr() == taddr) {
             if (!se)
@@ -168,5 +167,5 @@ void proxy::timeout(int val)
     _timeout = (val >= 0) ? val : 500;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END
 

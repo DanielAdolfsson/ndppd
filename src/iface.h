@@ -13,8 +13,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#ifndef __NDPPD_IFACE_H
-#define __NDPPD_IFACE_H
+#pragma once
 
 #include <string>
 #include <list>
@@ -26,7 +25,7 @@
 
 #include "ndppd.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 class session;
 class proxy;
@@ -115,6 +114,4 @@ public:
     const std::shared_ptr<proxy>& pr() const;
 };
 
-__NDPPD_NS_END
-
-#endif // __NDPPD_IFACE_H
+NDPPD_NS_END

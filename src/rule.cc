@@ -22,7 +22,7 @@
 #include "proxy.h"
 #include "iface.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 rule::rule()
 {
@@ -36,8 +36,7 @@ std::shared_ptr<rule> rule::create(const std::shared_ptr<proxy>& pr, const addre
     ru->_ifa  = ifa;
     ru->_addr = addr;
 
-    DBG("rule::create() if=%s, addr=%s",
-         pr->ifa()->name().c_str(), addr.to_string().c_str());
+    logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
 
     return ru;
 }
@@ -49,8 +48,7 @@ std::shared_ptr<rule> rule::create(const std::shared_ptr<proxy>& pr, const addre
     ru->_pr    = pr;
     ru->_addr  = addr;
 
-    DBG("rule::create() if=%s, addr=%s",
-         pr->ifa()->name().c_str(), addr.to_string().c_str());
+    logger::debug() << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr;
 
     return ru;
 }
@@ -75,4 +73,4 @@ bool rule::check(const address& addr) const
     return _addr == addr;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END

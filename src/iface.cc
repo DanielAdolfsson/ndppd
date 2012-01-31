@@ -40,7 +40,7 @@
 
 #include "ndppd.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 std::map<std::string, std::shared_ptr<iface> > iface::_map;
 
@@ -53,7 +53,7 @@ iface::iface() :
 
 iface::~iface()
 {
-    DBG("iface::~iface()");
+    logger::debug() << "iface::~iface()";
 
     if (_ifd >= 0)
         close(_ifd);
@@ -84,11 +84,11 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
 
     if (!ifa)
         return std::shared_ptr<iface>();
-                
+
     // Create a socket.
 
     if ((fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))) < 0) {
-        ERR("Unable to create socket");
+        logger::error() << "Unable to create socket";
         return std::shared_ptr<iface>();
     }
 
@@ -102,13 +102,13 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
 
     if (!(lladdr.sll_ifindex = if_nametoindex(name.c_str()))) {
         close(fd);
-        ERR("Failed to bind to interface '%s'", name.c_str());
+        logger::error() << "Failed to bind to interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
     if (bind(fd, (struct sockaddr *)&lladdr, sizeof(struct sockaddr_ll)) < 0) {
         close(fd);
-        ERR("Failed to bind to interface '%s'", name.c_str());
+        logger::error() << "Failed to bind to interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
@@ -118,7 +118,7 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
 
     if (ioctl(fd, FIONBIO, (char *)&on) < 0) {
         close(fd);
-        ERR("Failed to switch to non-blocking on interface '%s'", name.c_str());
+        logger::error() << "Failed to switch to non-blocking on interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
@@ -153,7 +153,7 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
     fprog.len    = 8;
 
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
-        ERR("Failed to set filter");
+        logger::error() << "Failed to set filter";
         return std::shared_ptr<iface>();
     }
 
@@ -178,7 +178,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     // Create a socket.
 
     if ((fd = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0) {
-        ERR("Unable to create socket");
+        logger::error() << "Unable to create socket";
         return std::shared_ptr<iface>();
     }
 
@@ -192,7 +192,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
         close(fd);
-        ERR("Failed to bind to interface '%s'", name.c_str());
+        logger::error() << "Failed to bind to interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
@@ -204,11 +204,11 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
         close(fd);
-        ERR("Failed to detect link-layer address for interface '%s'", name.c_str());
+        logger::error() << "Failed to detect link-layer address for interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
-    DBG("fd=%d, hwaddr=%s", fd, ether_ntoa((const struct ether_addr *)&ifr.ifr_hwaddr.sa_data));
+    logger::debug() << "fd=" << fd << ", hwaddr=" << ether_ntoa((const struct ether_addr *)&ifr.ifr_hwaddr.sa_data);;
 
     // Set max hops.
 
@@ -216,13 +216,13 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops)) < 0) {
         close(fd);
-        ERR("iface::open_ifd() failed IPV6_MULTICAST_HOPS");
+        logger::error() << "iface::open_ifd() failed IPV6_MULTICAST_HOPS";
         return std::shared_ptr<iface>();
     }
 
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops)) < 0) {
         close(fd);
-        ERR("iface::open_ifd() failed IPV6_UNICAST_HOPS");
+        logger::error() << "iface::open_ifd() failed IPV6_UNICAST_HOPS";
         return std::shared_ptr<iface>();
     }
 
@@ -232,7 +232,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if (ioctl(fd, FIONBIO, (char *)&on) < 0) {
         close(fd);
-        ERR("Failed to switch to non-blocking on interface '%s'", name.c_str());
+        logger::error() << "Failed to switch to non-blocking on interface '" << name << "'";
         return std::shared_ptr<iface>();
     }
 
@@ -243,7 +243,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
 
     if (setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) < 0) {
-        ERR("Failed to set filter");
+        logger::error() << "Failed to set filter";
         return std::shared_ptr<iface>();
     }
 
@@ -295,7 +295,7 @@ ssize_t iface::read(int fd, struct sockaddr *saddr, uint8_t *msg, size_t size)
     if (len < sizeof(struct icmp6_hdr))
         return -1;
 
-    DBG("iface::read() len=%d", len);
+    logger::debug() << "iface::read() len=" << len;
 
     return len;
 }
@@ -320,7 +320,7 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t *msg, size_t si
     mhdr.msg_iov = &iov;
     mhdr.msg_iovlen = 1;
 
-    DBG("iface::write() daddr=%s, len=%d", daddr.to_string().c_str(), size);
+    logger::debug() << "iface::write() daddr=" << daddr.to_string() << ", len=" << size;
 
     int len;
 
@@ -352,9 +352,7 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
     daddr = ip6h->ip6_dst;
     saddr = ip6h->ip6_src;
 
-    DBG("iface::read_solicit() saddr=%s, daddr=%s, taddr=%s, len=%d",
-        saddr.to_string().c_str(), daddr.to_string().c_str(),
-        taddr.to_string().c_str(), len);
+    logger::debug() << "iface::read_solicit() saddr=" << saddr.to_string() << ", daddr=" << daddr.to_string() << ", len=" << len;
 
     return len;
 }
@@ -391,8 +389,7 @@ ssize_t iface::write_solicit(const address& taddr)
     daddr.addr().s6_addr[14] = taddr.const_addr().s6_addr[14];
     daddr.addr().s6_addr[15] = taddr.const_addr().s6_addr[15];
 
-    DBG("iface::write_solicit() taddr=%s, daddr=%s",
-         taddr.to_string().c_str(), daddr.to_string().c_str());
+    logger::debug() << "iface::write_solicit() taddr=" << taddr.to_string() << ", daddr=" << daddr.to_string();
 
     return write(_ifd, daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr) + 6);
 }
@@ -419,8 +416,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
 
     memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr), &hwaddr, 6);
 
-    DBG("iface::write_advert() daddr=%s, taddr=%s",
-         daddr.to_string().c_str(), taddr.to_string().c_str());
+    logger::debug() << "iface::write_advert() daddr=" << daddr.to_string() << ", taddr=" << taddr.to_string();
 
     return write(_ifd, daddr, (uint8_t *)buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);
@@ -442,8 +438,7 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
 
     taddr = ((struct nd_neighbor_solicit *)msg)->nd_ns_target;
 
-    DBG("iface::read_advert() saddr=%s, taddr=%s, len=%d",
-        saddr.to_string().c_str(), taddr.to_string().c_str(), len);
+    logger::debug() << "iface::read_advert() saddr=" << saddr.to_string() << ", taddr=" << taddr.to_string() << ", len=" << len;
 
     return len;
 }
@@ -454,7 +449,7 @@ void iface::fixup_pollfds()
 
     int i = 0;
 
-    DBG("iface::fixup_pollfds() _map.size()=%d", _map.size());
+    logger::debug() << "iface::fixup_pollfds() _map.size()=" << _map.size();
 
     for (std::map<std::string, std::shared_ptr<iface> >::iterator it = _map.begin();
             it != _map.end(); it++) {
@@ -477,7 +472,7 @@ void iface::remove_session(const std::shared_ptr<session>& se)
         if (it->lock() == se) {
             _sessions.erase(it);
             break;
-        }        
+        }
     }
 }
 
@@ -525,7 +520,7 @@ int iface::poll_all()
 
         if (is_pfd) {
             if (ifa->read_solicit(saddr, daddr, taddr) < 0) {
-                ERR("Failed to read from interface '%s'", ifa->_name.c_str());
+                logger::error() << "Failed to read from interface '%s'", ifa->_name.c_str();
                 continue;
             }
 
@@ -535,7 +530,7 @@ int iface::poll_all()
             ifa->_pr->handle_solicit(saddr, daddr, taddr);
         } else {
             if (ifa->read_advert(saddr, taddr) < 0) {
-                ERR("Failed to read from interface '%s'", ifa->_name.c_str());
+                logger::error() << "Failed to read from interface '%s'", ifa->_name.c_str();
                 continue;
             }
 
@@ -557,8 +552,7 @@ int iface::allmulti(int state)
 {
     struct ifreq ifr;
 
-    DBG("iface::allmulti() state=%d, _name=\"%s\"",
-        state, _name.c_str());
+    logger::debug() << "iface::allmulti() state=" << state << ", _name=\"" << _name << "\"";
 
     state = !!state;
 
@@ -598,4 +592,4 @@ const std::shared_ptr<proxy>& iface::pr() const
     return _pr;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END

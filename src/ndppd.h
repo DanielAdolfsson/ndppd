@@ -13,20 +13,19 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#ifndef __NDPPD_H
-#define __NDPPD_H
+#pragma once
 
 #include <netinet/ip6.h>
 #include <memory>
 
-#define __NDPPD_NS_BEGIN   namespace ndppd {
-#define __NDPPD_NS_END     }
+#define NDPPD_NS_BEGIN   namespace ndppd {
+#define NDPPD_NS_END     }
 
-#define NDPPD_VERSION "0.2.1"
+#define NDPPD_VERSION "0.2.2"
 
 #include <assert.h>
 
-#include "log.h"
+#include "logger.h"
 #include "conf.h"
 #include "address.h"
 
@@ -34,5 +33,3 @@
 #include "proxy.h"
 #include "session.h"
 #include "rule.h"
-
-#endif // __NDPPD_H

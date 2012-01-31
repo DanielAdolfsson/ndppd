@@ -20,7 +20,7 @@
 #include "iface.h"
 #include "session.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 std::list<std::weak_ptr<session> > session::_sessions;
 
@@ -35,7 +35,7 @@ void session::update_all(int elapsed_time)
 
         switch (se->_status) {
         case session::WAITING:
-            DBG("session is now invalid");
+            logger::debug() << "session is now invalid";
             se->_status = session::INVALID;
             se->_ttl    = se->_pr->ttl();
             break;
@@ -48,14 +48,14 @@ void session::update_all(int elapsed_time)
 
 session::~session()
 {
-    DBG("session::~session() this=%x", this);
+    logger::debug() << "session::~session() this=" << logger::format("%x", this);
 
     for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); it++) {
         if (it->lock() == _ptr.lock()) {
             _sessions.erase(it);
             break;
-        }        
+        }
     }
 
     for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
@@ -78,9 +78,8 @@ std::shared_ptr<session> session::create(const std::shared_ptr<proxy>& pr, const
 
     _sessions.push_back(se);
 
-    DBG("session::create() pr=%x, saddr=%s, daddr=%s, taddr=%s, =%x",
-        (proxy *)pr, saddr.to_string().c_str(), daddr.to_string().c_str(),
-        taddr.to_string().c_str(), (session *)se);
+    logger::debug() << "session::create() pr=" << logger::format("%x", pr.get()) << ", saddr=" << saddr
+                << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", se.get());
 
     return se;
 }
@@ -96,11 +95,11 @@ void session::add_iface(const std::shared_ptr<iface>& ifa)
 
 void session::send_solicit()
 {
-    DBG("session::send_solicit() (%d)", _ifaces.size());
+    logger::debug() << "session::send_solicit() (" << _ifaces.size() << ")";
 
     for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++) {
-        DBG(" - %s", (*it)->name().c_str());
+        logger::debug() << " - %s" << (*it)->name();
         (*it)->write_solicit(_taddr);
     }
 }
@@ -143,4 +142,4 @@ void session::status(int val)
     _status = val;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END

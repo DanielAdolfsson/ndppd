@@ -13,11 +13,9 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#ifndef __NDPPD_CONF_H
-#define __NDPPD_CONF_H
+#pragma once
 
 #include <string>
-
 #include <cstdarg>
 
 #include "ndppd.h"
@@ -25,7 +23,7 @@
 struct cfg_t;
 struct cfg_opt_t;
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 class conf
 {
@@ -37,8 +35,4 @@ public:
     static bool load(const std::string& path);
 };
 
-__NDPPD_NS_END
-
-#endif // __NDPPD_CONF_H
- 
- 
+NDPPD_NS_END

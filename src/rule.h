@@ -13,8 +13,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#ifndef __NDPPD_RULE_H
-#define __NDPPD_RULE_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -24,7 +23,7 @@
 
 #include "ndppd.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 class iface;
 class proxy;
@@ -57,8 +56,4 @@ public:
 
 };
 
-__NDPPD_NS_END
-
-#endif // __NDPPD_PROXY_H
- 
- 
+NDPPD_NS_END

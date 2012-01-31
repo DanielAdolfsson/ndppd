@@ -53,6 +53,7 @@ int main(int argc, char *argv[], char *env[])
 {
     std::string config_path("/etc/ndppd.conf");
     std::string pidfile;
+    std::string verbosity;
     bool daemon = false;
 
     while (1) {
@@ -60,12 +61,13 @@ int main(int argc, char *argv[], char *env[])
 
         static struct option long_options[] =
         {
-            { "config", 1, 0, 'c' },
-            { "daemon", 0, 0, 'd' },
+            { "config",     1, 0, 'c' },
+            { "daemon",     0, 0, 'd' },
+            { "verbose",    1, 0, 'v' },
             { 0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "c:dp:", long_options, &opt);
+        c = getopt_long(argc, argv, "c:dp:v::", long_options, &opt);
 
         if (c == -1)
             break;
@@ -82,14 +84,23 @@ int main(int argc, char *argv[], char *env[])
         case 'p':
             pidfile = optarg;
             break;
+
+        case 'v':
+            if (optarg) {
+                if (!logger::verbosity(optarg))
+                    logger::error() << "Unknown verbosity level '" << optarg << "'";
+            } else {
+                logger::max_pri(LOG_INFO);
+            }
+            break;
         }
     }
 
     if (daemon) {
-        log::syslog(true);
+        logger::syslog(true);
 
         if (daemonize() < 0) {
-            ERR("Failed to daemonize process");
+            logger::error() << "Failed to daemonize process";
             return 1;
         }
     }
@@ -101,9 +112,9 @@ int main(int argc, char *argv[], char *env[])
         pf.close();
     }
 
-    NFO("ndppd (NDP Proxy Daemon) version " NDPPD_VERSION);
-
-    NFO("Using configuration file '%s'", config_path.c_str());
+    logger::info().force_log()
+        << "ndppd (NDP Proxy Daemon) version " NDPPD_VERSION << logger::endl
+        << "Using configuration file '" << config_path << "'";
 
     if (!conf::load(config_path))
         return -1;
@@ -126,7 +137,7 @@ int main(int argc, char *argv[], char *env[])
         session::update_all(elapsed_time);
     }
 
-    ERR("iface::poll_all() failed");
+    logger::error() << "iface::poll_all() failed";
 
     return 0;
 }

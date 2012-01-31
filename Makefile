@@ -1,3 +1,5 @@
+DEBUG=1
+
 ifdef DEBUG
 CXXFLAGS ?= -g -std=c++0x -DDEBUG
 else
@@ -12,7 +14,7 @@ SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
 
 LIBS     = -lconfuse
 
-OBJS     = src/log.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
+OBJS     = src/logger.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
            src/rule.o src/session.o src/conf.o
 
 all: ndppd ndppd.1.gz ndppd.conf.5.gz

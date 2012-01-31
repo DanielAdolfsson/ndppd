@@ -28,7 +28,7 @@
 #include "ndppd.h"
 #include "address.h"
 
-__NDPPD_NS_BEGIN
+NDPPD_NS_BEGIN
 
 address::address()
 {
@@ -273,4 +273,4 @@ bool address::is_unicast() const
     return _addr.s6_addr[0] != 0xff;
 }
 
-__NDPPD_NS_END
+NDPPD_NS_END
