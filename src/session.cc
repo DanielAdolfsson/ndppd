@@ -22,13 +22,13 @@
 
 NDPPD_NS_BEGIN
 
-std::list<std::weak_ptr<session> > session::_sessions;
+std::list<weak_ptr<session> > session::_sessions;
 
 void session::update_all(int elapsed_time)
 {
-    for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
+    for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); ) {
-        std::shared_ptr<session> se = (*it++).lock();
+        ptr<session> se = (*it++);
 
         if ((se->_ttl -= elapsed_time) >= 0)
             continue;
@@ -50,24 +50,24 @@ session::~session()
 {
     logger::debug() << "session::~session() this=" << logger::format("%x", this);
 
-    for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
+    for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); it++) {
-        if (it->lock() == _ptr.lock()) {
+        if (*it == _ptr) {
             _sessions.erase(it);
             break;
         }
     }
 
-    for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
+    for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++) {
-        (*it)->remove_session(_ptr.lock());
+        (*it)->remove_session(_ptr);
     }
 }
 
-std::shared_ptr<session> session::create(const std::shared_ptr<proxy>& pr, const address& saddr,
+ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     const address& daddr, const address& taddr)
 {
-    std::shared_ptr<session> se(new session());
+    ptr<session> se(new session());
 
     se->_ptr   = se;
     se->_pr    = pr;
@@ -78,18 +78,19 @@ std::shared_ptr<session> session::create(const std::shared_ptr<proxy>& pr, const
 
     _sessions.push_back(se);
 
-    logger::debug() << "session::create() pr=" << logger::format("%x", pr.get()) << ", saddr=" << saddr
-                << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", se.get());
+    logger::debug()
+        << "session::create() pr=" << logger::format("%x", (proxy *)pr) << ", saddr=" << saddr
+        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session *)se);
 
     return se;
 }
 
-void session::add_iface(const std::shared_ptr<iface>& ifa)
+void session::add_iface(const ptr<iface>& ifa)
 {
     if (std::find(_ifaces.begin(), _ifaces.end(), ifa) != _ifaces.end())
         return;
 
-    ifa->add_session(_ptr.lock());
+    ifa->add_session(_ptr);
     _ifaces.push_back(ifa);
 }
 
@@ -97,7 +98,7 @@ void session::send_solicit()
 {
     logger::debug() << "session::send_solicit() (" << _ifaces.size() << ")";
 
-    for (std::list<std::shared_ptr<iface> >::iterator it = _ifaces.begin();
+    for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++) {
         logger::debug() << " - %s" << (*it)->name();
         (*it)->write_solicit(_taddr);

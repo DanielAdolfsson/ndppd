@@ -34,9 +34,9 @@ class iface
 {
 private:
     // Weak pointer so this object can reference itself.
-    std::weak_ptr<iface> _ptr;
+    weak_ptr<iface> _ptr;
 
-    static std::map<std::string, std::shared_ptr<iface> > _map;
+    static std::map<std::string, ptr<iface> > _map;
 
     // An array of objects used with ::poll.
     static std::vector<struct pollfd> _pollfds;
@@ -60,9 +60,9 @@ private:
 
     // An array of sessions that are monitoring this interface for
     // ND_NEIGHBOR_ADVERT messages.
-    std::list<std::weak_ptr<session> > _sessions;
+    std::list<weak_ptr<session> > _sessions;
 
-    std::shared_ptr<proxy> _pr;
+    ptr<proxy> _pr;
 
     // The link-layer address of this interface.
     struct ether_addr hwaddr;
@@ -79,9 +79,9 @@ public:
     // Destructor.
     ~iface();
 
-    static std::shared_ptr<iface> open_ifd(const std::string& name);
+    static ptr<iface> open_ifd(const std::string& name);
 
-    static std::shared_ptr<iface> open_pfd(const std::string& name);
+    static ptr<iface> open_pfd(const std::string& name);
 
     static int poll_all();
 
@@ -105,13 +105,13 @@ public:
     const std::string& name() const;
 
     // Adds a session to be monitored for ND_NEIGHBOR_ADVERT messages.
-    void add_session(const std::shared_ptr<session>& se);
+    void add_session(const ptr<session>& se);
 
-    void remove_session(const std::shared_ptr<session>& se);
+    void remove_session(const ptr<session>& se);
 
-    void pr(const std::shared_ptr<proxy>& pr);
+    void pr(const ptr<proxy>& pr);
 
-    const std::shared_ptr<proxy>& pr() const;
+    const ptr<proxy>& pr() const;
 };
 
 NDPPD_NS_END

@@ -1,9 +1,9 @@
 DEBUG=1
 
 ifdef DEBUG
-CXXFLAGS ?= -g -std=c++0x -DDEBUG
+CXXFLAGS ?= -g -DDEBUG
 else
-CXXFLAGS ?= -O3 -std=c++0x
+CXXFLAGS ?= -O3
 endif
 
 PREFIX  ?= /usr/local
@@ -12,7 +12,7 @@ GZIP    ?= /bin/gzip
 MANDIR  ?= ${DESTDIR}${PREFIX}/share/man
 SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
 
-LIBS     = -lconfuse
+LIBS     =
 
 OBJS     = src/logger.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
            src/rule.o src/session.o src/conf.o

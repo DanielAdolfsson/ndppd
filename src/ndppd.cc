@@ -13,6 +13,8 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#include <cstdlib>
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -52,24 +54,24 @@ int daemonize()
 
 bool configure(const std::string &path)
 {
-    std::shared_ptr<conf> cf;
+    ptr<conf> cf;
 
     if (!(cf = conf::load(path)))
         return false;
 
-    std::vector<std::shared_ptr<conf> >::const_iterator p_it;
+    std::vector<ptr<conf> >::const_iterator p_it;
 
-    std::vector<std::shared_ptr<conf> > proxies(cf->find("proxy"));
+    std::vector<ptr<conf> > proxies(cf->find("proxy"));
 
     for (p_it = proxies.begin(); p_it != proxies.end(); p_it++) {
-        std::shared_ptr<conf> pr_cf = *p_it, x_cf;
+        ptr<conf> pr_cf = *p_it, x_cf;
 
         if (pr_cf->value() == "") {
             logger::error() << "'proxy' section is missing interface name";
             return false;
         }
 
-        std::shared_ptr<proxy> pr = proxy::open(pr_cf->value());
+        ptr<proxy> pr = proxy::open(pr_cf->value());
 
         if (!pr) {
             logger::error() << "Configuration failed for proxy '" << pr_cf->value() << "'";
@@ -91,12 +93,12 @@ bool configure(const std::string &path)
         else
             pr->timeout(x_cf->int_value());
 
-        std::vector<std::shared_ptr<conf> >::const_iterator r_it;
+        std::vector<ptr<conf> >::const_iterator r_it;
 
-        std::vector<std::shared_ptr<conf> > rules(pr_cf->find("rule"));
+        std::vector<ptr<conf> > rules(pr_cf->find("rule"));
 
         for (r_it = rules.begin(); r_it != rules.end(); r_it++) {
-            std::shared_ptr<conf> ru_cf = *r_it;
+            ptr<conf> ru_cf = *r_it;
 
             if (ru_cf->value() == "") {
                 logger::error() << "'rule' is missing an IPv6 address/net";

@@ -25,6 +25,8 @@
 
 #include <assert.h>
 
+#include "ptr.h"
+
 #include "logger.h"
 #include "conf.h"
 #include "address.h"

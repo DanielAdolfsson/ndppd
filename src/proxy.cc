@@ -31,9 +31,9 @@ proxy::proxy() :
 {
 }
 
-std::shared_ptr<proxy> proxy::create(const std::shared_ptr<iface>& ifa)
+ptr<proxy> proxy::create(const ptr<iface>& ifa)
 {
-    std::shared_ptr<proxy> pr(new proxy());
+    ptr<proxy> pr(new proxy());
     pr->_ptr = pr;
     pr->_ifa = ifa;
 
@@ -44,12 +44,12 @@ std::shared_ptr<proxy> proxy::create(const std::shared_ptr<iface>& ifa)
     return pr;
 }
 
-std::shared_ptr<proxy> proxy::open(const std::string& ifname)
+ptr<proxy> proxy::open(const std::string& ifname)
 {
-    std::shared_ptr<iface> ifa = iface::open_pfd(ifname);
+    ptr<iface> ifa = iface::open_pfd(ifname);
 
     if (!ifa)
-        return std::shared_ptr<proxy>();
+        return ptr<proxy>();
 
     return create(ifa);
 }
@@ -63,7 +63,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     // Let's check this proxy's list of sessions to see if we can
     // find one with the same target address.
 
-    for (std::list<std::shared_ptr<session> >::iterator sit = _sessions.begin();
+    for (std::list<ptr<session> >::iterator sit = _sessions.begin();
             sit != _sessions.end(); sit++) {
 
         if ((*sit)->taddr() == taddr) {
@@ -83,17 +83,17 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     // Since we couldn't find a session that matched, we'll try to find
     // a matching rule instead, and then set up a new session.
 
-    std::shared_ptr<session> se;
+    ptr<session> se;
 
-    for (std::list<std::shared_ptr<rule> >::iterator it = _rules.begin();
+    for (std::list<ptr<rule> >::iterator it = _rules.begin();
          it != _rules.end(); it++) {
-        std::shared_ptr<rule> ru = *it;
+        ptr<rule> ru = *it;
 
         logger::debug() << "checking " << ru->addr().to_string() << " against " << taddr;
 
         if (ru->addr() == taddr) {
             if (!se)
-                se = session::create(_ptr.lock(), saddr, daddr, taddr);
+                se = session::create(_ptr, saddr, daddr, taddr);
 
             if (!ru->ifa()) {
                 // This rule doesn't have an interface, and thus we'll consider
@@ -113,26 +113,26 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     }
 }
 
-std::shared_ptr<rule> proxy::add_rule(const address& addr, const std::shared_ptr<iface>& ifa)
+ptr<rule> proxy::add_rule(const address& addr, const ptr<iface>& ifa)
 {
-    std::shared_ptr<rule> ru(rule::create(_ptr.lock(), addr, ifa));
+    ptr<rule> ru(rule::create(_ptr, addr, ifa));
     _rules.push_back(ru);
     return ru;
 }
 
-std::shared_ptr<rule> proxy::add_rule(const address& addr)
+ptr<rule> proxy::add_rule(const address& addr)
 {
-    std::shared_ptr<rule> ru(rule::create(_ptr.lock(), addr));
+    ptr<rule> ru(rule::create(_ptr, addr));
     _rules.push_back(ru);
     return ru;
 }
 
-void proxy::remove_session(const std::shared_ptr<session>& se)
+void proxy::remove_session(const ptr<session>& se)
 {
     _sessions.remove(se);
 }
 
-const std::shared_ptr<iface>& proxy::ifa() const
+const ptr<iface>& proxy::ifa() const
 {
     return _ifa;
 }

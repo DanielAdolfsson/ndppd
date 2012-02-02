@@ -31,13 +31,13 @@ class rule;
 class proxy
 {
 private:
-    std::weak_ptr<proxy> _ptr;
+    weak_ptr<proxy> _ptr;
 
-    std::shared_ptr<iface> _ifa;
+    ptr<iface> _ifa;
 
-    std::list<std::shared_ptr<rule> > _rules;
+    std::list<ptr<rule> > _rules;
 
-    std::list<std::shared_ptr<session> > _sessions;
+    std::list<ptr<session> > _sessions;
 
     bool _router;
 
@@ -46,20 +46,20 @@ private:
     proxy();
 
 public:
-    static std::shared_ptr<proxy> create(const std::shared_ptr<iface>& ifa);
+    static ptr<proxy> create(const ptr<iface>& ifa);
 
-    static std::shared_ptr<proxy> open(const std::string& ifn);
+    static ptr<proxy> open(const std::string& ifn);
 
     void handle_solicit(const address& saddr, const address& daddr,
         const address& taddr);
 
-    void remove_session(const std::shared_ptr<session>& se);
+    void remove_session(const ptr<session>& se);
 
-    std::shared_ptr<rule> add_rule(const address& addr, const std::shared_ptr<iface>& ifa);
+    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
 
-    std::shared_ptr<rule> add_rule(const address& addr);
+    ptr<rule> add_rule(const address& addr);
 
-    const std::shared_ptr<iface>& ifa() const;
+    const ptr<iface>& ifa() const;
 
     bool router() const;
 

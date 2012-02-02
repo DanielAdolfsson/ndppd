@@ -34,7 +34,7 @@ private:
 
     bool _is_block;
 
-    std::multimap<std::string, std::shared_ptr<conf> > _map;
+    std::multimap<std::string, ptr<conf> > _map;
 
     void dump(logger &l, int level) const;
 
@@ -55,12 +55,12 @@ public:
 
     void value(const std::string &value);
 
-    static std::shared_ptr<conf> load(const std::string &path);
+    static ptr<conf> load(const std::string &path);
 
     bool is_block() const;
 
-    std::shared_ptr<conf> operator[](const std::string &name) const;
-    std::vector<std::shared_ptr<conf> > find(const std::string &name) const;
+    ptr<conf> operator[](const std::string &name) const;
+    std::vector<ptr<conf> > find(const std::string &name) const;
 
     void dump() const;
 

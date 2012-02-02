@@ -42,7 +42,7 @@
 
 NDPPD_NS_BEGIN
 
-std::map<std::string, std::shared_ptr<iface> > iface::_map;
+std::map<std::string, ptr<iface> > iface::_map;
 
 std::vector<struct pollfd> iface::_pollfds;
 
@@ -64,13 +64,13 @@ iface::~iface()
     }
 }
 
-std::shared_ptr<iface> iface::open_pfd(const std::string& name)
+ptr<iface> iface::open_pfd(const std::string& name)
 {
     int fd;
 
-    std::map<std::string, std::shared_ptr<iface> >::iterator it = _map.find(name);
+    std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
 
-    std::shared_ptr<iface> ifa;
+    ptr<iface> ifa;
 
     if (it != _map.end()) {
         if (it->second->_pfd >= 0)
@@ -83,13 +83,13 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
     }
 
     if (!ifa)
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
 
     // Create a socket.
 
     if ((fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))) < 0) {
         logger::error() << "Unable to create socket";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Bind to the specified interface.
@@ -103,13 +103,13 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
     if (!(lladdr.sll_ifindex = if_nametoindex(name.c_str()))) {
         close(fd);
         logger::error() << "Failed to bind to interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     if (bind(fd, (struct sockaddr *)&lladdr, sizeof(struct sockaddr_ll)) < 0) {
         close(fd);
         logger::error() << "Failed to bind to interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Switch to non-blocking mode.
@@ -119,7 +119,7 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
     if (ioctl(fd, FIONBIO, (char *)&on) < 0) {
         close(fd);
         logger::error() << "Failed to switch to non-blocking on interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Set up filter.
@@ -154,7 +154,7 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
 
     if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
         logger::error() << "Failed to set filter";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Set up an instance of 'iface'.
@@ -166,11 +166,11 @@ std::shared_ptr<iface> iface::open_pfd(const std::string& name)
     return ifa;
 }
 
-std::shared_ptr<iface> iface::open_ifd(const std::string& name)
+ptr<iface> iface::open_ifd(const std::string& name)
 {
     int fd;
 
-    std::map<std::string, std::shared_ptr<iface> >::iterator it = _map.find(name);
+    std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
 
     if ((it != _map.end()) && it->second->_ifd)
         return it->second;
@@ -179,7 +179,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if ((fd = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0) {
         logger::error() << "Unable to create socket";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Bind to the specified interface.
@@ -193,7 +193,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
         close(fd);
         logger::error() << "Failed to bind to interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Detect the link-layer address.
@@ -205,7 +205,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
         close(fd);
         logger::error() << "Failed to detect link-layer address for interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     logger::debug() << "fd=" << fd << ", hwaddr=" << ether_ntoa((const struct ether_addr *)&ifr.ifr_hwaddr.sa_data);;
@@ -217,13 +217,13 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops)) < 0) {
         close(fd);
         logger::error() << "iface::open_ifd() failed IPV6_MULTICAST_HOPS";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops, sizeof(hops)) < 0) {
         close(fd);
         logger::error() << "iface::open_ifd() failed IPV6_UNICAST_HOPS";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Switch to non-blocking mode.
@@ -233,7 +233,7 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
     if (ioctl(fd, FIONBIO, (char *)&on) < 0) {
         close(fd);
         logger::error() << "Failed to switch to non-blocking on interface '" << name << "'";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Set up filter.
@@ -244,15 +244,15 @@ std::shared_ptr<iface> iface::open_ifd(const std::string& name)
 
     if (setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) < 0) {
         logger::error() << "Failed to set filter";
-        return std::shared_ptr<iface>();
+        return ptr<iface>();
     }
 
     // Set up an instance of 'iface'.
 
-    std::shared_ptr<iface> ifa;
+    ptr<iface> ifa;
 
     if (it == _map.end()) {
-        ifa.reset(new iface());
+        ifa = new iface();
         ifa->_name = name;
         ifa->_ptr  = ifa;
 
@@ -451,7 +451,7 @@ void iface::fixup_pollfds()
 
     logger::debug() << "iface::fixup_pollfds() _map.size()=" << _map.size();
 
-    for (std::map<std::string, std::shared_ptr<iface> >::iterator it = _map.begin();
+    for (std::map<std::string, ptr<iface> >::iterator it = _map.begin();
             it != _map.end(); it++) {
         _pollfds[i].fd      = it->second->_ifd;
         _pollfds[i].events  = POLLIN;
@@ -465,18 +465,18 @@ void iface::fixup_pollfds()
     }
 }
 
-void iface::remove_session(const std::shared_ptr<session>& se)
+void iface::remove_session(const ptr<session>& se)
 {
-    for (std::list<std::weak_ptr<session> >::iterator it = _sessions.begin();
+    for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); it++) {
-        if (it->lock() == se) {
+        if (*it == se) {
             _sessions.erase(it);
             break;
         }
     }
 }
 
-void iface::add_session(const std::shared_ptr<session>& se)
+void iface::add_session(const ptr<session>& se)
 {
     _sessions.push_back(se);
 }
@@ -498,7 +498,7 @@ int iface::poll_all()
     if (len == 0)
         return 0;
 
-    std::map<std::string, std::shared_ptr<iface> >::iterator i_it = _map.begin();
+    std::map<std::string, ptr<iface> >::iterator i_it = _map.begin();
 
     int i = 0;
 
@@ -514,7 +514,7 @@ int iface::poll_all()
         if (!(f_it->revents & POLLIN))
             continue;
 
-        std::shared_ptr<iface> ifa = i_it->second;
+        ptr<iface> ifa = i_it->second;
 
         address saddr, daddr, taddr;
 
@@ -534,9 +534,9 @@ int iface::poll_all()
                 continue;
             }
 
-            for (std::list<std::weak_ptr<session> >::iterator s_it = ifa->_sessions.begin();
+            for (std::list<weak_ptr<session> >::iterator s_it = ifa->_sessions.begin();
                     s_it != ifa->_sessions.end(); s_it++) {
-                const std::shared_ptr<session> sess = s_it->lock();
+                const ptr<session> sess = *s_it;
                 if ((sess->taddr() == taddr) && (sess->status() == session::WAITING)) {
                     sess->handle_advert();
                     break;
@@ -582,12 +582,12 @@ const std::string& iface::name() const
     return _name;
 }
 
-void iface::pr(const std::shared_ptr<proxy>& pr)
+void iface::pr(const ptr<proxy>& pr)
 {
     _pr = pr;
 }
 
-const std::shared_ptr<proxy>& iface::pr() const
+const ptr<proxy>& iface::pr() const
 {
     return _pr;
 }

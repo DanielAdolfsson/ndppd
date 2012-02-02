@@ -17,7 +17,9 @@
 #include <cstdarg>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 #include <memory>
+#include <string>
 #include <iostream>
 #include <fstream>
 #include <netinet/ip6.h>
@@ -55,18 +57,17 @@ void conf::value(const std::string &value)
     _value = value;
 }
 
-std::shared_ptr<conf> conf::load(const std::string &path)
+ptr<conf> conf::load(const std::string &path)
 {
-    std::ifstream ifs;
-    ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-
     try {
-        ifs.open(path, std::ios::in);
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        ifs.open(path.c_str(), std::ios::in);
         std::string buf((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-        ifs.close();
+
         const char *c_buf = buf.c_str();
 
-        std::shared_ptr<conf> cf(new conf);
+        ptr<conf> cf(new conf);
 
         if (cf->parse_block(&c_buf)) {
             logger l(LOG_DEBUG);
@@ -79,7 +80,7 @@ std::shared_ptr<conf> conf::load(const std::string &path)
         logger::error() << "Failed to load configuration file '" << path << "'";
     }
 
-    return std::shared_ptr<conf>();
+    return ptr<conf>();
 }
 
 bool conf::is_block() const
@@ -152,10 +153,10 @@ bool conf::parse_block(const char **str)
             p++;
         }
 
-        std::shared_ptr<conf> cf(new conf);
+        ptr<conf> cf(new conf);
 
         if (cf->parse(&p)) {
-            _map.insert(std::pair<std::string, std::shared_ptr<conf> >(ss.str(), cf));
+            _map.insert(std::pair<std::string, ptr<conf> >(ss.str(), cf));
         }
     }
 
@@ -224,7 +225,7 @@ void conf::dump(logger &l, int level) const
     if (_is_block) {
         l << "{" << logger::endl;
 
-        std::multimap<std::string, std::shared_ptr<conf> >::const_iterator it;
+        std::multimap<std::string, ptr<conf> >::const_iterator it;
 
         for (it = _map.begin(); it != _map.end(); it++) {
             l << pfx << "    " << it->first << " ";
@@ -237,20 +238,20 @@ void conf::dump(logger &l, int level) const
     l << logger::endl;
 }
 
-std::shared_ptr<conf> conf::operator[](const std::string& name) const
+ptr<conf> conf::operator[](const std::string& name) const
 {
-    std::multimap<std::string, std::shared_ptr<conf> >::const_iterator it;
+    std::multimap<std::string, ptr<conf> >::const_iterator it;
 
     if ((it = _map.find(name)) == _map.end())
-        return std::shared_ptr<conf>();
+        return ptr<conf>();
     else
         return it->second;
 }
 
-std::vector<std::shared_ptr<conf> > conf::find(const std::string& name) const
+std::vector<ptr<conf> > conf::find(const std::string& name) const
 {
-    std::vector<std::shared_ptr<conf> > vec;
-    std::multimap<std::string, std::shared_ptr<conf> >::const_iterator it;
+    std::vector<ptr<conf> > vec;
+    std::multimap<std::string, ptr<conf> >::const_iterator it;
     for (it = _map.find(name); it != _map.end(); it++) {
         vec.push_back(it->second);
     }
