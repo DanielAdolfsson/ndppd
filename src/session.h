@@ -24,8 +24,7 @@ NDPPD_NS_BEGIN
 class proxy;
 class iface;
 
-class session
-{
+class session {
 private:
     weak_ptr<session> _ptr;
 
@@ -80,8 +79,6 @@ public:
     void send_solicit();
 
     void refesh();
-
-
 };
 
 NDPPD_NS_END

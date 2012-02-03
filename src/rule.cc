@@ -35,20 +35,24 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     ru->_pr   = pr;
     ru->_ifa  = ifa;
     ru->_addr = addr;
+    ru->_aut  = false;
 
     logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
 
     return ru;
 }
 
-ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr)
+ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, bool aut)
 {
     ptr<rule> ru(new rule());
     ru->_ptr   = ru;
     ru->_pr    = pr;
     ru->_addr  = addr;
+    ru->_aut   = aut;
 
-    logger::debug() << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr;
+    logger::debug()
+        << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr
+        << ", auto=" << (aut ? "yes" : "no");
 
     return ru;
 }
@@ -63,9 +67,9 @@ ptr<iface> rule::ifa() const
     return _ifa;
 }
 
-bool rule::is_static() const
+bool rule::is_auto() const
 {
-    return !!_ifa;
+    return _aut;
 }
 
 bool rule::check(const address& addr) const

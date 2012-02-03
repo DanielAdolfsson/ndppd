@@ -30,26 +30,17 @@
 #   define LOG_DEBUG   7   /* debug-level messages */
 #endif
 
-
-/*#define DBG(...) logger(logger::DEBUG)   << logger::F(__VA_ARGS__) << logger::endl;
-#define ERR(...) logger(logger::ERROR)   << logger::F(__VA_ARGS__) << logger::endl;
-#define WRN(...) logger(logger::WARNING) << logger::F(__VA_ARGS__) << logger::endl;
-#define NFO(...) logger(logger::INFO)    << logger::F(__VA_ARGS__) << logger::endl;*/
-
-/* LOG_ERR; LOG_WARNING; LOG_CRIT; LOG_INFO; LOG_NOTICE */
-
 NDPPD_NS_BEGIN
 
-class logger
-{
+class logger {
 public:
     logger(int pri = LOG_INFO);
 
-    logger(const logger &l);
+    logger(const logger& l);
 
     ~logger();
 
-    static std::string format(const std::string &fmt, ...);
+    static std::string format(const std::string& fmt, ...);
 
     static void syslog(bool enable);
     static bool syslog();
@@ -58,15 +49,15 @@ public:
 
     void flush();
 
-    static bool verbosity(const std::string &name);
+    static bool verbosity(const std::string& name);
 
-    logger& operator<<(const std::string &str);
-    logger& operator<<(logger &(*pf)(logger &));
+    logger& operator<<(const std::string& str);
+    logger& operator<<(logger& (*pf)(logger& ));
     logger& operator<<(int n);
 
     logger& force_log(bool b = true);
 
-    static logger& endl(logger &__l);
+    static logger& endl(logger& __l);
 
     // Shortcuts.
 
@@ -83,7 +74,7 @@ private:
     bool _force_log;
 
     struct pri_name {
-        const char *name;
+        const char* name;
         int pri;
     };
 

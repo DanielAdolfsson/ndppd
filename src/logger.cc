@@ -26,7 +26,7 @@
 
 NDPPD_NS_BEGIN
 
-/*const char *log::_level_str[] =
+/*const char* log::_level_str[] =
 {
     "fatal",
     "alert",
@@ -59,7 +59,7 @@ logger::logger(int pri) :
 {
 }
 
-logger::logger(const logger &l) :
+logger::logger(const logger& l) :
     _pri(l._pri) //, _ss(l._ss.str())
 {
     _ss << l._ss.rdbuf();
@@ -100,34 +100,34 @@ logger logger::debug()
     return logger(LOG_DEBUG);
 }
 
-logger &logger::operator<<(const std::string &str)
+logger& logger::operator<<(const std::string& str)
 {
     _ss << str;
-    return *this;
+    return* this;
 }
 
-logger &logger::operator<<(int n)
+logger& logger::operator<<(int n)
 {
     _ss << n;
-    return *this;
+    return* this;
 }
 
-logger &logger::operator<<(logger &(*pf)(logger &))
+logger& logger::operator<<(logger& (*pf)(logger& ))
 {
     pf(*this);
-    return *this;
+    return* this;
 }
 
-logger &logger::endl(logger &__l)
+logger& logger::endl(logger& __l)
 {
     __l.flush();
     return __l;
 }
 
-logger &logger::force_log(bool b)
+logger& logger::force_log(bool b)
 {
     _force_log = b;
-    return *this;
+    return* this;
 }
 
 void logger::flush()
@@ -175,9 +175,9 @@ void logger::max_pri(int pri)
     _max_pri = pri;
 }
 
-bool logger::verbosity(const std::string &name)
+bool logger::verbosity(const std::string& name)
 {
-    const char *c_name = name.c_str();
+    const char* c_name = name.c_str();
 
     if (!*c_name) {
         return false;

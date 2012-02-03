@@ -20,6 +20,7 @@
 #include "ndppd.h"
 
 #include "proxy.h"
+#include "route.h"
 #include "iface.h"
 #include "rule.h"
 #include "session.h"
@@ -48,8 +49,9 @@ ptr<proxy> proxy::open(const std::string& ifname)
 {
     ptr<iface> ifa = iface::open_pfd(ifname);
 
-    if (!ifa)
+    if (!ifa) {
         return ptr<proxy>();
+    }
 
     return create(ifa);
 }
@@ -57,8 +59,9 @@ ptr<proxy> proxy::open(const std::string& ifname)
 void proxy::handle_solicit(const address& saddr, const address& daddr,
     const address& taddr)
 {
-    logger::debug() << "proxy::handle_solicit() saddr=" << saddr.to_string()
-                << ", taddr=" << taddr.to_string();
+    logger::debug()
+        << "proxy::handle_solicit() saddr=" << saddr.to_string()
+        << ", taddr=" << taddr.to_string();
 
     // Let's check this proxy's list of sessions to see if we can
     // find one with the same target address.
@@ -86,24 +89,31 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     ptr<session> se;
 
     for (std::list<ptr<rule> >::iterator it = _rules.begin();
-         it != _rules.end(); it++) {
-        ptr<rule> ru = *it;
+            it != _rules.end(); it++) {
+        ptr<rule> ru =* it;
 
-        logger::debug() << "checking " << ru->addr().to_string() << " against " << taddr;
+        logger::debug() << "checking " << ru->addr() << " against " << taddr;
 
         if (ru->addr() == taddr) {
-            if (!se)
+            if (!se) {
                 se = session::create(_ptr, saddr, daddr, taddr);
-
-            if (!ru->ifa()) {
-                // This rule doesn't have an interface, and thus we'll consider
-                // it "static" and immediately send the response.
-
-                se->handle_advert();
-                return;
             }
 
-            se->add_iface((*it)->ifa());
+            if (ru->is_auto()) {
+                ptr<iface> ifa = route::find_and_open(taddr);
+                // TODO: Check if it's a good interface.
+                if (ifa) {
+                    se->add_iface(ifa);
+                    continue;
+                }
+            } else if (!ru->ifa()) {
+                // This rule doesn't have an interface, and thus we'll consider
+                // it "static" and immediately send the response.
+                se->handle_advert();
+                return;
+            } else {
+                se->add_iface((*it)->ifa());
+            }
         }
     }
 
@@ -120,9 +130,9 @@ ptr<rule> proxy::add_rule(const address& addr, const ptr<iface>& ifa)
     return ru;
 }
 
-ptr<rule> proxy::add_rule(const address& addr)
+ptr<rule> proxy::add_rule(const address& addr, bool aut)
 {
-    ptr<rule> ru(rule::create(_ptr, addr));
+    ptr<rule> ru(rule::create(_ptr, addr, aut));
     _rules.push_back(ru);
     return ru;
 }

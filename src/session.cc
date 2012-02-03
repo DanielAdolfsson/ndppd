@@ -79,8 +79,8 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     _sessions.push_back(se);
 
     logger::debug()
-        << "session::create() pr=" << logger::format("%x", (proxy *)pr) << ", saddr=" << saddr
-        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session *)se);
+        << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", saddr=" << saddr
+        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session* )se);
 
     return se;
 }

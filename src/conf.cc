@@ -34,12 +34,22 @@ conf::conf() :
 
 }
 
-const std::string &conf::value() const
+conf::operator int() const
 {
-    return _value;
+    return as_int();
 }
 
-bool conf::bool_value() const
+conf::operator const std::string&() const
+{
+    return as_str();
+}
+
+conf::operator bool() const
+{
+    return as_bool();
+}
+
+bool conf::as_bool() const
 {
     if (!strcasecmp(_value.c_str(), "true") || !strcasecmp(_value.c_str(), "yes"))
         return true;
@@ -47,31 +57,36 @@ bool conf::bool_value() const
         return false;
 }
 
-int conf::int_value() const
+const std::string& conf::as_str() const
+{
+    return _value;
+}
+
+int conf::as_int() const
 {
     return atoi(_value.c_str());
 }
 
-void conf::value(const std::string &value)
+bool conf::empty() const
 {
-    _value = value;
+    return _value == "";
 }
 
-ptr<conf> conf::load(const std::string &path)
+ptr<conf> conf::load(const std::string& path)
 {
     try {
         std::ifstream ifs;
         ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
         ifs.open(path.c_str(), std::ios::in);
+        ifs.exceptions(std::ifstream::badbit);
         std::string buf((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-        const char *c_buf = buf.c_str();
+        const char* c_buf = buf.c_str();
 
         ptr<conf> cf(new conf);
 
         if (cf->parse_block(&c_buf)) {
-            logger l(LOG_DEBUG);
-            cf->dump(l, 0);
+            cf->dump(LOG_DEBUG);
             return cf;
         }
 
@@ -88,7 +103,7 @@ bool conf::is_block() const
     return _is_block;
 }
 
-const char *conf::skip(const char *str, bool all)
+const char* conf::skip(const char* str, bool all)
 {
     if (!all) {
         while (*str && (*str != '\n') && isspace(*str))
@@ -127,18 +142,18 @@ const char *conf::skip(const char *str, bool all)
     return str;
 }
 
-bool conf::parse_block(const char **str)
+bool conf::parse_block(const char** str)
 {
-    const char *p = *str;
+    const char* p = *str;
 
     _is_block = true;
 
     while (*p) {
         std::stringstream ss;
 
-        p = skip(p);
+        p = skip(p, true);
 
-        if (*p == '}') {
+        if ((*p == '}') || !*p) {
             *str = p;
             return true;
         }
@@ -164,9 +179,9 @@ bool conf::parse_block(const char **str)
     return true;
 }
 
-bool conf::parse(const char **str)
+bool conf::parse(const char** str)
 {
-    const char *p = *str;
+    const char* p = *str;
     std::stringstream ss;
 
     p = skip(p, false);
@@ -175,12 +190,14 @@ bool conf::parse(const char **str)
         return false;
     } else if ((*p == '\'') || (*p == '"')) {
         for (char e = *p++; *p && (*p != e); p++)
-            ss << *p;
+            ss <<* p;
     } else if (isalnum(*p)) {
-        while (*p && (isalnum(*p) || strchr(":/.", *p)))
-            ss << *p++;
+        while (*p && (isalnum(*p) || strchr(":/.",* p)))
+            ss <<* p++;
     } else {
-        return false;
+        _value = "";
+        *str = p;
+        return true;
     }
 
     _value = ss.str();
@@ -203,13 +220,13 @@ bool conf::parse(const char **str)
     return true;
 }
 
-void conf::dump() const
+void conf::dump(int pri) const
 {
-    logger l(LOG_ERR);
+    logger l(pri);
     dump(l, 0);
 }
 
-void conf::dump(logger &l, int level) const
+void conf::dump(logger& l, int level) const
 {
     int i;
 
@@ -238,23 +255,42 @@ void conf::dump(logger &l, int level) const
     l << logger::endl;
 }
 
-ptr<conf> conf::operator[](const std::string& name) const
+ptr<conf> conf::operator()(const std::string& name, int index) const
 {
-    std::multimap<std::string, ptr<conf> >::const_iterator it;
-
-    if ((it = _map.find(name)) == _map.end())
-        return ptr<conf>();
-    else
-        return it->second;
+    return find(name, index);
 }
 
-std::vector<ptr<conf> > conf::find(const std::string& name) const
+ptr<conf> conf::find(const std::string& name, int index) const
 {
-    std::vector<ptr<conf> > vec;
     std::multimap<std::string, ptr<conf> >::const_iterator it;
     for (it = _map.find(name); it != _map.end(); it++) {
+        if (index-- <= 0)
+            return it->second;
+    }
+
+    return ptr<conf>();
+}
+
+ptr<conf> conf::operator[](const std::string& name) const
+{
+    return find(name, 0);
+}
+
+std::vector<ptr<conf> > conf::find_all(const std::string& name) const
+{
+    std::vector<ptr<conf> > vec;
+
+    std::multimap<std::string, ptr<conf> >::const_iterator it;
+
+    std::pair<std::multimap<std::string, ptr<conf> >::const_iterator,
+        std::multimap<std::string, ptr<conf> >::const_iterator> ret;
+
+    ret = _map.equal_range(name);
+
+    for (it = ret.first; it != ret.second; it++) {
         vec.push_back(it->second);
     }
+
     return vec;
 }
 

@@ -16,44 +16,44 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include <map>
-
-#include <sys/poll.h>
+#include <list>
+#include <memory>
 
 #include "ndppd.h"
 
 NDPPD_NS_BEGIN
 
-class iface;
-class proxy;
-
-class rule {
+class route {
 public:
-    static ptr<rule> create(const ptr<proxy>& pr, const address& addr, const ptr<iface>& ifa);
+    static ptr<route> create(const address& addr, const std::string& ifname);
 
-    static ptr<rule> create(const ptr<proxy>& pr, const address& addr, bool stc = true);
+    static ptr<route> find(const address& addr);
+
+    static ptr<iface> find_and_open(const address& addr);
+
+    static void load(const std::string& path);
+
+    const std::string& ifname() const;
 
     const address& addr() const;
 
-    ptr<iface> ifa() const;
-
-    bool is_auto() const;
-
-    bool check(const address& addr) const;
+    ptr<iface> ifa();
 
 private:
-    weak_ptr<rule> _ptr;
+    address _addr;
 
-    ptr<proxy> _pr;
+    std::string _ifname;
 
     ptr<iface> _ifa;
 
-    address _addr;
+    static size_t hexdec(const char* str, unsigned char* buf, size_t size);
 
-    bool _aut;
+    static std::string token(const char* str);
 
-    rule();
+    static std::list<ptr<route> > _routes;
+
+    route(const address& addr, const std::string& ifname);
+
 };
 
 NDPPD_NS_END

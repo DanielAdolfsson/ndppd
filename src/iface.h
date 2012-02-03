@@ -30,8 +30,7 @@ NDPPD_NS_BEGIN
 class session;
 class proxy;
 
-class iface
-{
+class iface {
 private:
     // Weak pointer so this object can reference itself.
     weak_ptr<iface> _ptr;
@@ -85,9 +84,9 @@ public:
 
     static int poll_all();
 
-    static ssize_t read(int fd, struct sockaddr *saddr, uint8_t *msg, size_t size);
+    static ssize_t read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size);
 
-    static ssize_t write(int fd, const address& daddr, const uint8_t *msg, size_t size);
+    static ssize_t write(int fd, const address& daddr, const uint8_t* msg, size_t size);
 
     // Writes a NB_NEIGHBOR_SOLICIT message to the _ifd socket.
     ssize_t write_solicit(const address& taddr);

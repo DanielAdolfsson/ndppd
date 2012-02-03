@@ -28,8 +28,7 @@ NDPPD_NS_BEGIN
 class iface;
 class rule;
 
-class proxy
-{
+class proxy {
 private:
     weak_ptr<proxy> _ptr;
 
@@ -57,7 +56,7 @@ public:
 
     ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
 
-    ptr<rule> add_rule(const address& addr);
+    ptr<rule> add_rule(const address& addr, bool aut = false);
 
     const ptr<iface>& ifa() const;
 

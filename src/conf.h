@@ -25,8 +25,7 @@
 
 NDPPD_NS_BEGIN
 
-class conf
-{
+class conf {
 public:
 
 private:
@@ -36,33 +35,39 @@ private:
 
     std::multimap<std::string, ptr<conf> > _map;
 
-    void dump(logger &l, int level) const;
+    void dump(logger& l, int level) const;
 
-    static const char *skip(const char *str, bool all = true);
+    static const char* skip(const char* str, bool all = true);
 
-    bool parse_block(const char **str);
+    bool parse_block(const char* *str);
 
-    bool parse(const char **str);
+    bool parse(const char* *str);
 
 public:
     conf();
 
-    const std::string &value() const;
-
-    bool bool_value() const;
-
-    int int_value() const;
-
-    void value(const std::string &value);
-
-    static ptr<conf> load(const std::string &path);
+    static ptr<conf> load(const std::string& path);
 
     bool is_block() const;
 
-    ptr<conf> operator[](const std::string &name) const;
-    std::vector<ptr<conf> > find(const std::string &name) const;
+    ptr<conf> operator[](const std::string& name) const;
+    ptr<conf> operator()(const std::string& name, int index = 0) const;
 
-    void dump() const;
+    operator const std::string&() const;
+    operator int() const;
+    operator bool() const;
+
+    bool as_bool() const;
+    const std::string& as_str() const;
+    int as_int() const;
+
+    bool empty() const;
+
+    std::vector<ptr<conf> > find_all(const std::string& name) const;
+
+    ptr<conf> find(const std::string& name, int index = 0) const;
+
+    void dump(int pri = LOG_INFO) const;
 
     operator const std::string&();
 

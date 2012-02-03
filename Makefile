@@ -15,7 +15,7 @@ SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
 LIBS     =
 
 OBJS     = src/logger.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
-           src/rule.o src/session.o src/conf.o
+           src/rule.o src/session.o src/conf.o src/route.o
 
 all: ndppd ndppd.1.gz ndppd.conf.5.gz
 

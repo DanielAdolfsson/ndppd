@@ -53,7 +53,7 @@ address::address(const std::string& str)
     parse_string(str);
 }
 
-address::address(const char *str)
+address::address(const char* str)
 {
     parse_string(str);
 }
@@ -125,13 +125,16 @@ void address::reset()
 
 int address::prefix() const
 {
-    if (!_mask.s6_addr[0])
+    if (!_mask.s6_addr[0]) {
         return 0;
+    }
 
     for (int p = 0; p < 128; p++) {
         int byi = p / 8, bii = 7 - (p % 8);
-        if (!(_mask.s6_addr[byi] & (1 << bii)))
+
+        if (!(_mask.s6_addr[byi]&  (1 << bii))) {
             return p;
+        }
     }
 
     return 128;
@@ -139,40 +142,58 @@ int address::prefix() const
 
 void address::prefix(int pf)
 {
-    if ((pf < 0) || (pf > 128))
+    const unsigned char maskbit[] = {
+        0x00, 0x80, 0xc0, 0xe0, 0xf0,
+        0xf8, 0xfc, 0xfe, 0xff
+    };
+
+    if (pf >= 128) {
+        _mask.s6_addr32[0] = 0xffffffff;
+        _mask.s6_addr32[1] = 0xffffffff;
+        _mask.s6_addr32[2] = 0xffffffff;
+        _mask.s6_addr32[3] = 0xffffffff;
         return;
+    } else {
+        _mask.s6_addr32[0] = 0;
+        _mask.s6_addr32[1] = 0;
+        _mask.s6_addr32[2] = 0;
+        _mask.s6_addr32[3] = 0;
 
-    _mask.s6_addr32[0] = 0;
-    _mask.s6_addr32[1] = 0;
-    _mask.s6_addr32[2] = 0;
-    _mask.s6_addr32[3] = 0;
-
-    while (pf--) {
-        int byi = pf / 8, bii = 7 - (pf % 8);
-        _mask.s6_addr[byi] |= 1 << bii;
+        if (pf <= 0) {
+            return;
+        }
     }
+
+    int offset = pf / 8, n;
+
+    for (n = 0; n < offset; n++) {
+        _mask.s6_addr[n] = 0xff;
+    }
+
+    _mask.s6_addr[offset] = maskbit[pf % 8];
 }
 
 const std::string address::to_string() const
 {
     char buf[INET6_ADDRSTRLEN + 8];
 
-    if (!inet_ntop(AF_INET6, &_addr, buf, INET6_ADDRSTRLEN))
+    if (!inet_ntop(AF_INET6,& _addr, buf, INET6_ADDRSTRLEN))
         return "::1";
 
     // TODO: What to do about invalid ip?
 
     int p;
 
-    if ((p = prefix()) < 128)
+    if ((p = prefix()) < 128) {
         sprintf(buf + strlen(buf), "/%d", p);
+    }
 
     return buf;
 }
 
 bool address::parse_string(const std::string& str)
 {
-    char buf[INET6_ADDRSTRLEN], *b;
+    char buf[INET6_ADDRSTRLEN],* b;
     int sz, pfx;
 
     sz = 0;
@@ -180,33 +201,38 @@ bool address::parse_string(const std::string& str)
 
     reset();
 
-    const char *p = str.c_str();
+    const char* p = str.c_str();
 
     while (*p && isspace(*p))
         p++;
 
     while (*p) {
-        if ((*p == '/') || isspace(*p))
+        if ((*p == '/') || isspace(*p)) {
             break;
+        }
 
-        if ((*p != ':') && !isxdigit(*p))
+        if ((*p != ':') && !isxdigit(*p)) {
             return false;
+        }
 
-        if (sz >= (INET6_ADDRSTRLEN - 1))
+        if (sz >= (INET6_ADDRSTRLEN - 1)) {
             return false;
+        }
 
-        *b++ = *p++;
+*        b++ =* p++;
 
         sz++;
     }
 
-    *b = '\0';
+*    b = '\0';
 
-    if (inet_pton(AF_INET6, buf, &_addr) <= 0)
+    if (inet_pton(AF_INET6, buf,& _addr) <= 0) {
         return false;
+    }
 
-    while (*p && isspace(*p))
+    while (*p && isspace(*p)) {
         p++;
+    }
 
     if (*p == '\0') {
         _mask.s6_addr32[0] = 0xffffffff;
@@ -232,11 +258,11 @@ bool address::parse_string(const std::string& str)
         if (sz > 3)
             return false;
 
-        *b++ = *p++;
+*        b++ =* p++;
         sz++;
     }
 
-    *b = '\0';
+*    b = '\0';
 
     prefix(atoi(buf));
 

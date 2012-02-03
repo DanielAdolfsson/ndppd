@@ -24,16 +24,12 @@ NDPPD_NS_BEGIN
 
 class iface;
 
-class address
-{
-private:
-    struct in6_addr _addr, _mask;
-
+class address {
 public:
     address();
     address(const address& addr);
     address(const std::string& str);
-    address(const char *str);
+    address(const char* str);
     address(const in6_addr& addr);
     address(const in6_addr& addr, const in6_addr& mask);
     address(const in6_addr& addr, int prefix);
@@ -65,6 +61,8 @@ public:
 
     operator std::string() const;
 
+private:
+    struct in6_addr _addr, _mask;
 };
 
 NDPPD_NS_END

@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "ndppd.h"
+#include "route.h"
 
 using namespace ndppd;
 
@@ -52,7 +53,7 @@ int daemonize()
     return 0;
 }
 
-bool configure(const std::string &path)
+bool configure(const std::string& path)
 {
     ptr<conf> cf;
 
@@ -61,61 +62,65 @@ bool configure(const std::string &path)
 
     std::vector<ptr<conf> >::const_iterator p_it;
 
-    std::vector<ptr<conf> > proxies(cf->find("proxy"));
+    std::vector<ptr<conf> > proxies(cf->find_all("proxy"));
 
     for (p_it = proxies.begin(); p_it != proxies.end(); p_it++) {
-        ptr<conf> pr_cf = *p_it, x_cf;
+        ptr<conf> pr_cf =* p_it, x_cf;
 
-        if (pr_cf->value() == "") {
+        if (pr_cf->empty()) {
             logger::error() << "'proxy' section is missing interface name";
             return false;
         }
 
-        ptr<proxy> pr = proxy::open(pr_cf->value());
+        ptr<proxy> pr = proxy::open(*pr_cf);
 
         if (!pr) {
-            logger::error() << "Configuration failed for proxy '" << pr_cf->value() << "'";
+            logger::error() << "Configuration failed for proxy '" << (const std::string& )*pr_cf << "'";
             return false;
         }
 
-        if (!(x_cf = (*pr_cf)["router"]))
+        if (!(x_cf = pr_cf->find("router")))
             pr->router(true);
         else
-            pr->router(x_cf->bool_value());
+            pr->router(*x_cf);
 
-        if (!(x_cf = (*pr_cf)["ttl"]))
+        if (!(x_cf = pr_cf->find("ttl")))
             pr->ttl(30000);
         else
-            pr->ttl(x_cf->int_value());
+            pr->ttl(*x_cf);
 
-        if (!(x_cf = (*pr_cf)["timeout"]))
+        if (!(x_cf = pr_cf->find("timeout")))
             pr->timeout(500);
         else
-            pr->timeout(x_cf->int_value());
+            pr->timeout(*x_cf);
 
         std::vector<ptr<conf> >::const_iterator r_it;
 
-        std::vector<ptr<conf> > rules(pr_cf->find("rule"));
+        std::vector<ptr<conf> > rules(pr_cf->find_all("rule"));
 
         for (r_it = rules.begin(); r_it != rules.end(); r_it++) {
-            ptr<conf> ru_cf = *r_it;
+            ptr<conf> ru_cf =* r_it;
 
-            if (ru_cf->value() == "") {
+            if (ru_cf->empty()) {
                 logger::error() << "'rule' is missing an IPv6 address/net";
                 return false;
             }
 
-            address addr(ru_cf->value());
+            address addr(*ru_cf);
 
-            if (!(x_cf = (*ru_cf)["iface"])) {
+            if (x_cf = ru_cf->find("iface")) {
+                if ((const std::string& )*x_cf == "") {
+                    logger::error() << "'iface' expected an interface name";
+                } else {
+                    pr->add_rule(addr, iface::open_ifd(*x_cf));
+                }
+            } else if (ru_cf->find("auto")) {
+                pr->add_rule(addr, true);
+            } else {
                 if (addr.prefix() <= 120) {
                     logger::warning() << "Static rule prefix /" << addr.prefix() << " <= 120 - is this what you want?";
-                    pr->add_rule(addr);
                 }
-            } else if (x_cf->value() == "") {
-                logger::error() << "'iface' expected an interface name or 'auto' as argument";
-            } else {
-                pr->add_rule(addr, iface::open_ifd(x_cf->value()));
+                pr->add_rule(addr, false);
             }
         }
     }
@@ -123,7 +128,7 @@ bool configure(const std::string &path)
     return true;
 }
 
-int main(int argc, char *argv[], char *env[])
+int main(int argc, char* argv[], char* env[])
 {
     std::string config_path("/etc/ndppd.conf");
     std::string pidfile;
@@ -141,7 +146,7 @@ int main(int argc, char *argv[], char *env[])
             { 0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "c:dp:v::", long_options, &opt);
+        c = getopt_long(argc, argv, "c:dp:v::", long_options,& opt);
 
         if (c == -1)
             break;
@@ -195,6 +200,8 @@ int main(int argc, char *argv[], char *env[])
     if (!configure(config_path))
         return -1;
 
+    route::load("/proc/net/ipv6_route");
+
     // Time stuff.
 
     struct timeval t1, t2;
@@ -206,7 +213,7 @@ int main(int argc, char *argv[], char *env[])
         gettimeofday(&t2, 0);
 
         elapsed_time =
-            ((t2.tv_sec  - t1.tv_sec)  * 1000) +
+            ((t2.tv_sec  - t1.tv_sec)*   1000) +
             ((t2.tv_usec - t1.tv_usec) / 1000);
 
         t1.tv_sec  = t2.tv_sec;
