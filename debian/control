@@ -1,10 +1,10 @@
 Source: ndppd
 Section: net
 Priority: extra
-Maintainer: Daniel Adolfsson <daniel.adolfsson@tuhox.com>
-Build-Depends: debhelper (>= 7.0.50~), libconfuse-dev (>= 2.7)
+Maintainer: Daniel Adolfsson <daniel@priv.nu>
+Build-Depends: debhelper (>= 7.0.50~)
 Standards-Version: 3.9.2
-Homepage: http://www.tuhox.com/ndppd
+Homepage: http://www.priv.nu/projects/ndppd
 Vcs-Git: git://github.com/Tuhox/ndppd.git
 Vcs-Browser: https://github.com/Tuhox/ndppd/tree/debian
 

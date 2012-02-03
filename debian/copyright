@@ -3,7 +3,7 @@ Upstream-Name: ndppd
 Source: https://github.com/Tuhox/ndppd
 
 Files: *
-Copyright: 2011, Daniel Adolfsson <daniel.adolfsson@tuhox.com>
+Copyright: 2011, Daniel Adolfsson <daniel@priv.nu>
 License: GPL-3+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
