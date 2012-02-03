@@ -45,7 +45,7 @@ public:
 private:
     weak_ptr<rule> _ptr;
 
-    ptr<proxy> _pr;
+    weak_ptr<proxy> _pr;
 
     ptr<iface> _ifa;
 

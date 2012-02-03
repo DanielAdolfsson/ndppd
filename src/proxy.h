@@ -29,21 +29,6 @@ class iface;
 class rule;
 
 class proxy {
-private:
-    weak_ptr<proxy> _ptr;
-
-    ptr<iface> _ifa;
-
-    std::list<ptr<rule> > _rules;
-
-    std::list<ptr<session> > _sessions;
-
-    bool _router;
-
-    int _ttl, _timeout;
-
-    proxy();
-
 public:
     static ptr<proxy> create(const ptr<iface>& ifa);
 
@@ -71,6 +56,23 @@ public:
     int ttl() const;
 
     void ttl(int val);
+
+private:
+    static std::list<ptr<proxy> > _list;
+
+    weak_ptr<proxy> _ptr;
+
+    ptr<iface> _ifa;
+
+    std::list<ptr<rule> > _rules;
+
+    std::list<ptr<session> > _sessions;
+
+    bool _router;
+
+    int _ttl, _timeout;
+
+    proxy();
 };
 
 NDPPD_NS_END

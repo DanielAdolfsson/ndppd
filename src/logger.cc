@@ -55,12 +55,12 @@ const logger::pri_name logger::_pri_names[] = {
 };
 
 logger::logger(int pri) :
-    _pri(pri)
+    _pri(pri), _force_log(false)
 {
 }
 
 logger::logger(const logger& l) :
-    _pri(l._pri) //, _ss(l._ss.str())
+    _pri(l._pri), _force_log(false)
 {
     _ss << l._ss.rdbuf();
 }

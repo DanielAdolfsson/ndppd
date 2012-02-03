@@ -42,12 +42,12 @@
 
 NDPPD_NS_BEGIN
 
-std::map<std::string, ptr<iface> > iface::_map;
+std::map<std::string, weak_ptr<iface> > iface::_map;
 
 std::vector<struct pollfd> iface::_pollfds;
 
 iface::iface() :
-    _ifd(-1), _pfd(-1)
+    _ifd(-1), _pfd(-1), _name("")
 {
 }
 
@@ -59,16 +59,20 @@ iface::~iface()
         close(_ifd);
 
     if (_pfd >= 0) {
-        allmulti(_prev_allmulti);
+        if (_prev_allmulti >= 0) {
+            allmulti(_prev_allmulti);
+        }
         close(_pfd);
     }
+
+    _map.erase(_name);
 }
 
 ptr<iface> iface::open_pfd(const std::string& name)
 {
-    int fd;
+    int fd = 0;
 
-    std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
+    std::map<std::string, weak_ptr<iface> >::iterator it = _map.find(name);
 
     ptr<iface> ifa;
 
@@ -124,10 +128,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
 
     // Set up filter.
 
-    struct sock_fprog fprog;
-
-    static const struct sock_filter filter[] =
-    {
+    static struct sock_filter filter[] = {
         // Load the ether_type.
         BPF_STMT(BPF_LD | BPF_H | BPF_ABS,
             offsetof(struct ether_header, ether_type)),
@@ -149,13 +150,18 @@ ptr<iface> iface::open_pfd(const std::string& name)
         BPF_STMT(BPF_RET | BPF_K, 0)
     };
 
-    fprog.filter = (struct sock_filter* )filter;
-    fprog.len    = 8;
+    static struct sock_fprog fprog = {
+        8,
+        filter
+    };
 
-    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,& fprog, sizeof(fprog)) < 0) {
+    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0) {
         logger::error() << "Failed to set filter";
         return ptr<iface>();
     }
+
+    // Eh. Allmulti.
+    ifa->_prev_allmulti = ifa->allmulti(1);
 
     // Set up an instance of 'iface'.
 
@@ -170,7 +176,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
 {
     int fd;
 
-    std::map<std::string, ptr<iface> >::iterator it = _map.find(name);
+    std::map<std::string, weak_ptr<iface> >::iterator it = _map.find(name);
 
     if ((it != _map.end()) && it->second->_ifd)
         return it->second;
@@ -451,7 +457,7 @@ void iface::fixup_pollfds()
 
     logger::debug() << "iface::fixup_pollfds() _map.size()=" << _map.size();
 
-    for (std::map<std::string, ptr<iface> >::iterator it = _map.begin();
+    for (std::map<std::string, weak_ptr<iface> >::iterator it = _map.begin();
             it != _map.end(); it++) {
         _pollfds[i].fd      = it->second->_ifd;
         _pollfds[i].events  = POLLIN;
@@ -498,7 +504,7 @@ int iface::poll_all()
     if (len == 0)
         return 0;
 
-    std::map<std::string, ptr<iface> >::iterator i_it = _map.begin();
+    std::map<std::string, weak_ptr<iface> >::iterator i_it = _map.begin();
 
     int i = 0;
 
@@ -530,7 +536,9 @@ int iface::poll_all()
                 continue;
             }
 
-            ifa->_pr->handle_solicit(saddr, daddr, taddr);
+            if (ifa->_pr) {
+                ifa->_pr->handle_solicit(saddr, daddr, taddr);
+            }
         } else {
             if (ifa->read_advert(saddr, taddr) < 0) {
                 logger::error() << "Failed to read from interface '%s'", ifa->_name.c_str();
@@ -560,23 +568,29 @@ int iface::allmulti(int state)
 
     state = !!state;
 
+    memset(&ifr, 0, sizeof(ifr));
+
     strncpy(ifr.ifr_name, _name.c_str(), IFNAMSIZ);
 
-    if (ioctl(_pfd, SIOCGIFFLAGS,& ifr) < 0)
+    if (ioctl(_pfd, SIOCGIFFLAGS, &ifr) < 0) {
         return -1;
+    }
 
-    int old_state = !!(ifr.ifr_flags&  IFF_ALLMULTI);
+    int old_state = !!(ifr.ifr_flags & IFF_ALLMULTI);
 
-    if (state == old_state)
+    if (state == old_state) {
         return old_state;
+    }
 
-    if (state)
+    if (state) {
         ifr.ifr_flags |= IFF_ALLMULTI;
-    else
+    } else {
         ifr.ifr_flags &= ~IFF_ALLMULTI;
+    }
 
-    if (ioctl(_pfd, SIOCSIFFLAGS,& ifr) < 0)
+    if (ioctl(_pfd, SIOCSIFFLAGS, &ifr) < 0) {
         return -1;
+    }
 
     return old_state;
 }

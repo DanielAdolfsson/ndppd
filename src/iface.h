@@ -35,7 +35,7 @@ private:
     // Weak pointer so this object can reference itself.
     weak_ptr<iface> _ptr;
 
-    static std::map<std::string, ptr<iface> > _map;
+    static std::map<std::string, weak_ptr<iface> > _map;
 
     // An array of objects used with ::poll.
     static std::vector<struct pollfd> _pollfds;
@@ -61,7 +61,7 @@ private:
     // ND_NEIGHBOR_ADVERT messages.
     std::list<weak_ptr<session> > _sessions;
 
-    ptr<proxy> _pr;
+    weak_ptr<proxy> _pr;
 
     // The link-layer address of this interface.
     struct ether_addr hwaddr;

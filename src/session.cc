@@ -96,11 +96,11 @@ void session::add_iface(const ptr<iface>& ifa)
 
 void session::send_solicit()
 {
-    logger::debug() << "session::send_solicit() (" << _ifaces.size() << ")";
+    logger::debug() << "session::send_solicit() (_ifaces.size() = " << _ifaces.size() << ")";
 
     for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++) {
-        logger::debug() << " - %s" << (*it)->name();
+        logger::debug() << " - " << (*it)->name();
         (*it)->write_solicit(_taddr);
     }
 }

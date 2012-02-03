@@ -18,6 +18,7 @@
 #include <exception>
 
 #include "ndppd.h"
+#include "logger.h"
 
 NDPPD_NS_BEGIN
 
@@ -50,43 +51,65 @@ protected:
 
     void acquire(ptr_ref* ref)
     {
-        if (_ref)
+        if (_ref) {
             release();
+        }
+
+        if (ref && !ref->sc) {
+            throw new invalid_pointer;
+        }
 
         if (_ref = ref) {
-            if (_weak)
+            if (_weak) {
                 _ref->wc++;
-            else
+            } else {
                 _ref->sc++;
+            }
         }
     }
 
     void acquire(void* ptr)
     {
         _ref      = new ptr_ref();
-        _ref->ptr = (T* )ptr;
+        _ref->ptr = (T*)ptr;
         _ref->wc  = !!_weak;
         _ref->sc  = !_weak;
     }
 
     void release()
     {
-        if (!_ref)
+        if (!_ref) {
             return;
-
-        if (_weak)
-            _ref->wc--;
-        else
-            _ref->sc--;
-
-        if (!_ref->sc && _ref->ptr) {
-            T* ptr = static_cast<T* >(_ref->ptr);
-            _ref->ptr = 0;
-            delete ptr;
         }
 
-        if (!_ref->sc && !_ref->wc)
+        //logger::debug()
+        //    << "ptr::release() _ref=" << logger::format("%x", _ref)
+        //    << ", _ref->wc=" << _ref->wc << ", _ref->sc=" << _ref->sc
+        //    << ", _weak=" << (_weak ? "yes" : "no");
+
+        if (_weak) {
+            assert(_ref->wc > 0);
+            _ref->wc--;
+        } else {
+            assert(_ref->sc > 0);
+            if (!--_ref->sc && _ref->ptr) {
+                T* ptr = _ref->ptr;
+                _ref->ptr = 0;
+                _ref->wc++;
+                delete ptr;
+                _ref->wc--;
+            }
+        }
+
+        /*if (!_weak && !_ref->sc && _ref->ptr) {
+            T* ptr = (T*)(_ref->ptr);
+            _ref->ptr = 0;
+            delete ptr;
+        }*/
+
+        if (!_ref->sc && !_ref->wc) {
             delete _ref;
+        }
 
         _ref = 0;
     }
@@ -196,8 +219,9 @@ public:
 
     T* get_pointer() const
     {
-        if (!_ref || !_ref->ptr)
+        if (!_ref || !_ref->ptr) {
             throw new invalid_pointer;
+        }
 
         return static_cast<T* >(_ref->ptr);
     }

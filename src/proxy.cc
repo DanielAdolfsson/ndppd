@@ -27,6 +27,8 @@
 
 NDPPD_NS_BEGIN
 
+std::list<ptr<proxy> > proxy::_list;
+
 proxy::proxy() :
     _router(true), _ttl(30000), _timeout(500)
 {
@@ -37,6 +39,8 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa)
     ptr<proxy> pr(new proxy());
     pr->_ptr = pr;
     pr->_ifa = ifa;
+
+    _list.push_back(pr);
 
     ifa->pr(pr);
 

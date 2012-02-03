@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdlib>
+#include <csignal>
 
 #include <iostream>
 #include <fstream>
@@ -128,8 +129,19 @@ bool configure(const std::string& path)
     return true;
 }
 
+bool running = true;
+
+void exit_ndppd(int sig)
+{
+    logger::error() << "Shutting down...";
+    running = 0;
+}
+
 int main(int argc, char* argv[], char* env[])
 {
+    signal(SIGINT, exit_ndppd);
+    signal(SIGTERM, exit_ndppd);
+
     std::string config_path("/etc/ndppd.conf");
     std::string pidfile;
     std::string verbosity;
@@ -208,7 +220,7 @@ int main(int argc, char* argv[], char* env[])
 
     gettimeofday(&t1, 0);
 
-    while (iface::poll_all() >= 0) {
+    while (running && (iface::poll_all() >= 0)) {
         int elapsed_time;
         gettimeofday(&t2, 0);
 

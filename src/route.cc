@@ -150,6 +150,7 @@ const std::string& route::ifname() const
 ptr<iface> route::ifa()
 {
     if (!_ifa) {
+        logger::debug() << "router::ifa() opening interface '" << _ifname << "'";
         return _ifa = iface::open_ifd(_ifname);
     }
 
