@@ -51,6 +51,10 @@ public:
 
     static bool verbosity(const std::string& name);
 
+    static int verbosity();
+
+    static void verbosity(int pri);
+
     logger& operator<<(const std::string& str);
     logger& operator<<(logger& (*pf)(logger& ));
     logger& operator<<(int n);

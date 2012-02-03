@@ -5,7 +5,7 @@
 .SH NAME
 ndppd \- NDP Proxy Daemon
 .SH SYNOPSIS
-.B ndppd [-d] [-c <config-file>] [-p <pidfile>]
+.B ndppd [-d] [-vvv] [-c <config-file>] [-p <pidfile>]
 .SH DESCRIPTION
 .BR ndppd,
 or
@@ -26,6 +26,9 @@ enables syslogging.
 Creates a 
 .I pidfile
 at the specified location.
+.IP -v
+Increases logging verbosity. Can be specified several times to increase
+verbosity even further.
 .SH FILES
 .I /etc/ndppd.conf
 .RS

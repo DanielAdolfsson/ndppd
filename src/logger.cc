@@ -175,6 +175,18 @@ void logger::max_pri(int pri)
     _max_pri = pri;
 }
 
+int logger::verbosity()
+{
+    return _max_pri;
+}
+
+void logger::verbosity(int pri)
+{
+    if ((pri >= 0) && (pri <= 7)) {
+        _max_pri = pri;
+    }
+}
+
 bool logger::verbosity(const std::string& name)
 {
     const char* c_name = name.c_str();

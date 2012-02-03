@@ -61,18 +61,42 @@ should send the
 .I router
 bit when sending Neighbor Advertisement messages. The default
 value here is
-.B yes.
+.BR yes .
 .SH RULE OPTIONS
+Specify a method here. See below.
+.SH METHOD
+One of the following options must be specified in the
+.B rule
+section. All of these are mutually exclusive options, and cannot
+be combined.
 .IP "iface <interface>"
 Specify which
 .I interface
 the Neighbor Solicitation message will be sent out through.
-If this option is not specified,
+.IP "auto"
+.B (NEW)
+If this option is specified
 .B ndppd
-will immediately answer with a Neighbor Advertisement message
-if the rule matches, without querying an interface. It's recommended
-that you set this value to avoid sending responses for IPs that does
-not exist.
+will attempt to detect which interface to use in order to forward
+Neighbor Solicitation Messages, by reading the routing table
+.BR /proc/sys/ipv6_route .
+.IP "static"
+.B (NEW)
+This option tells
+.B ndppd
+that it should immediately respond to a Neighbor Solicitation Message
+without querying an internal interface.
+Note that it's recommended that you use this option sparingly, and with
+as high prefix length as possible. This is to make sure upstream routers
+are not polluted with spurious neighbor entries.
+
+If no rule option has been specified, it will default to
+.B static
+in order to be compatible with
+.BR 0.2.1 .
+This will, however, produce a warning, and most likely not work in
+future versions of
+.BR ndppd .
 .SH AUTHOR
 Daniel Adolfsson <daniel@priv.nu>
 .SH "SEE ALSO"

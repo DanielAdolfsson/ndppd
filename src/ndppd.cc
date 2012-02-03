@@ -158,7 +158,7 @@ int main(int argc, char* argv[], char* env[])
             { 0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "c:dp:v::", long_options,& opt);
+        c = getopt_long(argc, argv, "c:dp:v", long_options,& opt);
 
         if (c == -1)
             break;
@@ -177,12 +177,13 @@ int main(int argc, char* argv[], char* env[])
             break;
 
         case 'v':
-            if (optarg) {
+            logger::verbosity(logger::verbosity() + 1);
+            /*if (optarg) {
                 if (!logger::verbosity(optarg))
                     logger::error() << "Unknown verbosity level '" << optarg << "'";
             } else {
                 logger::max_pri(LOG_INFO);
-            }
+            }*/
             break;
         }
     }

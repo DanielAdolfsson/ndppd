@@ -1,6 +1,6 @@
                      ndppd - NDP Proxy Daemon
 
-                          Version 0.2.1
+                          Version 0.2.2
 
 ------------------------------------------------------------------------
 1. Legal
@@ -78,14 +78,7 @@
 3. Dependencies
 ------------------------------------------------------------------------
 
-   This daemon depends on 'libconfuse'. If you're running Debian or
-   Ubuntu you should be able to get that from the repositories.
-   
-      apt-get install libconfuse0-dev
-
-   You can get it here otherwise:
-      
-      http://www.nongnu.org/confuse/
+   As of version 0.2.2, libconfuse is no longer needed.
 
 ------------------------------------------------------------------------
 4. Compiling
@@ -122,6 +115,9 @@
 
    -d    Daemonize the process, putting it in the background.
          Also enables syslogging.
+         
+   -v    Increase logging verbosity. Can be used several times in
+         order to increase even further.
 
 ------------------------------------------------------------------------
 5. Website and contact
