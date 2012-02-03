@@ -1,5 +1,5 @@
-ndppd (0.2.1-1) unstable; urgency=low
+ndppd (0.2.2-1) unstable; urgency=low
 
   * New Package. Closes: #644932.
 
- -- Daniel Adolfsson <daniel.adolfsson@tuhox.com>  Tue, 11 Oct 2011 07:12:56 +0200
+ -- Daniel Adolfsson <daniel@priv.nu>  Fri, 03 Feb 2012 14:48:48 +0100
