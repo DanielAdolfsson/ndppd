@@ -44,6 +44,8 @@ NDPPD_NS_BEGIN
 
 std::map<std::string, weak_ptr<iface> > iface::_map;
 
+bool iface::_map_dirty = false;
+
 std::vector<struct pollfd> iface::_pollfds;
 
 iface::iface() :
@@ -65,7 +67,7 @@ iface::~iface()
         close(_pfd);
     }
 
-    _map.erase(_name);
+    _map_dirty = true;
 }
 
 ptr<iface> iface::open_pfd(const std::string& name)
@@ -451,6 +453,10 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
 
 void iface::fixup_pollfds()
 {
+    if (_map_dirty) {
+        clean();
+    }
+
     _pollfds.resize(_map.size()*  2);
 
     int i = 0;
@@ -487,8 +493,24 @@ void iface::add_session(const ptr<session>& se)
     _sessions.push_back(se);
 }
 
+void iface::clean()
+{
+    for (std::map<std::string, weak_ptr<iface> >::iterator it = _map.begin();
+            it != _map.end(); it++) {
+        if (!it->second) {
+            _map.erase(it);
+        }
+    }
+
+    _map_dirty = false;
+}
+
 int iface::poll_all()
 {
+    if (_map_dirty) {
+        fixup_pollfds();
+    }
+
     if (_pollfds.size() == 0) {
         ::sleep(1);
         return 0;
@@ -498,11 +520,13 @@ int iface::poll_all()
 
     int len;
 
-    if ((len = ::poll(&_pollfds[0], _pollfds.size(), 50)) < 0)
+    if ((len = ::poll(&_pollfds[0], _pollfds.size(), 50)) < 0) {
         return -1;
+    }
 
-    if (len == 0)
+    if (len == 0) {
         return 0;
+    }
 
     std::map<std::string, weak_ptr<iface> >::iterator i_it = _map.begin();
 
@@ -518,7 +542,7 @@ int iface::poll_all()
 
         bool is_pfd = i++ % 2;
 
-        if (!(f_it->revents&  POLLIN)) {
+        if (!(f_it->revents & POLLIN)) {
             continue;
         }
 

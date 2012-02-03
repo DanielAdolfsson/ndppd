@@ -118,9 +118,17 @@ bool configure(const std::string& path)
             } else if (ru_cf->find("auto")) {
                 pr->add_rule(addr, true);
             } else {
-                if (addr.prefix() <= 120) {
-                    logger::warning() << "Static rule prefix /" << addr.prefix() << " <= 120 - is this what you want?";
+                if (!ru_cf->find("static")) {
+                    logger::warning()
+                        << "## I'm going for 'static' since you didn't specify any method. Please fix this" << logger::endl
+                        << "## as it's not going to be supported in future versions of ndppd. (See 'man ndppd.conf')";
                 }
+
+                if (addr.prefix() <= 120) {
+                    logger::warning()
+                        << "Low prefix length (" << addr.prefix() << " <= 120) when using 'static' method";
+                }
+
                 pr->add_rule(addr, false);
             }
         }
@@ -204,7 +212,7 @@ int main(int argc, char* argv[], char* env[])
         pf.close();
     }
 
-    logger::info().force_log()
+    logger::notice()
         << "ndppd (NDP Proxy Daemon) version " NDPPD_VERSION << logger::endl
         << "Using configuration file '" << config_path << "'";
 
@@ -221,7 +229,14 @@ int main(int argc, char* argv[], char* env[])
 
     gettimeofday(&t1, 0);
 
-    while (running && (iface::poll_all() >= 0)) {
+    while (running) {
+        if (iface::poll_all() < 0) {
+            if (running) {
+                logger::error() << "iface::poll_all() failed";
+            }
+            break;
+        }
+
         int elapsed_time;
         gettimeofday(&t2, 0);
 
@@ -235,7 +250,7 @@ int main(int argc, char* argv[], char* env[])
         session::update_all(elapsed_time);
     }
 
-    logger::error() << "iface::poll_all() failed";
+    logger::notice() << "Bye";
 
     return 0;
 }

@@ -34,7 +34,7 @@ NDPPD_NS_BEGIN
 
 class logger {
 public:
-    logger(int pri = LOG_INFO);
+    logger(int pri = LOG_NOTICE);
 
     logger(const logger& l);
 
@@ -69,6 +69,7 @@ public:
     static logger info();
     static logger warning();
     static logger debug();
+    static logger notice();
 
 private:
     int _pri;

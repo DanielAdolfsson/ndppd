@@ -31,48 +31,6 @@ class session;
 class proxy;
 
 class iface {
-private:
-    // Weak pointer so this object can reference itself.
-    weak_ptr<iface> _ptr;
-
-    static std::map<std::string, weak_ptr<iface> > _map;
-
-    // An array of objects used with ::poll.
-    static std::vector<struct pollfd> _pollfds;
-
-    // Updates the array above.
-    static void fixup_pollfds();
-
-    // The "generic" ICMPv6 socket for reading/writing NB_NEIGHBOR_ADVERT
-    // messages as well as writing NB_NEIGHBOR_SOLICIT messages.
-    int _ifd;
-
-    // This is the PF_PACKET socket we use in order to read
-    // NB_NEIGHBOR_SOLICIT messages.
-    int _pfd;
-
-    // Previous state of ALLMULTI for the interface.
-    int _prev_allmulti;
-
-    // Name of this interface.
-    std::string _name;
-
-    // An array of sessions that are monitoring this interface for
-    // ND_NEIGHBOR_ADVERT messages.
-    std::list<weak_ptr<session> > _sessions;
-
-    weak_ptr<proxy> _pr;
-
-    // The link-layer address of this interface.
-    struct ether_addr hwaddr;
-
-    // Turns on/off ALLMULTI for this interface - returns the previous state
-    // or -1 if there was an error.
-    int allmulti(int state);
-
-    // Constructor.
-    iface();
-
 public:
 
     // Destructor.
@@ -111,6 +69,52 @@ public:
     void pr(const ptr<proxy>& pr);
 
     const ptr<proxy>& pr() const;
+
+private:
+    static std::map<std::string, weak_ptr<iface> > _map;
+
+    static bool _map_dirty;
+
+    // An array of objects used with ::poll.
+    static std::vector<struct pollfd> _pollfds;
+
+    // Updates the array above.
+    static void fixup_pollfds();
+
+    static void clean();
+
+    // Weak pointer so this object can reference itself.
+    weak_ptr<iface> _ptr;
+
+    // The "generic" ICMPv6 socket for reading/writing NB_NEIGHBOR_ADVERT
+    // messages as well as writing NB_NEIGHBOR_SOLICIT messages.
+    int _ifd;
+
+    // This is the PF_PACKET socket we use in order to read
+    // NB_NEIGHBOR_SOLICIT messages.
+    int _pfd;
+
+    // Previous state of ALLMULTI for the interface.
+    int _prev_allmulti;
+
+    // Name of this interface.
+    std::string _name;
+
+    // An array of sessions that are monitoring this interface for
+    // ND_NEIGHBOR_ADVERT messages.
+    std::list<weak_ptr<session> > _sessions;
+
+    weak_ptr<proxy> _pr;
+
+    // The link-layer address of this interface.
+    struct ether_addr hwaddr;
+
+    // Turns on/off ALLMULTI for this interface - returns the previous state
+    // or -1 if there was an error.
+    int allmulti(int state);
+
+    // Constructor.
+    iface();
 };
 
 NDPPD_NS_END

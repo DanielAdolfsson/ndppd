@@ -38,7 +38,7 @@ NDPPD_NS_BEGIN
     "debug"
 };*/
 
-int logger::_max_pri = LOG_WARNING;
+int logger::_max_pri = LOG_NOTICE;
 
 bool logger::_syslog = false;
 
@@ -100,6 +100,11 @@ logger logger::debug()
     return logger(LOG_DEBUG);
 }
 
+logger logger::notice()
+{
+    return logger(LOG_NOTICE);
+}
+
 logger& logger::operator<<(const std::string& str)
 {
     _ss << str;
@@ -140,12 +145,12 @@ void logger::flush()
 
 #ifndef DISABLE_SYSLOG
     if (_syslog) {
-        ::syslog(_pri, "%s", _ss.str().c_str());
+        ::syslog(_pri, "(%s) %s", _pri_names[_pri].name, _ss.str().c_str());
         return;
     }
 #endif
 
-    std::cout << _ss.str() << std::endl;
+    std::cout << "(" << _pri_names[_pri].name << ") " << _ss.str() << std::endl;
 
     _ss.str("");
 }
