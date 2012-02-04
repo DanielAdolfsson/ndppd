@@ -1,5 +1,3 @@
-DEBUG=1
-
 ifdef DEBUG
 CXXFLAGS ?= -g -DDEBUG
 else

@@ -102,7 +102,7 @@ private:
 
     // An array of sessions that are monitoring this interface for
     // ND_NEIGHBOR_ADVERT messages.
-    std::list<ptr<session> > _sessions;
+    std::list<weak_ptr<session> > _sessions;
 
     weak_ptr<proxy> _pr;
 
