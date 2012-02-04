@@ -479,7 +479,7 @@ void iface::fixup_pollfds()
 
 void iface::remove_session(const ptr<session>& se)
 {
-    for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
+    for (std::list<ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); it++) {
         if (*it == se) {
             _sessions.erase(it);
@@ -569,9 +569,9 @@ int iface::poll_all()
                 continue;
             }
 
-            for (std::list<weak_ptr<session> >::iterator s_it = ifa->_sessions.begin();
+            for (std::list<ptr<session> >::iterator s_it = ifa->_sessions.begin();
                     s_it != ifa->_sessions.end(); s_it++) {
-                const ptr<session> sess =* s_it;
+                const ptr<session> sess = *s_it;
 
                 if ((sess->taddr() == taddr) && (sess->status() == session::WAITING)) {
                     sess->handle_advert();

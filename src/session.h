@@ -28,7 +28,7 @@ class session {
 private:
     weak_ptr<session> _ptr;
 
-    ptr<proxy> _pr;
+    weak_ptr<proxy> _pr;
 
     address _saddr, _daddr, _taddr;
 

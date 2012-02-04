@@ -27,11 +27,17 @@ std::list<weak_ptr<session> > session::_sessions;
 void session::update_all(int elapsed_time)
 {
     for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
-            it != _sessions.end(); ) {
-        ptr<session> se = (*it++);
-
-        if ((se->_ttl -= elapsed_time) >= 0)
+            it != _sessions.end(); it++) {
+        if (!*it) {
+            _sessions.erase(it);
             continue;
+        }
+
+        ptr<session> se = *it;
+
+        if ((se->_ttl -= elapsed_time) >= 0) {
+            continue;
+        }
 
         switch (se->_status) {
         case session::WAITING:
@@ -42,6 +48,12 @@ void session::update_all(int elapsed_time)
 
         default:
             se->_pr->remove_session(se);
+
+
+            for (std::list<ptr<iface> >::iterator it = se->_ifaces.begin();
+                    it != se->_ifaces.end(); it++) {
+                (*it)->remove_session(se);
+            }
         }
     }
 }
@@ -50,18 +62,13 @@ session::~session()
 {
     logger::debug() << "session::~session() this=" << logger::format("%x", this);
 
-    for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
+    /*for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
             it != _sessions.end(); it++) {
         if (*it == _ptr) {
             _sessions.erase(it);
             break;
         }
-    }
-
-    for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
-            it != _ifaces.end(); it++) {
-        (*it)->remove_session(_ptr);
-    }
+    }*/
 }
 
 ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
