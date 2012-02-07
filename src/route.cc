@@ -83,6 +83,8 @@ void route::load(const std::string& path)
 {
     _routes.clear();
 
+    logger::debug() << "reading routes";
+
     try {
         std::ifstream ifs;
         ifs.exceptions(std::ifstream::badbit | std::ifstream::failbit);

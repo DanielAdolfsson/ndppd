@@ -492,9 +492,10 @@ void iface::add_session(const ptr<session>& se)
 void iface::cleanup()
 {
     for (std::map<std::string, weak_ptr<iface> >::iterator it = _map.begin();
-            it != _map.end(); it++) {
-        if (!it->second) {
-            _map.erase(it);
+            it != _map.end(); ) {
+        std::map<std::string, weak_ptr<iface> >::iterator c_it = it++;
+        if (!c_it->second) {
+            _map.erase(c_it);
         }
     }
 }

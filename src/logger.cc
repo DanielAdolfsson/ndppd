@@ -107,19 +107,19 @@ logger logger::notice()
 logger& logger::operator<<(const std::string& str)
 {
     _ss << str;
-    return* this;
+    return *this;
 }
 
 logger& logger::operator<<(int n)
 {
     _ss << n;
-    return* this;
+    return *this;
 }
 
 logger& logger::operator<<(logger& (*pf)(logger& ))
 {
     pf(*this);
-    return* this;
+    return *this;
 }
 
 logger& logger::endl(logger& __l)
@@ -131,7 +131,7 @@ logger& logger::endl(logger& __l)
 logger& logger::force_log(bool b)
 {
     _force_log = b;
-    return* this;
+    return *this;
 }
 
 void logger::flush()
