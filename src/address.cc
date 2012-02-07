@@ -219,12 +219,12 @@ bool address::parse_string(const std::string& str)
             return false;
         }
 
-*        b++ =* p++;
+        *b++ =* p++;
 
         sz++;
     }
 
-*    b = '\0';
+    *b = '\0';
 
     if (inet_pton(AF_INET6, buf,& _addr) <= 0) {
         return false;
@@ -245,24 +245,27 @@ bool address::parse_string(const std::string& str)
     if (*p++ != '/')
         return false;
 
-    while (*p && isspace(*p))
+    while (*p && isspace(*p)) {
         p++;
+    }
 
     sz = 0;
     b  = buf;
 
     while (*p) {
-        if (!isdigit(*p))
+        if (!isdigit(*p)) {
             return false;
+        }
 
-        if (sz > 3)
+        if (sz > 3) {
             return false;
+        }
 
-*        b++ =* p++;
+        *b++ =* p++;
         sz++;
     }
 
-*    b = '\0';
+    *b = '\0';
 
     prefix(atoi(buf));
 

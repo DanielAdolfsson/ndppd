@@ -169,7 +169,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
 
     ifa->_pfd = fd;
 
-    fixup_pollfds();
+    _map_dirty = true;
 
     return ifa;
 }
@@ -273,7 +273,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
 
     memcpy(&ifa->hwaddr, ifr.ifr_hwaddr.sa_data, sizeof(struct ether_addr));
 
-    fixup_pollfds();
+    _map_dirty = true;
 
     return ifa;
 }
@@ -453,10 +453,6 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
 
 void iface::fixup_pollfds()
 {
-    if (_map_dirty) {
-        clean();
-    }
-
     _pollfds.resize(_map.size()*  2);
 
     int i = 0;
@@ -493,7 +489,7 @@ void iface::add_session(const ptr<session>& se)
     _sessions.push_back(se);
 }
 
-void iface::clean()
+void iface::cleanup()
 {
     for (std::map<std::string, weak_ptr<iface> >::iterator it = _map.begin();
             it != _map.end(); it++) {
@@ -501,14 +497,14 @@ void iface::clean()
             _map.erase(it);
         }
     }
-
-    _map_dirty = false;
 }
 
 int iface::poll_all()
 {
     if (_map_dirty) {
+        cleanup();
         fixup_pollfds();
+        _map_dirty = false;
     }
 
     if (_pollfds.size() == 0) {

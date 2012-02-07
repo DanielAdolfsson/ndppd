@@ -94,7 +94,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
 
     for (std::list<ptr<rule> >::iterator it = _rules.begin();
             it != _rules.end(); it++) {
-        ptr<rule> ru =* it;
+        ptr<rule> ru = *it;
 
         logger::debug() << "checking " << ru->addr() << " against " << taddr;
 
@@ -104,13 +104,16 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
             }
 
             if (ru->is_auto()) {
-                ptr<iface> ifa = route::find_and_open(taddr);
+                ptr<route> rt = route::find(taddr);
 
-                // If we could find a route matching our rule in /proc/net/ipv6_route,
-                // and it's not the same interface as the one pr (proxy) is using.
-                if (ifa && (ifa != ru->ifa())) {
-                    se->add_iface(ifa);
-                    continue;
+                if (rt->ifname() == _ifa->name()) {
+                    logger::debug() << "skipping route since it's using interface " << rt->ifname();
+                } else {
+                    ptr<iface> ifa = rt->ifa();
+
+                    if (ifa && (ifa != ru->ifa())) {
+                        se->add_iface(ifa);
+                    }
                 }
             } else if (!ru->ifa()) {
                 // This rule doesn't have an interface, and thus we'll consider

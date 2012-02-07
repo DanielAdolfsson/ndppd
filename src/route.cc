@@ -36,23 +36,27 @@ route::route(const address& addr, const std::string& ifname) :
 size_t route::hexdec(const char* str, unsigned char* buf, size_t size)
 {
     for (size_t i = 0; ; i++) {
-        if (i >= size)
+        if (i >= size) {
             return i;
+        }
 
         char c1 = tolower(str[i*  2]), c2 = tolower(str[i*  2 + 1]);
 
-        if (!isxdigit(c1) || !isxdigit(c2))
+        if (!isxdigit(c1) || !isxdigit(c2)) {
             return i;
+        }
 
-        if ((c1 >= '0') && (c1 <= '9'))
+        if ((c1 >= '0') && (c1 <= '9')) {
             buf[i] = (c1 - '0') << 4;
-        else
+        } else {
             buf[i] = ((c1 - 'a') + 10) << 4;
+        }
 
-        if ((c2 >= '0') && (c2 <= '9'))
+        if ((c2 >= '0') && (c2 <= '9')) {
             buf[i] |= c2 - '0';
-        else
+        } else {
             buf[i] |= (c2 - 'a') + 10;
+        }
     }
 }
 
@@ -89,8 +93,9 @@ void route::load(const std::string& path)
             char buf[1024];
             ifs.getline(buf, sizeof(buf));
 
-            if (ifs.gcount() < 149)
+            if (ifs.gcount() < 149) {
                 continue;
+            }
 
             address addr;
 
@@ -127,7 +132,7 @@ void route::update(int elapsed_time)
 ptr<route> route::create(const address& addr, const std::string& ifname)
 {
     ptr<route> rt(new route(addr, ifname));
-    logger::debug() << "route::create() addr=" << addr << ", ifname=" << ifname;
+    // logger::debug() << "route::create() addr=" << addr << ", ifname=" << ifname;
     _routes.push_back(rt);
     return rt;
 }

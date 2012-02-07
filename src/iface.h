@@ -81,7 +81,7 @@ private:
     // Updates the array above.
     static void fixup_pollfds();
 
-    static void clean();
+    static void cleanup();
 
     // Weak pointer so this object can reference itself.
     weak_ptr<iface> _ptr;
