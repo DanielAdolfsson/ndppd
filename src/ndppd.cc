@@ -56,17 +56,22 @@ int daemonize()
 
 bool configure(const std::string& path)
 {
-    ptr<conf> cf;
+    ptr<conf> cf, x_cf;
 
     if (!(cf = conf::load(path)))
         return false;
+
+    if (!(x_cf = cf->find("route-ttl")))
+        route::ttl(30000);
+    else
+        route::ttl(*x_cf);
 
     std::vector<ptr<conf> >::const_iterator p_it;
 
     std::vector<ptr<conf> > proxies(cf->find_all("proxy"));
 
     for (p_it = proxies.begin(); p_it != proxies.end(); p_it++) {
-        ptr<conf> pr_cf =* p_it, x_cf;
+        ptr<conf> pr_cf = *p_it;
 
         if (pr_cf->empty()) {
             logger::error() << "'proxy' section is missing interface name";
@@ -221,7 +226,7 @@ int main(int argc, char* argv[], char* env[])
     if (!configure(config_path))
         return -1;
 
-    route::load("/proc/net/ipv6_route");
+    //route::load("/proc/net/ipv6_route");
 
     // Time stuff.
 
@@ -247,6 +252,7 @@ int main(int argc, char* argv[], char* env[])
         t1.tv_sec  = t2.tv_sec;
         t1.tv_usec = t2.tv_usec;
 
+        route::update(elapsed_time);
         session::update_all(elapsed_time);
     }
 

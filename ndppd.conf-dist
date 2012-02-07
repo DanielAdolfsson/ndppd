@@ -1,29 +1,33 @@
+# route-ttl <integer> (NEW)
+# This tells 'ndppd' how often to reload the route file /proc/net/ipv6_route.
+# Default value is '30000' (30 seconds).
+
+route-ttl 30000
+
 # proxy <interface>
 # This sets up a listener, that will listen for any Neighbor Solicitation
 # messages, and respond to them according to a set of rules (see below).
-# <interface> is required.
-
-# You may have several 'proxy' sections.
+# <interface> is required. You may have several 'proxy' sections.
 
 proxy eth0 {
    
-   # router = <yes|no|true|false>
+   # router <yes|no|true|false>
    # This option turns on or off the router flag for Neighbor Advertisement
    # messages. Default value is 'true'.
    
-   router = yes
+   router yes
 
-   # timeout = <integer>
+   # timeout <integer>
    # Controls how long to wait for a Neighbor Advertisment message before 
    # invalidating the entry, in milliseconds. Default value is '500'.
 
-   timeout = 500   
+   timeout 500   
    
-   # ttl = <integer>
+   # ttl <integer>
    # Controls how long a valid or invalid entry remains in the cache, in 
    # milliseconds. Default value is '30000' (30 seconds).
    
-   ttl = 30000
+   ttl 30000
 
    # rule <ip>[/<mask>]
    # This is a rule that the target address is to match against. If no netmask
@@ -31,22 +35,28 @@ proxy eth0 {
    # addresses may or may not overlap.
 
    rule 1111:: {
+      # Only one of 'static', 'auto' and 'interface' may be specified. Please
+      # read 'ndppd.conf' manpage for details about the methods below.
 
-      # iface = <interface> 
-      # By setting this option, ndppd will forward the Neighbor Solicitation
-      # message to this interface and wait for a response. Only if a client
-      # responds with a Neighbor Advertisement message will the proxy respond.
+      # 'auto' should work in most cases.
 
-      # Note that if you do not provide an interface, this rule will match
-      # and immediately send a response through the proxy. It's recommended
-      # that you use the "iface" option as much as possible.
+      # static (NEW)
+      # 'ndppd' will immediately answer any Neighbor Solicitation Messages
+      # (if they match the IP rule).
 
-      # Using a prefix <= /120 without an interface will trigger a notice.
+      # iface <interface>
+      # 'ndppd' will forward the Neighbor Solicitation Message through the
+      # specified interface - and only respond if a matching Neighbor
+      # Advertisement Message is received.
+      
+      # auto (NEW)
+      # Same as above, but instead of manually specifying the outgoing
+      # interface, 'ndppd' will check for a matching route in /proc/net/ipv6_route.
 
-      iface = eth1
-   }
+      auto
 
-   rule 1111::1/96 {
-      iface = eth2
+      # Note that before version 0.2.2 of 'ndppd', if you didn't choose a
+      # method, it defaulted to 'static'. For compatibility reasons we choose
+      # to keep this behavior - for now (it may be removed in a future version).
    }
 }

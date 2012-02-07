@@ -103,29 +103,17 @@ bool conf::is_block() const
     return _is_block;
 }
 
-const char* conf::skip(const char* str, bool all)
+const char* conf::skip(const char* str, bool newlines)
 {
-    if (!all) {
-        while (*str && (*str != '\n') && isspace(*str))
-            str++;
-
-        return str;
-    }
-
     while (*str) {
-        while (*str && isspace(*str))
+        while (*str && isspace(*str) && ((*str != '\n') || newlines))
             str++;
-
-        if (!*str)
-            break;
 
         if ((*str == '#') || ((*str == '/') && (*(str + 1) == '/'))) {
-            while (*str && (*str != '\n'))
+            while (*str && (*str != '\n')) {
                 str++;
-            continue;
-        }
-
-        if ((*str == '/') && (*(str + 1) == '*')) {
+            }
+        } else if ((*str == '/') && (*(str + 1) == '*')) {
             while (*str) {
                 if ((*str == '*') && (*(str + 1) == '/')) {
                     str += 2;
@@ -133,10 +121,9 @@ const char* conf::skip(const char* str, bool all)
                 }
                 str++;
             }
-            continue;
+        } else {
+            break;
         }
-
-        break;
     }
 
     return str;
@@ -158,20 +145,23 @@ bool conf::parse_block(const char** str)
             return true;
         }
 
-        while (*p && isalpha(*p)) {
+        while (isalnum(*p) || (*p == '_') || (*p == '-')) {
             ss << *p++;
         }
 
-        p = skip(p);
+        p = skip(p, false);
 
         if (*p == '=') {
             p++;
+            p = skip(p, false);
         }
 
         ptr<conf> cf(new conf);
 
         if (cf->parse(&p)) {
             _map.insert(std::pair<std::string, ptr<conf> >(ss.str(), cf));
+        } else {
+            return false;
         }
     }
 
@@ -186,18 +176,14 @@ bool conf::parse(const char** str)
 
     p = skip(p, false);
 
-    if (!*p) {
-        return false;
-    } else if ((*p == '\'') || (*p == '"')) {
-        for (char e = *p++; *p && (*p != e); p++)
-            ss <<* p;
-    } else if (isalnum(*p)) {
-        while (*p && (isalnum(*p) || strchr(":/.",* p)))
-            ss <<* p++;
+    if ((*p == '\'') || (*p == '"')) {
+        for (char e = *p++; *p && (*p != e) && (*p != '\n'); p++)
+            ss << *p;
+        p = skip(p, false);
     } else {
-        _value = "";
-        *str = p;
-        return true;
+        while (*p && isgraph(*p) && (*p != '{') && (*p != '}')) {
+            ss << *p++;
+        }
     }
 
     _value = ss.str();
@@ -207,11 +193,13 @@ bool conf::parse(const char** str)
     if (*p == '{') {
         p++;
 
-        if (!parse_block(&p))
+        if (!parse_block(&p)) {
             return false;
+        }
 
-        if (*p != '}')
+        if (*p != '}') {
             return false;
+        }
 
         p++;
     }

@@ -33,6 +33,12 @@ public:
 
     static void load(const std::string& path);
 
+    static void update(int elapsed_time);
+
+    static int ttl();
+
+    static void ttl(int ttl);
+
     const std::string& ifname() const;
 
     const address& addr() const;
@@ -40,6 +46,10 @@ public:
     ptr<iface> ifa();
 
 private:
+    static int _ttl;
+
+    static int _c_ttl;
+
     address _addr;
 
     std::string _ifname;

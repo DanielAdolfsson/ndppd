@@ -105,8 +105,10 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
 
             if (ru->is_auto()) {
                 ptr<iface> ifa = route::find_and_open(taddr);
-                // TODO: Check if it's a good interface.
-                if (ifa) {
+
+                // If we could find a route matching our rule in /proc/net/ipv6_route,
+                // and it's not the same interface as the one pr (proxy) is using.
+                if (ifa && (ifa != ru->ifa())) {
                     se->add_iface(ifa);
                     continue;
                 }

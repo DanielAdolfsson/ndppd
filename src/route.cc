@@ -24,6 +24,10 @@ NDPPD_NS_BEGIN
 
 std::list<ptr<route> > route::_routes;
 
+int route::_ttl;
+
+int route::_c_ttl;
+
 route::route(const address& addr, const std::string& ifname) :
     _addr(addr), _ifname(ifname)
 {
@@ -112,6 +116,14 @@ void route::load(const std::string& path)
     }
 }
 
+void route::update(int elapsed_time)
+{
+    if ((_c_ttl -= elapsed_time) <= 0) {
+        load("/proc/net/ipv6_route");
+        _c_ttl = _ttl;
+    }
+}
+
 ptr<route> route::create(const address& addr, const std::string& ifname)
 {
     ptr<route> rt(new route(addr, ifname));
@@ -160,6 +172,16 @@ ptr<iface> route::ifa()
 const address& route::addr() const
 {
     return _addr;
+}
+
+int route::ttl()
+{
+    return _ttl;
+}
+
+void route::ttl(int ttl)
+{
+    _ttl = ttl;
 }
 
 NDPPD_NS_END
