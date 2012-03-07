@@ -117,7 +117,6 @@ protected:
     template <class U>
     void acquire(const ptr<U>& ptr)
     {
-        T* t = static_cast<U* >(0);
         acquire(ptr._ref);
     }
 

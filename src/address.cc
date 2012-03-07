@@ -194,7 +194,7 @@ const std::string address::to_string() const
 bool address::parse_string(const std::string& str)
 {
     char buf[INET6_ADDRSTRLEN],* b;
-    int sz, pfx;
+    int sz;
 
     sz = 0;
     b  = buf;

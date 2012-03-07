@@ -216,8 +216,6 @@ void conf::dump(int pri) const
 
 void conf::dump(logger& l, int level) const
 {
-    int i;
-
     std::string pfx;
     for (int i = 0; i < level; i++) {
         pfx += "    ";

@@ -282,7 +282,6 @@ ssize_t iface::read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size)
 {
     struct msghdr mhdr;
     struct iovec iov;
-    char cbuf[256];
     int len;
 
     if (!msg || (size < 0))
@@ -349,9 +348,6 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
 
     struct ip6_hdr* ip6h =
           (struct ip6_hdr* )(msg + ETH_HLEN);
-
-    struct icmp6_hdr* icmph =
-          (struct icmp6_hdr* )(msg + ETH_HLEN + sizeof( struct ip6_hdr));
 
     struct nd_neighbor_solicit*  ns =
         (struct nd_neighbor_solicit* )(msg + ETH_HLEN + sizeof( struct ip6_hdr));
