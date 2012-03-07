@@ -60,7 +60,7 @@ logger::logger(int pri) :
 }
 
 logger::logger(const logger& l) :
-    _pri(l._pri), _force_log(false), _ss(l._ss.str())
+    _pri(l._pri), _ss(l._ss.str()), _force_log(false)
 {
 }
 

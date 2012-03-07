@@ -45,9 +45,9 @@ class ptr {
     };
 
 protected:
-    ptr_ref* _ref;
-
     bool _weak;
+
+    ptr_ref* _ref;
 
     void acquire(ptr_ref* ref)
     {
