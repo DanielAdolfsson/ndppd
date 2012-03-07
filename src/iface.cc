@@ -162,12 +162,12 @@ ptr<iface> iface::open_pfd(const std::string& name)
         return ptr<iface>();
     }
 
-    // Eh. Allmulti.
-    ifa->_prev_allmulti = ifa->allmulti(1);
-
     // Set up an instance of 'iface'.
 
     ifa->_pfd = fd;
+
+    // Eh. Allmulti.
+    ifa->_prev_allmulti = ifa->allmulti(1);
 
     _map_dirty = true;
 
