@@ -1,3 +1,9 @@
+ndppd (0.2.3-1) unstable; urgency=low
+
+  * New release (0.2.3).
+
+ -- Daniel Adolfsson <daniel@priv.nu>  Fri, 21 Sep 2012 14:42:48 +0200
+
 ndppd (0.2.2-1) unstable; urgency=low
 
   * New Package. Closes: #644932.
