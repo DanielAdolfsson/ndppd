@@ -1,20 +1,24 @@
+2012-09-21  Daniel Adolfsson  <daniel@priv.nu>
+
+    * Version 0.2.3
+
 2012-02-06  Daniel Adolfsson  <daniel@priv.nu>
 
-   * Version 0.2.2
-   
-     * Removed "libconfuse" dependency.
-     
-     * New "auto" configuration to detect outgoing interface, for forwarding
-       Neighbor Solicitation Messages.
+    * Version 0.2.2
+
+        * Removed "libconfuse" dependency.
+
+        * New "auto" configuration to detect outgoing interface, for forwarding
+          Neighbor Solicitation Messages.
         
-     * Improved logging.
-     
-     * Bug fixes related to memory management.
+        * Improved logging.
+
+        * Bug fixes related to memory management.
 
 2012-01-26  Daniel Adolfsson  <daniel@priv.nu>
 
-   * Author changed e-mail address; updated copyright info.
+    * Author changed e-mail address; updated copyright info.
 
 2011-10-11  Daniel Adolfsson  <daniel.adolfsson@tuhox.com>
 
-   * Initial Release; 0.2.1
+    * Initial Release; 0.2.1
