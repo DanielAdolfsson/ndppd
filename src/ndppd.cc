@@ -201,15 +201,6 @@ int main(int argc, char* argv[], char* env[])
         }
     }
 
-    if (daemon) {
-        logger::syslog(true);
-
-        if (daemonize() < 0) {
-            logger::error() << "Failed to daemonize process";
-            return 1;
-        }
-    }
-
     if (!pidfile.empty()) {
         std::ofstream pf;
         pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
@@ -225,8 +216,15 @@ int main(int argc, char* argv[], char* env[])
 
     if (!configure(config_path))
         return -1;
+    
+    if (daemon) {
+        logger::syslog(true);
 
-    //route::load("/proc/net/ipv6_route");
+        if (daemonize() < 0) {
+            logger::error() << "Failed to daemonize process";
+            return 1;
+        }
+    }
 
     // Time stuff.
 
