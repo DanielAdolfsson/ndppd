@@ -201,13 +201,6 @@ int main(int argc, char* argv[], char* env[])
         }
     }
 
-    if (!pidfile.empty()) {
-        std::ofstream pf;
-        pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
-        pf << getpid() << std::endl;
-        pf.close();
-    }
-
     logger::notice()
         << "ndppd (NDP Proxy Daemon) version " NDPPD_VERSION << logger::endl
         << "Using configuration file '" << config_path << "'";
@@ -224,6 +217,13 @@ int main(int argc, char* argv[], char* env[])
             logger::error() << "Failed to daemonize process";
             return 1;
         }
+    }
+
+    if (!pidfile.empty()) {
+        std::ofstream pf;
+        pf.open(pidfile.c_str(), std::ios::out | std::ios::trunc);
+        pf << getpid() << std::endl;
+        pf.close();
     }
 
     // Time stuff.
