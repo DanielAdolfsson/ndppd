@@ -125,10 +125,9 @@
 
    Contact : Daniel Adolfsson <daniel@priv.nu>
 
-   Website : http://www.priv.nu/projects/ndppd 
-
-       Git : git://github.com/Tuhox/ndppd.git
-             https://github.com/Tuhox/ndppd
+   Website : https://github.com/DanielAdolfsson/ndppd
+   
+       Git : git://github.com/DanielAdolfsson/ndppd.git
 
 If you want to report a bug, you can either send me a mail directly,
 or submit an issue on github.com.
