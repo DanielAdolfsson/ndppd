@@ -34,7 +34,7 @@ ndppd: ${OBJS}
 	${CXX} -o ndppd ${LDFLAGS} ${LIBS} ${OBJS}
 
 .cc.o:
-	${CXX} -c $(CXXFLAGS) -o $@ $<
+	${CXX} -c ${CPPFLAGS} $(CXXFLAGS) -o $@ $<
 
 clean:
 	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz ${OBJS}
