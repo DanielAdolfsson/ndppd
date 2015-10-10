@@ -101,8 +101,8 @@
 5. Usage
 ------------------------------------------------------------------------
 
-   Read through 'ndppd.conf.example' for guidelines how to configure
-   the daemon. 
+   Read through 'ndppd.conf-dist' for guidelines and examples how to 
+   configure the daemon. 
 
    Usage: ndppd [-d] [-c <config>] [-p <pidfile>]
 
