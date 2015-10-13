@@ -1,3 +1,11 @@
+2015-10-13  Daniel Adolfsson  <daniel@priv.nu>
+
+    * Version 0.2.4
+    
+	    * Fix an issue where ndppd daemonizes too early.
+		
+		* Fix to make sure the right pid is written to the pidfile.
+		
 2012-09-21  Daniel Adolfsson  <daniel@priv.nu>
 
     * Version 0.2.3
