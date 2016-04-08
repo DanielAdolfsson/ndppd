@@ -147,7 +147,7 @@ ptr<iface> iface::open_pfd(const std::string& name)
         // Bail if it's* not* ND_NEIGHBOR_SOLICIT.
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ND_NEIGHBOR_SOLICIT, 0, 1),
         // Keep packet.
-        BPF_STMT(BPF_RET | BPF_K, -1),
+        BPF_STMT(BPF_RET | BPF_K, (u_int32_t)-1),
         // Drop packet.
         BPF_STMT(BPF_RET | BPF_K, 0)
     };
