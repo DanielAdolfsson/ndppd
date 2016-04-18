@@ -24,6 +24,7 @@
 #include <getopt.h>
 #include <sys/time.h>
 
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -42,9 +43,14 @@ int daemonize()
     if (pid > 0)
         exit(0);
 
+    umask(0);
+
     pid_t sid = setsid();
 
     if (sid < 0)
+        return -1;
+
+    if (chdir("/") < 0)
         return -1;
 
     close(STDIN_FILENO);
