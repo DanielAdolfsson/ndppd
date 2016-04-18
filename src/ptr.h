@@ -70,6 +70,8 @@ protected:
 
     void acquire(void* ptr)
     {
+        if (!ptr) return;
+
         _ref      = new ptr_ref();
         _ref->ptr = (T*)ptr;
         _ref->wc  = !!_weak;

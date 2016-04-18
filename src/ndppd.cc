@@ -33,7 +33,7 @@
 
 using namespace ndppd;
 
-int daemonize()
+static int daemonize()
 {
     pid_t pid = fork();
 
@@ -60,12 +60,64 @@ int daemonize()
     return 0;
 }
 
-bool configure(const std::string& path)
+static ptr<conf> load_config(const std::string& path)
 {
     ptr<conf> cf, x_cf;
 
     if (!(cf = conf::load(path)))
-        return false;
+        return (conf*)NULL;
+
+    std::vector<ptr<conf> >::const_iterator p_it;
+
+    std::vector<ptr<conf> > proxies(cf->find_all("proxy"));
+
+    for (p_it = proxies.begin(); p_it != proxies.end(); p_it++) {
+        ptr<conf> pr_cf = *p_it;
+
+        if (pr_cf->empty()) {
+            logger::error() << "'proxy' section is missing interface name";
+            return (conf*)NULL;
+        }
+
+        std::vector<ptr<conf> >::const_iterator r_it;
+
+        std::vector<ptr<conf> > rules(pr_cf->find_all("rule"));
+
+        for (r_it = rules.begin(); r_it != rules.end(); r_it++) {
+            ptr<conf> ru_cf =* r_it;
+
+            if (ru_cf->empty()) {
+                logger::error() << "'rule' is missing an IPv6 address/net";
+                return (conf*)NULL;
+            }
+
+            address addr(*ru_cf);
+
+            if (x_cf = ru_cf->find("iface")) {
+                if ((const std::string& )*x_cf == "") {
+                    logger::error() << "'iface' expected an interface name";
+                }
+            } else {
+                if (!ru_cf->find("static")) {
+                    logger::warning()
+                        << "## I'm going for 'static' since you didn't specify any method. Please fix this" << logger::endl
+                        << "## as it's not going to be supported in future versions of ndppd. (See 'man ndppd.conf')";
+                }
+
+                if (addr.prefix() <= 120) {
+                    logger::warning()
+                        << "Low prefix length (" << addr.prefix() << " <= 120) when using 'static' method";
+                }
+            }
+        }
+    }
+
+    return cf;
+}
+
+static bool configure(ptr<conf>& cf)
+{
+    ptr<conf> x_cf;
 
     if (!(x_cf = cf->find("route-ttl")))
         route::ttl(30000);
@@ -80,14 +132,12 @@ bool configure(const std::string& path)
         ptr<conf> pr_cf = *p_it;
 
         if (pr_cf->empty()) {
-            logger::error() << "'proxy' section is missing interface name";
             return false;
         }
 
         ptr<proxy> pr = proxy::open(*pr_cf);
 
         if (!pr) {
-            logger::error() << "Configuration failed for proxy '" << (const std::string& )*pr_cf << "'";
             return false;
         }
 
@@ -114,7 +164,6 @@ bool configure(const std::string& path)
             ptr<conf> ru_cf =* r_it;
 
             if (ru_cf->empty()) {
-                logger::error() << "'rule' is missing an IPv6 address/net";
                 return false;
             }
 
@@ -122,24 +171,13 @@ bool configure(const std::string& path)
 
             if (x_cf = ru_cf->find("iface")) {
                 if ((const std::string& )*x_cf == "") {
-                    logger::error() << "'iface' expected an interface name";
+
                 } else {
                     pr->add_rule(addr, iface::open_ifd(*x_cf));
                 }
             } else if (ru_cf->find("auto")) {
                 pr->add_rule(addr, true);
             } else {
-                if (!ru_cf->find("static")) {
-                    logger::warning()
-                        << "## I'm going for 'static' since you didn't specify any method. Please fix this" << logger::endl
-                        << "## as it's not going to be supported in future versions of ndppd. (See 'man ndppd.conf')";
-                }
-
-                if (addr.prefix() <= 120) {
-                    logger::warning()
-                        << "Low prefix length (" << addr.prefix() << " <= 120) when using 'static' method";
-                }
-
                 pr->add_rule(addr, false);
             }
         }
@@ -148,9 +186,9 @@ bool configure(const std::string& path)
     return true;
 }
 
-bool running = true;
+static bool running = true;
 
-void exit_ndppd(int sig)
+static void exit_ndppd(int sig)
 {
     logger::error() << "Shutting down...";
     running = 0;
@@ -213,9 +251,10 @@ int main(int argc, char* argv[], char* env[])
 
     // Load configuration.
 
-    if (!configure(config_path))
+    ptr<conf> cf = load_config(config_path);
+    if (cf.is_null())
         return -1;
-    
+
     if (daemon) {
         logger::syslog(true);
 
@@ -224,6 +263,9 @@ int main(int argc, char* argv[], char* env[])
             return 1;
         }
     }
+
+    if (!configure(cf))
+        return -1;
 
     if (!pidfile.empty()) {
         std::ofstream pf;
