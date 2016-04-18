@@ -94,20 +94,34 @@ static ptr<conf> load_config(const std::string& path)
             address addr(*ru_cf);
 
             if (x_cf = ru_cf->find("iface")) {
-                if ((const std::string& )*x_cf == "") {
+                if (ru_cf->find("static") || ru_cf->find("auto")) {
+                    logger::error()
+                        << "Only one of 'iface', 'auto' and 'static' may "
+                        << "be specified.";
+                    return (conf*)NULL;
+                }
+                if ((const std::string&)*x_cf == "") {
                     logger::error() << "'iface' expected an interface name";
+                    return (conf*)NULL;
                 }
-            } else {
-                if (!ru_cf->find("static")) {
-                    logger::warning()
-                        << "## I'm going for 'static' since you didn't specify any method. Please fix this" << logger::endl
-                        << "## as it's not going to be supported in future versions of ndppd. (See 'man ndppd.conf')";
+            } else if (ru_cf->find("static")) {
+                if (ru_cf->find("auto")) {
+                    logger::error()
+                        << "Only one of 'iface', 'auto' and 'static' may "
+                        << "be specified.";
+                    return (conf*)NULL;
                 }
-
                 if (addr.prefix() <= 120) {
                     logger::warning()
-                        << "Low prefix length (" << addr.prefix() << " <= 120) when using 'static' method";
+                        << "Low prefix length (" << addr.prefix()
+                        << " <= 120) when using 'static' method";
                 }
+            } else if (!ru_cf->find("auto")) {
+                logger::error()
+                    << "You must specify either 'iface', 'auto' or "
+                    << "'static'";
+                return (conf*)NULL;
+
             }
         }
     }
@@ -163,18 +177,10 @@ static bool configure(ptr<conf>& cf)
         for (r_it = rules.begin(); r_it != rules.end(); r_it++) {
             ptr<conf> ru_cf =* r_it;
 
-            if (ru_cf->empty()) {
-                return false;
-            }
-
             address addr(*ru_cf);
 
             if (x_cf = ru_cf->find("iface")) {
-                if ((const std::string& )*x_cf == "") {
-
-                } else {
-                    pr->add_rule(addr, iface::open_ifd(*x_cf));
-                }
+                pr->add_rule(addr, iface::open_ifd(*x_cf));
             } else if (ru_cf->find("auto")) {
                 pr->add_rule(addr, true);
             } else {
