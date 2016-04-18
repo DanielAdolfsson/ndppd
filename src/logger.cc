@@ -79,6 +79,12 @@ std::string logger::format(const std::string& fmt, ...)
     return buf;
 }
 
+std::string logger::err()
+{
+    char buf[2048];
+    return strerror_r(errno, buf, sizeof(buf));
+}
+
 logger logger::error()
 {
     return logger(LOG_ERR);

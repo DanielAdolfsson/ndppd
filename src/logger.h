@@ -71,6 +71,8 @@ public:
     static logger debug();
     static logger notice();
 
+    static std::string err();
+
 private:
     int _pri;
 

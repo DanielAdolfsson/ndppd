@@ -212,23 +212,29 @@ ptr<iface> iface::open_ifd(const std::string& name)
 
     if (ioctl(fd, SIOCGIFHWADDR,& ifr) < 0) {
         close(fd);
-        logger::error() << "Failed to detect link-layer address for interface '" << name << "'";
+        logger::error()
+            << "Failed to detect link-layer address for interface '"
+            << name << "'";
         return ptr<iface>();
     }
 
-    logger::debug() << "fd=" << fd << ", hwaddr=" << ether_ntoa((const struct ether_addr* )&ifr.ifr_hwaddr.sa_data);;
+    logger::debug()
+        << "fd=" << fd << ", hwaddr="
+        << ether_ntoa((const struct ether_addr* )&ifr.ifr_hwaddr.sa_data);
 
     // Set max hops.
 
     int hops = 255;
 
-    if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS,& hops, sizeof(hops)) < 0) {
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops,
+                   sizeof(hops)) < 0) {
         close(fd);
         logger::error() << "iface::open_ifd() failed IPV6_MULTICAST_HOPS";
         return ptr<iface>();
     }
 
-    if (setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS,& hops, sizeof(hops)) < 0) {
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &hops,
+                   sizeof(hops)) < 0) {
         close(fd);
         logger::error() << "iface::open_ifd() failed IPV6_UNICAST_HOPS";
         return ptr<iface>();
@@ -238,9 +244,11 @@ ptr<iface> iface::open_ifd(const std::string& name)
 
     int on = 1;
 
-    if (ioctl(fd, FIONBIO, (char* )&on) < 0) {
+    if (ioctl(fd, FIONBIO, (char*)&on) < 0) {
         close(fd);
-        logger::error() << "Failed to switch to non-blocking on interface '" << name << "'";
+        logger::error()
+            << "Failed to switch to non-blocking on interface '"
+            << name << "'";
         return ptr<iface>();
     }
 
@@ -248,7 +256,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
 
     struct icmp6_filter filter;
     ICMP6_FILTER_SETBLOCKALL(&filter);
-    ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT,& filter);
+    ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
 
     if (setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER,& filter, sizeof(filter)) < 0) {
         logger::error() << "Failed to set filter";
@@ -327,7 +335,8 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
     mhdr.msg_iov =& iov;
     mhdr.msg_iovlen = 1;
 
-    logger::debug() << "iface::write() daddr=" << daddr.to_string() << ", len=" << size;
+    logger::debug() << "iface::write() daddr=" << daddr.to_string() << ", len="
+                    << size;
 
     int len;
 
@@ -343,20 +352,21 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
     uint8_t msg[256];
     ssize_t len;
 
-    if ((len = read(_pfd, (struct sockaddr* )&t_saddr, msg, sizeof(msg))) < 0)
+    if ((len = read(_pfd, (struct sockaddr*)&t_saddr, msg, sizeof(msg))) < 0)
         return -1;
 
     struct ip6_hdr* ip6h =
           (struct ip6_hdr* )(msg + ETH_HLEN);
 
     struct nd_neighbor_solicit*  ns =
-        (struct nd_neighbor_solicit* )(msg + ETH_HLEN + sizeof( struct ip6_hdr));
+        (struct nd_neighbor_solicit*)(msg + ETH_HLEN + sizeof(struct ip6_hdr));
 
     taddr = ns->nd_ns_target;
     daddr = ip6h->ip6_dst;
     saddr = ip6h->ip6_src;
 
-    logger::debug() << "iface::read_solicit() saddr=" << saddr.to_string() << ", daddr=" << daddr.to_string() << ", len=" << len;
+    logger::debug() << "iface::read_solicit() saddr=" << saddr.to_string()
+                    << ", daddr=" << daddr.to_string() << ", len=" << len;
 
     return len;
 }
@@ -380,7 +390,8 @@ ssize_t iface::write_solicit(const address& taddr)
 
     memcpy(&ns->nd_ns_target,& taddr.const_addr(), sizeof(struct in6_addr));
 
-    memcpy(buf + sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr),& hwaddr, 6);
+    memcpy(buf + sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr),
+           &hwaddr, 6);
 
     // FIXME: Alright, I'm lazy.
     static address multicast("ff02::1:ff00:0000");
@@ -393,9 +404,11 @@ ssize_t iface::write_solicit(const address& taddr)
     daddr.addr().s6_addr[14] = taddr.const_addr().s6_addr[14];
     daddr.addr().s6_addr[15] = taddr.const_addr().s6_addr[15];
 
-    logger::debug() << "iface::write_solicit() taddr=" << taddr.to_string() << ", daddr=" << daddr.to_string();
+    logger::debug() << "iface::write_solicit() taddr=" << taddr.to_string()
+                    << ", daddr=" << daddr.to_string();
 
-    return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_solicit) + sizeof(struct nd_opt_hdr) + 6);
+    return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_solicit)
+                 + sizeof(struct nd_opt_hdr) + 6);
 }
 
 ssize_t iface::write_advert(const address& daddr, const address& taddr, bool router)
@@ -418,9 +431,11 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
 
     memcpy(&na->nd_na_target,& taddr.const_addr(), sizeof(struct in6_addr));
 
-    memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr),& hwaddr, 6);
+    memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr),
+           &hwaddr, 6);
 
-    logger::debug() << "iface::write_advert() daddr=" << daddr.to_string() << ", taddr=" << taddr.to_string();
+    logger::debug() << "iface::write_advert() daddr=" << daddr.to_string()
+                    << ", taddr=" << taddr.to_string();
 
     return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);
@@ -583,7 +598,9 @@ int iface::allmulti(int state)
 {
     struct ifreq ifr;
 
-    logger::debug() << "iface::allmulti() state=" << state << ", _name=\"" << _name << "\"";
+    logger::debug()
+        << "iface::allmulti() state="
+        << state << ", _name=\"" << _name << "\"";
 
     state = !!state;
 
@@ -592,10 +609,11 @@ int iface::allmulti(int state)
     strncpy(ifr.ifr_name, _name.c_str(), IFNAMSIZ);
 
     if (ioctl(_pfd, SIOCGIFFLAGS, &ifr) < 0) {
+        logger::error() << "Failed to get allmulti: " << logger::err();
         return -1;
     }
 
-    int old_state = !!(ifr.ifr_flags & IFF_ALLMULTI);
+    int old_state = !!(ifr.ifr_flags &IFF_ALLMULTI);
 
     if (state == old_state) {
         return old_state;
@@ -608,6 +626,7 @@ int iface::allmulti(int state)
     }
 
     if (ioctl(_pfd, SIOCSIFFLAGS, &ifr) < 0) {
+        logger::error() << "Failed to set allmulti: " << logger::err();
         return -1;
     }
 
