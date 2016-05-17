@@ -98,6 +98,10 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
 
         logger::debug() << "checking " << ru->addr() << " against " << taddr;
 
+        if (!daddr.is_multicast() && ru->addr() != daddr) {
+            continue;
+        }
+
         if (ru->addr() == taddr) {
             if (!se) {
                 se = session::create(_ptr, saddr, daddr, taddr);

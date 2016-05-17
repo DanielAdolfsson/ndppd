@@ -81,6 +81,8 @@ std::string route::token(const char* str)
 
 void route::load(const std::string& path)
 {
+    // Hack to make sure the interfaces are not freed prematurely.
+    std::list<ptr<route> > tmp_routes(_routes);
     _routes.clear();
 
     logger::debug() << "reading routes";

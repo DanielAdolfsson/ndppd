@@ -564,7 +564,7 @@ int iface::poll_all()
                 continue;
             }
 
-            if (!saddr.is_unicast() || !daddr.is_multicast()) {
+            if (!saddr.is_unicast()/* || !daddr.is_multicast()*/) {
                 continue;
             }
 
