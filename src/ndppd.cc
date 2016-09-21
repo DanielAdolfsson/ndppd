@@ -152,7 +152,7 @@ static bool configure(ptr<conf>& cf)
         ptr<proxy> pr = proxy::open(*pr_cf);
 
         if (!pr) {
-            return false;
+            return true;
         }
 
         if (!(x_cf = pr_cf->find("router")))
