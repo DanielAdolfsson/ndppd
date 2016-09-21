@@ -24,6 +24,8 @@ NDPPD_NS_BEGIN
 
 std::list<weak_ptr<session> > session::_sessions;
 
+static address all_nodes = address("ff02::1");
+
 void session::update_all(int elapsed_time)
 {
     for (std::list<weak_ptr<session> >::iterator it = _sessions.begin();
@@ -69,7 +71,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
 
     se->_ptr   = se;
     se->_pr    = pr;
-    se->_saddr = saddr;
+    se->_saddr = address("::") == saddr ? all_nodes : saddr;
     se->_taddr = taddr;
     se->_daddr = daddr;
     se->_ttl   = pr->timeout();

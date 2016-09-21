@@ -34,6 +34,7 @@
 
 #include <linux/filter.h>
 
+#include <errno.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -341,7 +342,11 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
     int len;
 
     if ((len = sendmsg(fd,& mhdr, 0)) < 0)
+    {
+        int e = errno;
+        logger::error() << "iface::write() failed! errno=" << e;
         return -1;
+    }
 
     return len;
 }
@@ -427,7 +432,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
     opt->nd_opt_len          = 1;
 
     na->nd_na_type           = ND_NEIGHBOR_ADVERT;
-    na->nd_na_flags_reserved = ND_NA_FLAG_SOLICITED | (router ? ND_NA_FLAG_ROUTER : 0);
+    na->nd_na_flags_reserved = (daddr.is_multicast() ? 0 : ND_NA_FLAG_SOLICITED) | (router ? ND_NA_FLAG_ROUTER : 0);
 
     memcpy(&na->nd_na_target,& taddr.const_addr(), sizeof(struct in6_addr));
 
