@@ -237,8 +237,8 @@ handle_fd(gint fd, GIOCondition condition, gpointer data)
 	mhdr.msg_iov = &iov;
 	mhdr.msg_iovlen = 1;
 	if ((len = recvmsg(fd, &mhdr, 0)) < 0) {
-		ERROR("Rx(%s):Interface has gone away\n", iface->name);
-		exit(-1);
+		DEBUG("Rx(%s):Interface has gone away\n", iface->name);
+		return true;
 	}
 
 	/* Check we have at least the icmp header */
