@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <list>
 
 #include <sys/poll.h>
 
@@ -55,5 +56,20 @@ private:
 
     rule();
 };
+
+class interface {
+public:
+    // List of IPv6 addresses on this interface
+    std::list<address> addresses;
+
+    // Index of this interface
+    int ifindex;
+
+    // Name of this interface.
+    std::string _name;
+
+};
+
+extern std::vector<interface> interfaces;
 
 NDPPD_NS_END

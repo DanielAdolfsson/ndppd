@@ -126,6 +126,11 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
                 return;
             } else {
                 se->add_iface((*it)->ifa());
+                if (if_addr_find((*it)->ifa()->name(), &taddr.const_addr())) {
+                    logger::debug() << "Sending NA out " << (*it)->ifa()->name();
+                    se->add_iface(_ifa);
+                    se->handle_advert();
+                }
             }
         }
     }

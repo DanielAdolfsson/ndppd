@@ -1,5 +1,7 @@
-// ndppd - NDP Proxy Daemon
-// Copyright (C) 2011  Daniel Adolfsson <daniel@priv.nu>
+//
+// @file nd-netlink.h
+//
+// Copyright 2016, Allied Telesis Labs New Zealand, Ltd
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -13,26 +15,14 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #pragma once
 
-#include <netinet/ip6.h>
-#include <memory>
+NDPPD_NS_BEGIN
 
-#define NDPPD_NS_BEGIN   namespace ndppd {
-#define NDPPD_NS_END     }
+bool netlink_teardown();
+bool netlink_setup();
+bool if_addr_find(std::string iface, const struct in6_addr *iaddr);
+void if_add_to_list(int ifindex, const ptr<iface>& ifa);
 
-#define NDPPD_VERSION   "0.2.4"
-
-#include <assert.h>
-
-#include "ptr.h"
-
-#include "logger.h"
-#include "conf.h"
-#include "address.h"
-
-#include "iface.h"
-#include "proxy.h"
-#include "session.h"
-#include "rule.h"
-#include "nd-netlink.h"
+NDPPD_NS_END

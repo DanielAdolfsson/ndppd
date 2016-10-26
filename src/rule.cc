@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <net/if.h>
 
 #include "ndppd.h"
 #include "rule.h"
@@ -23,6 +24,8 @@
 #include "iface.h"
 
 NDPPD_NS_BEGIN
+
+std::vector<interface> interfaces;
 
 rule::rule()
 {
@@ -36,6 +39,12 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     ru->_ifa  = ifa;
     ru->_addr = addr;
     ru->_aut  = false;
+    unsigned int ifindex;
+
+    ifindex = if_nametoindex(pr->ifa()->name().c_str());
+    if_add_to_list(ifindex, pr->ifa());
+    ifindex = if_nametoindex(ifa->name().c_str());
+    if_add_to_list(ifindex, ifa);
 
     logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
 
