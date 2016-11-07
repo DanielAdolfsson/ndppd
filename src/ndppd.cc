@@ -152,7 +152,7 @@ static bool configure(ptr<conf>& cf)
         ptr<proxy> pr = proxy::open(*pr_cf);
 
         if (!pr) {
-            return false;
+            return true;
         }
 
         if (!(x_cf = pr_cf->find("router")))
@@ -286,6 +286,8 @@ int main(int argc, char* argv[], char* env[])
 
     gettimeofday(&t1, 0);
 
+    netlink_setup();
+
     while (running) {
         if (iface::poll_all() < 0) {
             if (running) {
@@ -308,6 +310,7 @@ int main(int argc, char* argv[], char* env[])
         session::update_all(elapsed_time);
     }
 
+    netlink_teardown();
     logger::notice() << "Bye";
 
     return 0;
