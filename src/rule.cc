@@ -27,6 +27,8 @@ NDPPD_NS_BEGIN
 
 std::vector<interface> interfaces;
 
+bool rule::_any_aut = false;
+
 rule::rule()
 {
 }
@@ -42,9 +44,13 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     unsigned int ifindex;
 
     ifindex = if_nametoindex(pr->ifa()->name().c_str());
+#ifdef WITH_ND_NETLINK
     if_add_to_list(ifindex, pr->ifa());
+#endif
     ifindex = if_nametoindex(ifa->name().c_str());
+#ifdef WITH_ND_NETLINK
     if_add_to_list(ifindex, ifa);
+#endif
 
     logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
 
@@ -58,6 +64,7 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, bool aut)
     ru->_pr    = pr;
     ru->_addr  = addr;
     ru->_aut   = aut;
+    _any_aut   = _any_aut || aut;
 
     logger::debug()
         << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr
@@ -79,6 +86,11 @@ ptr<iface> rule::ifa() const
 bool rule::is_auto() const
 {
     return _aut;
+}
+
+bool rule::any_auto()
+{
+    return _any_aut;
 }
 
 bool rule::check(const address& addr) const

@@ -43,6 +43,8 @@ public:
 
     bool check(const address& addr) const;
 
+    static bool any_auto();
+
 private:
     weak_ptr<rule> _ptr;
 
@@ -53,6 +55,8 @@ private:
     address _addr;
 
     bool _aut;
+
+    static bool _any_aut;
 
     rule();
 };

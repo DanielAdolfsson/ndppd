@@ -286,7 +286,9 @@ int main(int argc, char* argv[], char* env[])
 
     gettimeofday(&t1, 0);
 
+#ifdef WITH_ND_NETLINK
     netlink_setup();
+#endif
 
     while (running) {
         if (iface::poll_all() < 0) {
@@ -306,11 +308,16 @@ int main(int argc, char* argv[], char* env[])
         t1.tv_sec  = t2.tv_sec;
         t1.tv_usec = t2.tv_usec;
 
-        route::update(elapsed_time);
+        if (rule::any_auto())
+            route::update(elapsed_time);
+
         session::update_all(elapsed_time);
     }
 
+#ifdef WITH_ND_NETLINK
     netlink_teardown();
+#endif
+
     logger::notice() << "Bye";
 
     return 0;

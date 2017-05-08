@@ -11,13 +11,17 @@ MANDIR  ?= ${DESTDIR}${PREFIX}/share/man
 SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
 PKG_CONFIG ?= pkg-config
 
-LIBS     = `${PKG_CONFIG} --libs glib-2.0 libnl-3.0 libnl-route-3.0` -pthread
-CPPFLAGS = `${PKG_CONFIG} --cflags glib-2.0 libnl-3.0 libnl-route-3.0`
 
 OBJS     = src/logger.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
-           src/rule.o src/session.o src/conf.o src/route.o src/nd-netlink.o
+           src/rule.o src/session.o src/conf.o src/route.o 
 
-all: ndppd ndppd.1.gz ndppd.conf.5.gz nd-proxy
+ifdef WITH_ND_NETLINK
+  LIBS     = `${PKG_CONFIG} --libs glib-2.0 libnl-3.0 libnl-route-3.0` -pthread
+  CPPFLAGS = `${PKG_CONFIG} --cflags glib-2.0 libnl-3.0 libnl-route-3.0`
+  OBJ      = ${OBJ} src/nd-netlink.o
+endif
+
+all: ndppd ndppd.1.gz ndppd.conf.5.gz
 
 install: all
 	mkdir -p ${SBINDIR} ${MANDIR} ${MANDIR}/man1 ${MANDIR}/man5
