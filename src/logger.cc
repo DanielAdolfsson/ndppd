@@ -83,7 +83,14 @@ std::string logger::format(const std::string& fmt, ...)
 std::string logger::err()
 {
     char buf[2048];
+
+#if (_POSIX_C_SOURCE >= 200112L || _XOPEN_SOURCE >= 600) && ! _GNU_SOURCE
+    if (strerror_r(errno, buf, sizeof(buf))
+        return "Unknown error";
+    return buf;
+#else
     return strerror_r(errno, buf, sizeof(buf));
+#endif
 }
 
 logger logger::error()
