@@ -38,7 +38,7 @@ ndppd.conf.5.gz:
 	${GZIP} < ndppd.conf.5 > ndppd.conf.5.gz
 
 ndppd: ${OBJS}
-	${CXX} -o ndppd ${LDFLAGS} ${LIBS} ${OBJS}
+	${CXX} -o ndppd ${LDFLAGS} ${OBJS} ${LIBS}
 
 nd-proxy: nd-proxy.c
 	${CXX} -o nd-proxy -Wall -Werror ${LDFLAGS} `${PKG_CONFIG} --cflags glib-2.0` nd-proxy.c `${PKG_CONFIG} --libs glib-2.0`
