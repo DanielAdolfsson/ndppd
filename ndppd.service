@@ -1,0 +1,14 @@
+[Unit]
+Description=NDP Proxy Daemon
+After=syslog.target
+After=network.target
+
+[Service]
+ExecStart=/usr/local/sbin/ndppd -d
+KillSignal=SIGINT
+Restart=on-failure
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=basic.target
