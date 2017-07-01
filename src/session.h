@@ -81,6 +81,8 @@ public:
     void handle_advert(const ptr<iface>& ifa);
     
     void handle_auto_wire(const ptr<iface>& ifa);
+    
+    void handle_auto_unwire(const ptr<iface>& ifa);
 
     void send_advert();
 

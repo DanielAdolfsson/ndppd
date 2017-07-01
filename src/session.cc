@@ -60,7 +60,12 @@ session::~session()
     logger::debug() << "session::~session() this=" << logger::format("%x", this);
 
     for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
-            it != _ifaces.end(); it++) {
+            it != _ifaces.end(); it++)
+    {
+        if (_autowire == true) {
+            handle_auto_unwire((*it));
+        }
+                
         (*it)->remove_session(_ptr);
     }
 }
@@ -120,7 +125,28 @@ void session::handle_auto_wire(const ptr<iface>& ifa)
     std::stringstream route_cmd;
     route_cmd << "ip";
     route_cmd << " " << "-6";
+    route_cmd << " " << "route";
     route_cmd << " " << "replace";
+    route_cmd << " " << std::string(_taddr);
+    route_cmd << " " << "dev";
+    route_cmd << " " << ifa->name();
+            
+    logger::debug()
+        << "session::system(" << route_cmd.str() << ")";
+    
+    system(route_cmd.str().c_str());
+}
+
+void session::handle_auto_unwire(const ptr<iface>& ifa)
+{
+    logger::debug()
+        << "session::handle_auto_unwire() taddr=" << _taddr << ", ifa=" << ifa->name();
+    
+    std::stringstream route_cmd;
+    route_cmd << "ip";
+    route_cmd << " " << "-6";
+    route_cmd << " " << "route";
+    route_cmd << " " << "flush";
     route_cmd << " " << std::string(_taddr);
     route_cmd << " " << "dev";
     route_cmd << " " << ifa->name();
