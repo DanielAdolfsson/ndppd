@@ -81,7 +81,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
 
     logger::debug()
         << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", saddr=" << saddr
-        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session* )se);
+        << ", daddr=" << daddr << ", taddr=" << taddr << ", autowire=" << (_autowire ? "yes" : "no") << " =" << logger::format("%x", (session* )se);
 
     return se;
 }
