@@ -130,6 +130,9 @@ void session::handle_advert(const ptr<iface>& ifa)
 
 void session::handle_advert()
 {
+    logger::debug()
+        << "session::handle_advert() taddr=" << _taddr << ", ttl=" << _pr->ttl();
+    
     _status = VALID;
     _ttl    = _pr->ttl();
 
