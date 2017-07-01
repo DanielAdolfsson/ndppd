@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
+#include <sstream>
 
 #include "ndppd.h"
 #include "proxy.h"
@@ -116,7 +117,18 @@ void session::handle_auto_wire(const ptr<iface>& ifa)
     logger::debug()
         << "session::handle_auto_wire() taddr=" << _taddr << ", ifa=" << ifa->name();
     
-    logger::debug() << "session::handle_auto_wire()";
+    std::stringstream route_cmd;
+    route_cmd << "ip";
+    route_cmd << " " << "-6";
+    route_cmd << " " << "replace";
+    route_cmd << " " << std::string(_taddr);
+    route_cmd << " " << "dev";
+    route_cmd << " " << ifa->name();
+            
+    logger::debug()
+        << "session::system(" << route_cmd.str() << ")";
+    
+    system(route_cmd.str().c_str());
 }
 
 void session::handle_advert(const ptr<iface>& ifa)
