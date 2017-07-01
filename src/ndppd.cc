@@ -271,6 +271,9 @@ int main(int argc, char* argv[], char* env[])
     if (cf.is_null())
         return -1;
 
+    if (!configure(cf))
+        return -1;
+
     if (daemon) {
         logger::syslog(true);
 
@@ -279,9 +282,6 @@ int main(int argc, char* argv[], char* env[])
             return 1;
         }
     }
-
-    if (!configure(cf))
-        return -1;
 
     if (!pidfile.empty()) {
         std::ofstream pf;
