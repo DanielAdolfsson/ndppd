@@ -150,9 +150,8 @@ static bool configure(ptr<conf>& cf)
         }
 
         ptr<proxy> pr = proxy::open(*pr_cf);
-
-        if (!pr) {
-            return true;
+        if (!pr || pr.is_null() == true) {
+            return false;
         }
 
         if (!(x_cf = pr_cf->find("router")))
@@ -189,8 +188,14 @@ static bool configure(ptr<conf>& cf)
 
             address addr(*ru_cf);
 
-            if (x_cf = ru_cf->find("iface")) {
-                pr->add_rule(addr, iface::open_ifd(*x_cf));
+            if (x_cf = ru_cf->find("iface"))
+            {
+                ptr<iface> ifa = iface::open_ifd(*x_cf);
+                if (!ifa || ifa.is_null() == true) {
+                    return false;
+                }
+                
+                pr->add_rule(addr, ifa);
             } else if (ru_cf->find("auto")) {
                 pr->add_rule(addr, true);
             } else {
