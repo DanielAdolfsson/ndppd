@@ -72,6 +72,8 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
 
     for (std::list<ptr<session> >::iterator sit = _sessions.begin();
             sit != _sessions.end(); sit++) {
+        
+        (*sit)->touch();
 
         if ((*sit)->taddr() == taddr) {
             switch ((*sit)->status()) {
@@ -80,6 +82,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
                 break;
 
             case session::VALID:
+            case session::RENEWING:
                 (*sit)->send_advert();
             }
 

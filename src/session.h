@@ -33,6 +33,8 @@ private:
     address _saddr, _daddr, _taddr;
     
     bool _autowire;
+    
+    bool _touched;
 
     // An array of interfaces this session is monitoring for
     // ND_NEIGHBOR_ADVERT on.
@@ -49,9 +51,10 @@ private:
 public:
     enum
     {
-        WAITING, // Waiting for an advert response.
-        VALID,   // Valid;
-        INVALID  // Invalid;
+        WAITING,  // Waiting for an advert response.
+        RENEWING, // Renewing;
+        VALID,    // Valid;
+        INVALID   // Invalid;
     };
 
     static void update_all(int elapsed_time);
@@ -71,6 +74,8 @@ public:
     const address& saddr() const;
     
     bool autowire() const;
+    
+    bool touched() const;
 
     int status() const;
 
@@ -83,6 +88,8 @@ public:
     void handle_auto_wire(const ptr<iface>& ifa);
     
     void handle_auto_unwire(const ptr<iface>& ifa);
+    
+    void touch();
 
     void send_advert();
 

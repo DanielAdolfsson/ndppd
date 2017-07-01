@@ -48,6 +48,20 @@ void session::update_all(int elapsed_time)
             se->_status = session::INVALID;
             se->_ttl    = se->_pr->deadtime();
             break;
+            
+        case session::VALID:            
+            if (se->_touched == true) {
+                logger::debug() << "session is renewing";
+                se->_status  = session::RENEWING;
+                se->_ttl     = se->_pr->timeout();
+                se->_touched = false;
+
+                // Send another solicit to make sure the route is still valid
+                se->send_solicit();
+            } else {
+                se->_pr->remove_session(se);
+            }            
+            break;
 
         default:
             se->_pr->remove_session(se);
@@ -82,6 +96,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     se->_daddr    = daddr;
     se->_autowire = auto_wire;
     se->_ttl      = pr->timeout();
+    se->_touched  = true;
 
     _sessions.push_back(se);
 
@@ -110,6 +125,11 @@ void session::send_solicit()
         logger::debug() << " - " << (*it)->name();
         (*it)->write_solicit(_taddr);
     }
+}
+
+void session::touch()
+{
+    _touched = true;
 }
 
 void session::send_advert()
@@ -195,6 +215,11 @@ const address& session::daddr() const
 bool session::autowire() const
 {
     return _autowire;
+}
+
+bool session::touched() const
+{
+    return _touched;
 }
 
 int session::status() const
