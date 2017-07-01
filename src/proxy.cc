@@ -30,7 +30,7 @@ NDPPD_NS_BEGIN
 std::list<ptr<proxy> > proxy::_list;
 
 proxy::proxy() :
-    _router(true), _ttl(30000), _timeout(500), _autowire(false)
+    _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false)
 {
 }
 
@@ -195,6 +195,16 @@ int proxy::ttl() const
 void proxy::ttl(int val)
 {
     _ttl = (val >= 0) ? val : 30000;
+}
+
+int proxy::deadtime() const
+{
+    return _deadtime;
+}
+
+void proxy::deadtime(int val)
+{
+    _deadtime = (val >= 0) ? val : 30000;
 }
 
 int proxy::timeout() const

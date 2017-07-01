@@ -169,6 +169,11 @@ static bool configure(ptr<conf>& cf)
             pr->ttl(30000);
         else
             pr->ttl(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("deadtime")))
+            pr->deadtime(pr->ttl());
+        else
+            pr->deadtime(*x_cf);
 
         if (!(x_cf = pr_cf->find("timeout")))
             pr->timeout(500);

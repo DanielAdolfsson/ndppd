@@ -45,7 +45,7 @@ void session::update_all(int elapsed_time)
         case session::WAITING:
             logger::debug() << "session is now invalid";
             se->_status = session::INVALID;
-            se->_ttl    = se->_pr->ttl();
+            se->_ttl    = se->_pr->deadtime();
             break;
 
         default:
@@ -81,7 +81,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
 
     logger::debug()
         << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", saddr=" << saddr
-        << ", daddr=" << daddr << ", taddr=" << taddr << ", autowire=" << (_autowire ? "yes" : "no") << " =" << logger::format("%x", (session* )se);
+        << ", daddr=" << daddr << ", taddr=" << taddr << ", autowire=" << (auto_wire == true ? "yes" : "no") << " =" << logger::format("%x", (session* )se);
 
     return se;
 }

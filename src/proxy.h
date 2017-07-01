@@ -60,6 +60,10 @@ public:
     int ttl() const;
 
     void ttl(int val);
+    
+    int deadtime() const;
+
+    void deadtime(int val);
 
 private:
     static std::list<ptr<proxy> > _list;
@@ -76,7 +80,7 @@ private:
     
     bool _autowire;
 
-    int _ttl, _timeout;
+    int _ttl, _deadtime, _timeout;
 
     proxy();
 };
