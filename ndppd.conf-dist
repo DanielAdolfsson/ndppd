@@ -23,12 +23,12 @@ proxy eth0 {
 
    timeout 500   
 
-   # auto-wire <yes|no|true|false>
+   # autowire <yes|no|true|false>
    # Controls whether whether ndppd will automatically create host entries
    # in the routing tables when it receives Neighbor Advertisements on a
    # listening interface. The the default value is no.
 
-   auto-wire no
+   autowire no
    
    # ttl <integer>
    # Controls how long a valid or invalid entry remains in the cache, in 
