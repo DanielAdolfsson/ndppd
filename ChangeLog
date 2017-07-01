@@ -2,9 +2,42 @@
 
     * Version 0.2.6
 
-        * Added a feature that will automatically create route entries
-          in the routing tables, thus providing an alternative to this
-          https://github.com/google/ndprbrd projects use-case.
+        * Added a new configuration setting named "deadtime" which allows
+          sessions that never made it the VALID to have a different (i.e.
+          shorter) life before they are removed (and potentially retried)
+          (defauilt is the same value as usual TTL for backwards compatibility)
+          
+        * Added a new configuration setting named "autowire" in the proxy
+          section (default is off)
+          
+        * If the "autowire" setting is on, then upon receiving a NDP
+          Neighbor Advertisment from one of the rule interfaces, a route will
+          be automatically added into the linux IP routing tables thus allowing
+          for a full featured gateway when IPv6 forwarding is turned on.
+          Note: Be careful as "accept_ra" may need to be set to 2 on the
+          interface during testing for the routing tables to retain their
+          default route (unrelated to this patch but took me a while to
+          discover).
+          
+        * When a session ends then anything that was "autowired" will be
+          automatically removed thus ensuring the routing tables are in a
+          similar state to before the daemon (or session) made any changes
+          
+        * Added a feature where the session will attempt to renew itself
+          (with a new NDP Solicitation) before it self-terminates, this is
+          required otherwise packets could be lost when the session terminates
+          triggering the automatically removal of the route table entry.
+          
+        * Ensured that renew operations only take place if the session has
+          been recently touched by an external solicitation - this ensures
+          that sessions that become IDLE are cleaned up quickly
+          
+        * Moved the daemonizing step till after the system executed the
+          configure step so that the error exit codes are returned to the daemon
+          caller.
+          
+        * No longer continuing to load the daemon if any of the interfaces fail
+          to load which should give a more predictable behaviour and better user experience.
 
 2016-04-18  Daniel Adolfsson  <daniel@priv.nu>
 
