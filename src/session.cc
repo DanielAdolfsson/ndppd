@@ -78,14 +78,17 @@ void session::update_all(int elapsed_time)
 session::~session()
 {
     logger::debug() << "session::~session() this=" << logger::format("%x", this);
+    
+    if (_wired == true) {
+        for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
+            it != _ifaces.end(); it++) {
+            handle_auto_unwire((*it));
+        }
+    }
 
     for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++)
     {
-        if (_autowire == true) {
-            handle_auto_unwire((*it));
-        }
-                
         (*it)->remove_session(_ptr);
     }
 }
@@ -95,14 +98,15 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
 {
     ptr<session> se(new session());
 
-    se->_ptr      = se;
-    se->_pr       = pr;
-    se->_saddr    = address("::") == saddr ? all_nodes : saddr;
-    se->_taddr    = taddr;
-    se->_daddr    = daddr;
-    se->_autowire = auto_wire;
-    se->_ttl      = pr->timeout();
-    se->_touched  = true;
+    se->_ptr       = se;
+    se->_pr        = pr;
+    se->_saddr     = address("::") == saddr ? all_nodes : saddr;
+    se->_taddr     = taddr;
+    se->_daddr     = daddr;
+    se->_autowire  = auto_wire;
+    se->_wired  = false;
+    se->_ttl       = pr->timeout();
+    se->_touched   = true;
 
     _sessions.push_back(se);
 
@@ -161,6 +165,8 @@ void session::handle_auto_wire(const ptr<iface>& ifa)
         << "session::system(" << route_cmd.str() << ")";
     
     system(route_cmd.str().c_str());
+    
+    _wired = true;
 }
 
 void session::handle_auto_unwire(const ptr<iface>& ifa)
@@ -181,6 +187,8 @@ void session::handle_auto_unwire(const ptr<iface>& ifa)
         << "session::system(" << route_cmd.str() << ")";
     
     system(route_cmd.str().c_str());
+    
+    _wired = false;
 }
 
 void session::handle_advert(const ptr<iface>& ifa)
@@ -221,6 +229,11 @@ const address& session::daddr() const
 bool session::autowire() const
 {
     return _autowire;
+}
+
+bool session::wired() const
+{
+    return _wired;
 }
 
 bool session::touched() const

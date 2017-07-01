@@ -34,6 +34,8 @@ private:
     
     bool _autowire;
     
+    bool _wired;
+    
     bool _touched;
 
     // An array of interfaces this session is monitoring for
@@ -74,6 +76,8 @@ public:
     const address& saddr() const;
     
     bool autowire() const;
+    
+    bool wired() const;
     
     bool touched() const;
 
