@@ -45,19 +45,19 @@ void session::update_all(int elapsed_time)
         switch (se->_status) {
             
         case session::WAITING:
-            logger::debug() << "session is now invalid";
+            logger::debug() << "session is now invalid [taddr=" << se->_taddr << "]";
             se->_status = session::INVALID;
             se->_ttl    = se->_pr->deadtime();
             break;
             
         case session::RENEWING:
-            logger::debug() << "session is became invalid";
+            logger::debug() << "session is became invalid [taddr=" << se->_taddr << "]";
             se->_pr->remove_session(se);
             break;
             
         case session::VALID:            
             if (se->_touched == true) {
-                logger::debug() << "session is renewing";
+                logger::debug() << "session is renewing [taddr=" << se->_taddr << "]";
                 se->_status  = session::RENEWING;
                 se->_ttl     = se->_pr->timeout();
                 se->_touched = false;
