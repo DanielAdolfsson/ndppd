@@ -43,10 +43,16 @@ void session::update_all(int elapsed_time)
         }
 
         switch (se->_status) {
+            
         case session::WAITING:
             logger::debug() << "session is now invalid";
             se->_status = session::INVALID;
             se->_ttl    = se->_pr->deadtime();
+            break;
+            
+        case session::RENEWING:
+            logger::debug() << "session is became invalid";
+            se->_pr->remove_session(se);
             break;
             
         case session::VALID:            
