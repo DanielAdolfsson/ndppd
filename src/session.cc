@@ -65,16 +65,17 @@ session::~session()
 }
 
 ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
-    const address& daddr, const address& taddr)
+    const address& daddr, const address& taddr, bool auto_wire)
 {
     ptr<session> se(new session());
 
-    se->_ptr   = se;
-    se->_pr    = pr;
-    se->_saddr = address("::") == saddr ? all_nodes : saddr;
-    se->_taddr = taddr;
-    se->_daddr = daddr;
-    se->_ttl   = pr->timeout();
+    se->_ptr      = se;
+    se->_pr       = pr;
+    se->_saddr    = address("::") == saddr ? all_nodes : saddr;
+    se->_taddr    = taddr;
+    se->_daddr    = daddr;
+    se->_autowire = auto_wire;
+    se->_ttl      = pr->timeout();
 
     _sessions.push_back(se);
 
@@ -110,6 +111,23 @@ void session::send_advert()
     _pr->ifa()->write_advert(_saddr, _taddr, _pr->router());
 }
 
+void session::handle_auto_wire(const ptr<iface>& ifa)
+{
+    logger::debug()
+        << "session::handle_auto_wire() taddr=" << _taddr << ", ifa=" << ifa->name();
+    
+    logger::debug() << "session::handle_auto_wire()";
+}
+
+void session::handle_advert(const ptr<iface>& ifa)
+{
+    if (_autowire == true) {
+        handle_auto_wire(ifa);
+    }
+    
+    handle_advert();
+}
+
 void session::handle_advert()
 {
     _status = VALID;
@@ -131,6 +149,11 @@ const address& session::saddr() const
 const address& session::daddr() const
 {
     return _daddr;
+}
+
+bool session::autowire() const
+{
+    return _autowire;
 }
 
 int session::status() const

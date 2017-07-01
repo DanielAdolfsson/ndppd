@@ -159,6 +159,11 @@ static bool configure(ptr<conf>& cf)
             pr->router(true);
         else
             pr->router(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("autowire")))
+            pr->autowire(false);
+        else
+            pr->autowire(*x_cf);
 
         if (!(x_cf = pr_cf->find("ttl")))
             pr->ttl(30000);

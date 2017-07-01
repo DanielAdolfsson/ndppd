@@ -30,7 +30,7 @@ NDPPD_NS_BEGIN
 std::list<ptr<proxy> > proxy::_list;
 
 proxy::proxy() :
-    _router(true), _ttl(30000), _timeout(500)
+    _router(true), _ttl(30000), _timeout(500), _autowire(false)
 {
 }
 
@@ -104,7 +104,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
 
         if (ru->addr() == taddr) {
             if (!se) {
-                se = session::create(_ptr, saddr, daddr, taddr);
+                se = session::create(_ptr, saddr, daddr, taddr, _autowire);
             }
 
             if (ru->is_auto()) {
@@ -130,7 +130,7 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
                 if (if_addr_find((*it)->ifa()->name(), &taddr.const_addr())) {
                     logger::debug() << "Sending NA out " << (*it)->ifa()->name();
                     se->add_iface(_ifa);
-                    se->handle_advert();
+                    se->handle_advert(_ifa);
                 }
                 #endif
             }
@@ -175,6 +175,16 @@ bool proxy::router() const
 void proxy::router(bool val)
 {
     _router = val;
+}
+
+bool proxy::autowire() const
+{
+    return _autowire;
+}
+
+void proxy::autowire(bool val)
+{
+    _autowire = val;
 }
 
 int proxy::ttl() const

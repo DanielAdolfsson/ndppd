@@ -48,6 +48,10 @@ public:
     bool router() const;
 
     void router(bool val);
+    
+    bool autowire() const;
+
+    void autowire(bool val);
 
     int timeout() const;
 
@@ -69,6 +73,8 @@ private:
     std::list<ptr<session> > _sessions;
 
     bool _router;
+    
+    bool _autowire;
 
     int _ttl, _timeout;
 

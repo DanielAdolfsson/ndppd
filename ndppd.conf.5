@@ -48,6 +48,12 @@ Controls how long
 .B ndppd
 will cache an entry. This is in milliseconds, and the default value 
 is 30000 (30 seconds).
+.IP "auto-wire <yes|no>"
+Controls whether
+.B ndppd
+will automatically create host entries in the routing tables when
+.B ndppd receives Neighbor Advertisements on a listening interface.
+The default value is no.
 .IP "timeout <value>"
 Controls how long
 .B ndppd

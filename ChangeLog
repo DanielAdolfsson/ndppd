@@ -1,3 +1,11 @@
+2017-01-07  Johnathan Sharratt <johnathan.sharratt@gmail.com>
+
+    * Version 0.2.6
+
+        * Added a feature that will automatically create route entries
+          in the routing tables, thus providing an alternative to this
+          https://github.com/google/ndprbrd projects use-case.
+
 2016-04-18  Daniel Adolfsson  <daniel@priv.nu>
 
     * Version 0.2.5

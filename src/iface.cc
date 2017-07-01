@@ -589,7 +589,7 @@ int iface::poll_all()
                 const ptr<session> sess = *s_it;
 
                 if ((sess->taddr() == taddr) && (sess->status() == session::WAITING)) {
-                    sess->handle_advert();
+                    sess->handle_advert(ifa);
                     break;
                 }
             }
