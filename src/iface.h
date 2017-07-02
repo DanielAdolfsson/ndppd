@@ -96,6 +96,9 @@ private:
 
     // Previous state of ALLMULTI for the interface.
     int _prev_allmulti;
+    
+    // Previous state of PROMISC for the interface
+    int _prev_promiscuous;
 
     // Name of this interface.
     std::string _name;
@@ -112,6 +115,10 @@ private:
     // Turns on/off ALLMULTI for this interface - returns the previous state
     // or -1 if there was an error.
     int allmulti(int state);
+    
+    // Turns on/off PROMISC for this interface - returns the previous state
+    // or -1 if there was an error
+    int promiscuous(int state);
 
     // Constructor.
     iface();

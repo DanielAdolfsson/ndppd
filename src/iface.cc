@@ -65,6 +65,9 @@ iface::~iface()
         if (_prev_allmulti >= 0) {
             allmulti(_prev_allmulti);
         }
+        if (_prev_promiscuous >= 0) {
+            allmulti(_prev_promiscuous);
+        }
         close(_pfd);
     }
 
@@ -118,27 +121,6 @@ ptr<iface> iface::open_pfd(const std::string& name, bool promiscuous)
         logger::error() << "Failed to bind to interface '" << name << "'";
         return ptr<iface>();
     }
-    
-    // Switch on promiscuous mode (if instructed)
-    if (promiscuous == true)
-    {
-        struct ifreq ifr;
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ);
-        if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
-            close(fd);
-            logger::error() << "Failed invoking ioctl(SIOCGIFFLAGS) while setting promiscuous mode on interface '" << name << "'";
-            return ptr<iface>();
-        }
-        if (!(ifr.ifr_flags & IFF_PROMISC)) {
-            ifr.ifr_flags |= IFF_PROMISC;
-            if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0) {
-                close(fd);
-                logger::error() << "Failed invoking ioctl(SIOCSIFFLAGS) while setting promiscuous mode on interface '" << name << "'";
-                return ptr<iface>();
-            }
-        }
-    }
 
     // Switch to non-blocking mode.
 
@@ -190,6 +172,13 @@ ptr<iface> iface::open_pfd(const std::string& name, bool promiscuous)
 
     // Eh. Allmulti.
     ifa->_prev_allmulti = ifa->allmulti(1);
+    
+    // Eh. Promiscuous
+    if (promiscuous == true) {
+        ifa->_prev_promiscuous = ifa->promiscuous(1);
+    } else {
+        ifa->_prev_promiscuous = -1;
+    }
 
     _map_dirty = true;
 
@@ -653,6 +642,45 @@ int iface::allmulti(int state)
 
     if (ioctl(_pfd, SIOCSIFFLAGS, &ifr) < 0) {
         logger::error() << "Failed to set allmulti: " << logger::err();
+        return -1;
+    }
+
+    return old_state;
+}
+
+int iface::promiscuous(int state)
+{
+    struct ifreq ifr;
+
+    logger::debug()
+        << "iface::promiscuous() state="
+        << state << ", _name=\"" << _name << "\"";
+
+    state = !!state;
+
+    memset(&ifr, 0, sizeof(ifr));
+
+    strncpy(ifr.ifr_name, _name.c_str(), IFNAMSIZ);
+
+    if (ioctl(_pfd, SIOCGIFFLAGS, &ifr) < 0) {
+        logger::error() << "Failed to get promiscuous: " << logger::err();
+        return -1;
+    }
+
+    int old_state = !!(ifr.ifr_flags &IFF_PROMISC);
+
+    if (state == old_state) {
+        return old_state;
+    }
+
+    if (state) {
+        ifr.ifr_flags |= IFF_PROMISC;
+    } else {
+        ifr.ifr_flags &= ~IFF_PROMISC;
+    }
+
+    if (ioctl(_pfd, SIOCSIFFLAGS, &ifr) < 0) {
+        logger::error() << "Failed to set promiscuous: " << logger::err();
         return -1;
     }
 
