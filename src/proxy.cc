@@ -65,7 +65,8 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     const address& taddr)
 {
     logger::debug()
-        << "proxy::handle_solicit() saddr=" << saddr.to_string()
+        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null")
+        << ", saddr=" << saddr.to_string()
         << ", taddr=" << taddr.to_string();
 
     // Let's check this proxy's list of sessions to see if we can

@@ -314,14 +314,18 @@ ssize_t iface::read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size)
     mhdr.msg_namelen = sizeof(struct sockaddr);
     mhdr.msg_iov =& iov;
     mhdr.msg_iovlen = 1;
+    
+    logger::debug() << "iface::read() ifa=" << name() << ", len=" << len;
 
     if ((len = recvmsg(fd,& mhdr, 0)) < 0)
+    {
+        int e = errno;
+        logger::error() << "iface::read() failed! errno=" << e << ", ifa=" << name();
         return -1;
+    }
 
     if (len < sizeof(struct icmp6_hdr))
         return -1;
-
-    logger::debug() << "iface::read() len=" << len;
 
     return len;
 }
@@ -346,7 +350,7 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
     mhdr.msg_iov =& iov;
     mhdr.msg_iovlen = 1;
 
-    logger::debug() << "iface::write() daddr=" << daddr.to_string() << ", len="
+    logger::debug() << "iface::write() ifa=" << name() << ", daddr=" << daddr.to_string() << ", len="
                     << size;
 
     int len;
@@ -354,7 +358,7 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
     if ((len = sendmsg(fd,& mhdr, 0)) < 0)
     {
         int e = errno;
-        logger::error() << "iface::write() failed! errno=" << e;
+        logger::error() << "iface::write() failed! errno=" << e << ", ifa=" << name() << ", daddr=" << daddr.to_string();
         return -1;
     }
 

@@ -52,7 +52,7 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     if_add_to_list(ifindex, ifa);
 #endif
 
-    logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
+    logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", slave=" << ifa->name() << ", addr=" << addr;
 
     return ru;
 }
