@@ -38,7 +38,7 @@ public:
 
     static ptr<iface> open_ifd(const std::string& name);
 
-    static ptr<iface> open_pfd(const std::string& name);
+    static ptr<iface> open_pfd(const std::string& name, bool promiscuous);
 
     static int poll_all();
 

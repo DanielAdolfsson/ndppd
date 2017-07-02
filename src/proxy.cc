@@ -30,15 +30,16 @@ NDPPD_NS_BEGIN
 std::list<ptr<proxy> > proxy::_list;
 
 proxy::proxy() :
-    _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false)
+    _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false), _promiscuous(false)
 {
 }
 
-ptr<proxy> proxy::create(const ptr<iface>& ifa)
+ptr<proxy> proxy::create(const ptr<iface>& ifa, bool promiscuous)
 {
     ptr<proxy> pr(new proxy());
     pr->_ptr = pr;
     pr->_ifa = ifa;
+    pr->_promiscuous = promiscuous;
 
     _list.push_back(pr);
 
@@ -49,15 +50,15 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa)
     return pr;
 }
 
-ptr<proxy> proxy::open(const std::string& ifname)
+ptr<proxy> proxy::open(const std::string& ifname, bool promiscuous)
 {
-    ptr<iface> ifa = iface::open_pfd(ifname);
+    ptr<iface> ifa = iface::open_pfd(ifname, promiscuous);
 
     if (!ifa) {
         return ptr<proxy>();
     }
 
-    return create(ifa);
+    return create(ifa, promiscuous);
 }
 
 void proxy::handle_solicit(const address& saddr, const address& daddr,
@@ -168,6 +169,11 @@ void proxy::remove_session(const ptr<session>& se)
 const ptr<iface>& proxy::ifa() const
 {
     return _ifa;
+}
+
+bool proxy::promiscuous() const
+{
+    return _promiscuous;
 }
 
 bool proxy::router() const

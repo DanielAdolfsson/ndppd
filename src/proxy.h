@@ -30,9 +30,9 @@ class rule;
 
 class proxy {
 public:
-    static ptr<proxy> create(const ptr<iface>& ifa);
+    static ptr<proxy> create(const ptr<iface>& ifa, bool promiscuous);
 
-    static ptr<proxy> open(const std::string& ifn);
+    static ptr<proxy> open(const std::string& ifn, bool promiscuous);
 
     void handle_solicit(const address& saddr, const address& daddr,
         const address& taddr);
@@ -44,6 +44,8 @@ public:
     ptr<rule> add_rule(const address& addr, bool aut = false);
 
     const ptr<iface>& ifa() const;
+    
+    bool promiscuous() const;
 
     bool router() const;
 
@@ -75,6 +77,8 @@ private:
     std::list<ptr<rule> > _rules;
 
     std::list<ptr<session> > _sessions;
+    
+    bool _promiscuous;
 
     bool _router;
     

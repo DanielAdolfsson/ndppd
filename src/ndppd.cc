@@ -148,8 +148,14 @@ static bool configure(ptr<conf>& cf)
         if (pr_cf->empty()) {
             return false;
         }
+        
+        bool promiscuous = false;
+        if (!(x_cf = pr_cf->find("promiscuous")))
+            promiscuous = false;
+        else
+            promiscuous = *x_cf;
 
-        ptr<proxy> pr = proxy::open(*pr_cf);
+        ptr<proxy> pr = proxy::open(*pr_cf, promiscuous);
         if (!pr || pr.is_null() == true) {
             return false;
         }

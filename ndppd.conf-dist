@@ -24,11 +24,19 @@ proxy eth0 {
    timeout 500   
 
    # autowire <yes|no|true|false>
-   # Controls whether whether ndppd will automatically create host entries
+   # Controls whether ndppd will automatically create host entries
    # in the routing tables when it receives Neighbor Advertisements on a
    # listening interface. The the default value is no.
 
    autowire no
+
+   # promiscuous <yes|no|true|false>
+   # Controls whether ndppd will put the proxy listening interface into promiscuous
+   # mode and hence will react to inbound and outbound NDP commands. This is
+   # required for machines behind the gateway to talk to each other in more
+   # complex topology scenarios. The the default value is no.
+
+   promiscuous no
    
    # ttl <integer>
    # Controls how long a valid or invalid entry remains in the cache, in 

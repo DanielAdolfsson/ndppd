@@ -71,7 +71,7 @@ iface::~iface()
     _map_dirty = true;
 }
 
-ptr<iface> iface::open_pfd(const std::string& name)
+ptr<iface> iface::open_pfd(const std::string& name, bool promiscuous)
 {
     int fd = 0;
 
@@ -117,6 +117,27 @@ ptr<iface> iface::open_pfd(const std::string& name)
         close(fd);
         logger::error() << "Failed to bind to interface '" << name << "'";
         return ptr<iface>();
+    }
+    
+    // Switch on promiscuous mode (if instructed)
+    if (promiscuous == true)
+    {
+        struct ifreq ifr;
+        memset(&ifr, 0, sizeof(ifr));
+        strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ);
+        if (ioctl(fd, SIOCGIFFLAGS, &ifr) < 0) {
+            close(fd);
+            logger::error() << "Failed invoking ioctl(SIOCGIFFLAGS) while setting promiscuous mode on interface '" << name << "'";
+            return ptr<iface>();
+        }
+        if (!(ifr.ifr_flags & IFF_PROMISC)) {
+            ifr.ifr_flags |= IFF_PROMISC;
+            if (ioctl(fd, SIOCSIFFLAGS, &ifr) < 0) {
+                close(fd);
+                logger::error() << "Failed invoking ioctl(SIOCSIFFLAGS) while setting promiscuous mode on interface '" << name << "'";
+                return ptr<iface>();
+            }
+        }
     }
 
     // Switch to non-blocking mode.
