@@ -319,8 +319,7 @@ ssize_t iface::read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size)
 
     if ((len = recvmsg(fd,& mhdr, 0)) < 0)
     {
-        int e = errno;
-        logger::error() << "iface::read() failed! errno=" << e << ", ifa=" << name();
+        logger::error() << "iface::read() failed! error=" << logger::err() << ", ifa=" << name();
         return -1;
     }
 
@@ -357,8 +356,7 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
 
     if ((len = sendmsg(fd,& mhdr, 0)) < 0)
     {
-        int e = errno;
-        logger::error() << "iface::write() failed! errno=" << e << ", ifa=" << name() << ", daddr=" << daddr.to_string();
+        logger::error() << "iface::write() failed! error=" << logger::err() << ", ifa=" << name() << ", daddr=" << daddr.to_string();
         return -1;
     }
 
@@ -371,8 +369,10 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
     uint8_t msg[256];
     ssize_t len;
 
-    if ((len = read(_pfd, (struct sockaddr*)&t_saddr, msg, sizeof(msg))) < 0)
+    if ((len = read(_pfd, (struct sockaddr*)&t_saddr, msg, sizeof(msg))) < 0) {
+        logger::warning() << "iface::read_solicit() failed: " << logger::err();
         return -1;
+    }
 
     struct ip6_hdr* ip6h =
           (struct ip6_hdr* )(msg + ETH_HLEN);
@@ -466,8 +466,10 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
     uint8_t msg[256];
     ssize_t len;
 
-    if ((len = read(_ifd, (struct sockaddr* )&t_saddr, msg, sizeof(msg))) < 0)
+    if ((len = read(_ifd, (struct sockaddr* )&t_saddr, msg, sizeof(msg))) < 0) {
+        logger::warning() << "iface::read_advert() failed: " << logger::err();
         return -1;
+    }
 
     saddr = t_saddr.sin6_addr;
 
@@ -548,6 +550,7 @@ int iface::poll_all()
     int len;
 
     if ((len = ::poll(&_pollfds[0], _pollfds.size(), 50)) < 0) {
+        logger::error() << "Failed to poll interfaces: " << logger::err();
         return -1;
     }
 

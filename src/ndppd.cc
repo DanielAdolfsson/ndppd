@@ -36,9 +36,10 @@ using namespace ndppd;
 static int daemonize()
 {
     pid_t pid = fork();
-
-    if (pid < 0)
+    if (pid < 0) {
+        logger::error() << "Failed to fork during daemonize: " << logger::err();
         return -1;
+    }
 
     if (pid > 0)
         exit(0);
@@ -46,12 +47,15 @@ static int daemonize()
     umask(0);
 
     pid_t sid = setsid();
-
-    if (sid < 0)
+    if (sid < 0) {
+        logger::error() << "Failed to setsid during daemonize: " << logger::err();
         return -1;
+    }
 
-    if (chdir("/") < 0)
+    if (chdir("/") < 0) {
+        logger::error() << "Failed to change path during daemonize: " << logger::err();
         return -1;
+    }
 
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
@@ -288,10 +292,8 @@ int main(int argc, char* argv[], char* env[])
     if (daemon) {
         logger::syslog(true);
 
-        if (daemonize() < 0) {
-            logger::error() << "Failed to daemonize process";
+        if (daemonize() < 0)
             return 1;
-        }
     }
 
     if (!pidfile.empty()) {
