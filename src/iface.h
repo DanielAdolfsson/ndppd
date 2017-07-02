@@ -67,8 +67,12 @@ public:
     void remove_session(const ptr<session>& se);
 
     void pr(const ptr<proxy>& pr);
-
+    
     const ptr<proxy>& pr() const;
+    
+    void owner(const ptr<proxy>& pr);
+    
+    const ptr<proxy>& owner() const;
 
 private:
     static std::map<std::string, weak_ptr<iface> > _map;
@@ -108,6 +112,8 @@ private:
     std::list<weak_ptr<session> > _sessions;
 
     weak_ptr<proxy> _pr;
+    
+    weak_ptr<proxy> _owner;
 
     // The link-layer address of this interface.
     struct ether_addr hwaddr;

@@ -204,6 +204,7 @@ static bool configure(ptr<conf>& cf)
                 if (!ifa || ifa.is_null() == true) {
                     return false;
                 }
+                ifa->owner(pr);
                 
                 pr->add_rule(addr, ifa);
             } else if (ru_cf->find("auto")) {

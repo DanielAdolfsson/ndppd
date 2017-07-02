@@ -599,6 +599,7 @@ int iface::poll_all()
                 continue;
             }
 
+            bool found = false;
             for (std::list<weak_ptr<session> >::iterator s_it = ifa->_sessions.begin();
                     s_it != ifa->_sessions.end(); s_it++) {
                 assert(!s_it->is_null());
@@ -607,7 +608,16 @@ int iface::poll_all()
 
                 if ((sess->taddr() == taddr) && (sess->status() == session::WAITING || sess->status() == session::RENEWING)) {
                     sess->handle_advert(ifa);
+                    found = true;
                     break;
+                }
+            }
+            
+            if (found == false) {
+                if (ifa->owner()) {
+                    ifa->owner()->handle_advert(saddr, taddr, ifa);
+                } else {
+                    logger::debug() << "iface::poll_all - ignoring advert on proxy iface=" << ifa->name();
                 }
             }
         }
@@ -707,6 +717,16 @@ void iface::pr(const ptr<proxy>& pr)
 const ptr<proxy>& iface::pr() const
 {
     return _pr;
+}
+
+void iface::owner(const ptr<proxy>& pr)
+{
+    _owner = pr;
+}
+
+const ptr<proxy>& iface::owner() const
+{
+    return _owner;
 }
 
 NDPPD_NS_END

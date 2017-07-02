@@ -104,14 +104,14 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     se->_taddr     = taddr;
     se->_daddr     = daddr;
     se->_autowire  = auto_wire;
-    se->_wired  = false;
+    se->_wired     = false;
     se->_ttl       = pr->timeout();
-    se->_touched   = true;
+    se->_touched   = false;
 
     _sessions.push_back(se);
 
     logger::debug()
-        << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", slave=" << ((pr->ifa()) ? pr->ifa()->name() : "null") << ", saddr=" << saddr
+        << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", proxy=" << ((pr->ifa()) ? pr->ifa()->name() : "null") << ", saddr=" << saddr
         << ", daddr=" << daddr << ", taddr=" << taddr << ", autowire=" << (auto_wire == true ? "yes" : "no") << " =" << logger::format("%x", (session* )se);
 
     return se;
@@ -139,7 +139,13 @@ void session::send_solicit()
 
 void session::touch()
 {
-    _touched = true;
+    if (_touched == false)
+    {
+        _touched = true;
+        
+        if (status() == session::WAITING || status() == session::INVALID)
+            send_solicit();
+    }
 }
 
 void session::send_advert()
@@ -193,12 +199,13 @@ void session::handle_auto_unwire(const ptr<iface>& ifa)
 
 void session::handle_advert(const ptr<iface>& ifa)
 {
-    if (_autowire == true) {
+    if (_autowire == true && _status == WAITING) {
         handle_auto_wire(ifa);
     }
     
     handle_advert();
 }
+
 
 void session::handle_advert()
 {

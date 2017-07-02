@@ -26,7 +26,9 @@
 #include "session.h"
 
 NDPPD_NS_BEGIN
-
+        
+static address all_nodes = address("ff02::1");
+        
 std::list<ptr<proxy> > proxy::_list;
 
 proxy::proxy() :
@@ -61,14 +63,8 @@ ptr<proxy> proxy::open(const std::string& ifname, bool promiscuous)
     return create(ifa, promiscuous);
 }
 
-void proxy::handle_solicit(const address& saddr, const address& daddr,
-    const address& taddr)
+ptr<session> proxy::find_or_create_session(const address& saddr, const address& daddr, const address& taddr, const ptr<iface>& receiver)
 {
-    logger::debug()
-        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null")
-        << ", saddr=" << saddr.to_string()
-        << ", taddr=" << taddr.to_string();
-
     // Let's check this proxy's list of sessions to see if we can
     // find one with the same target address.
 
@@ -76,43 +72,32 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
             sit != _sessions.end(); sit++) {
         
         if ((*sit)->taddr() == taddr)
-        {
-            (*sit)->touch();
-            
-            switch ((*sit)->status()) {
-            case session::WAITING:
-            case session::INVALID:
-                break;
-
-            case session::VALID:
-            case session::RENEWING:
-                (*sit)->send_advert();
-            }
-
-            return;
-        }
+            return (*sit);
     }
-
+    
     // Since we couldn't find a session that matched, we'll try to find
     // a matching rule instead, and then set up a new session.
-
+    
     ptr<session> se;
-
+    
     for (std::list<ptr<rule> >::iterator it = _rules.begin();
             it != _rules.end(); it++) {
         ptr<rule> ru = *it;
 
         logger::debug() << "checking " << ru->addr() << " against " << taddr;
 
-        if (!daddr.is_multicast() && ru->addr() != daddr) {
+        if (!daddr.is_multicast() && ru->addr() != daddr && daddr != taddr) {
             continue;
         }
+        
+        if (receiver && ru->ifa() && receiver->name() != ru->ifa()->name())
+            continue;
 
         if (ru->addr() == taddr) {
             if (!se) {
                 se = session::create(_ptr, saddr, daddr, taddr, _autowire);
             }
-
+            
             if (ru->is_auto()) {
                 ptr<route> rt = route::find(taddr);
 
@@ -129,23 +114,60 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
                 // This rule doesn't have an interface, and thus we'll consider
                 // it "static" and immediately send the response.
                 se->handle_advert();
-                return;
+                return se;
             } else {
                 se->add_iface((*it)->ifa());
                 #ifdef WITH_ND_NETLINK
                 if (if_addr_find((*it)->ifa()->name(), &taddr.const_addr())) {
                     logger::debug() << "Sending NA out " << (*it)->ifa()->name();
                     se->add_iface(_ifa);
-                    se->handle_advert(_ifa);
+                    se->handle_advert();
                 }
                 #endif
             }
         }
     }
-
+    
     if (se) {
         _sessions.push_back(se);
-        se->send_solicit();
+    }
+    
+    return se;
+}
+
+void proxy::handle_advert(const address& saddr, const address& taddr, const ptr<iface>& receiver)
+{
+    logger::debug()
+        << "proxy::handle_advert() proxy=" << (ifa() ? ifa()->name() : "null") << ", receiver=" << (receiver ? receiver->name() : "null")
+        << ", saddr=" << saddr.to_string()
+        << ", taddr=" << taddr.to_string();
+    
+    ptr<session> se = find_or_create_session(saddr, all_nodes, taddr, receiver);
+    if (!se) return;
+    
+    se->handle_advert(receiver);
+}
+
+void proxy::handle_solicit(const address& saddr, const address& daddr, const address& taddr)
+{
+    logger::debug()
+        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null")
+        << ", saddr=" << saddr.to_string()
+        << ", taddr=" << taddr.to_string();
+    
+    ptr<session> se = find_or_create_session(saddr, daddr, taddr, ptr<iface>());
+    if (!se) return;
+    
+    se->touch();
+    
+    switch (se->status()) {
+        case session::WAITING:
+        case session::INVALID:
+            return;
+
+        case session::VALID:
+        case session::RENEWING:
+            se->send_advert();
     }
 }
 
