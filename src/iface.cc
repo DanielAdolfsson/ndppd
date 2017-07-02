@@ -66,7 +66,7 @@ iface::~iface()
             allmulti(_prev_allmulti);
         }
         if (_prev_promiscuous >= 0) {
-            allmulti(_prev_promiscuous);
+            promiscuous(_prev_promiscuous);
         }
         close(_pfd);
     }
