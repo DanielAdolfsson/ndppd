@@ -75,9 +75,10 @@ void proxy::handle_solicit(const address& saddr, const address& daddr,
     for (std::list<ptr<session> >::iterator sit = _sessions.begin();
             sit != _sessions.end(); sit++) {
         
-        (*sit)->touch();
-
-        if ((*sit)->taddr() == taddr) {
+        if ((*sit)->taddr() == taddr)
+        {
+            (*sit)->touch();
+            
             switch ((*sit)->status()) {
             case session::WAITING:
             case session::INVALID:
