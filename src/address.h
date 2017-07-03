@@ -70,11 +70,13 @@ public:
 
     operator std::string() const;
     
-    static std::list<ptr<route> > addresses();
-    
     static void add(const address& addr, const std::string& ifname);
     
     static void load(const std::string& path);
+    
+    static std::list<ptr<route> >::iterator addresses_begin();
+    
+    static std::list<ptr<route> >::iterator addresses_end();
 
 private:
     static int _ttl;

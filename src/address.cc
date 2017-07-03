@@ -318,9 +318,14 @@ void address::add(const address& addr, const std::string& ifname)
     _addresses.push_back(rt);
 }
 
-std::list<ptr<route> > address::addresses()
+std::list<ptr<route> >::iterator address::addresses_begin()
 {
-    return _addresses;
+    return _addresses.begin();
+}
+
+std::list<ptr<route> >::iterator address::addresses_end()
+{
+    return _addresses.end();
 }
 
 void address::load(const std::string& path)
@@ -342,24 +347,31 @@ void address::load(const std::string& path)
             ifs.getline(buf, sizeof(buf));
 
             if (ifs.gcount() < 53) {
+                logger::debug() << "skipping entry (size=" << ifs.gcount() << ")";
                 continue;
             }
 
             address addr;
 
-            if (route::hexdec(buf, (unsigned char* )&addr.addr(), 32) != 32) {
-                // TODO: Warn here?
+            if (route::hexdec(buf, (unsigned char* )&addr.addr(), 16) != 16) {
+                logger::warning() << "failed to load address (" << buf << ")";
                 continue;
             }
             
             addr.prefix(128);
+            
+            std::string iface = route::token(buf + 45);
 
-            address::add(addr, route::token(buf + 45));
+            address::add(addr, iface);
+            
+            logger::debug() << "found local addr=" << addr << ", iface=" << iface;
         }
     } catch (std::ifstream::failure e) {
         logger::warning() << "Failed to parse IPv6 address data from '" << path << "'";
         logger::error() << e.what();
     }
+    
+    logger::debug() << "completed IP addresses load";
 }
 
 void address::update(int elapsed_time)

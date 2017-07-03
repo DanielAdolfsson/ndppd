@@ -75,10 +75,33 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
             return (*sit);
     }
     
-    // Since we couldn't find a session that matched, we'll try to find
-    // a matching rule instead, and then set up a new session.
+    // Check if there is an address for this specific interface it was received
+    // on (if so then immediately return a notice)
     
     ptr<session> se;
+    
+    if (receiver) {
+        for (std::list<ptr<route> >::iterator ad = address::addresses_begin();
+                ad != address::addresses_end(); ad++)
+        {
+            if ((*ad)->addr() == taddr && (*ad)->ifname() == receiver->name())
+            {
+                se = session::create(_ptr, saddr, daddr, taddr, _autowire);
+                if (se) {
+                    se->add_iface(receiver);
+                    _sessions.push_back(se);
+                    
+                    logger::debug() << "proxy::handle_advert() found local taddr=" << taddr;
+                    se->handle_advert(receiver);
+                    
+                    return se;
+                }
+            }
+        }
+    }
+    
+    // Since we couldn't find a session that matched, we'll try to find
+    // a matching rule instead, and then set up a new session.
     
     for (std::list<ptr<rule> >::iterator it = _rules.begin();
             it != _rules.end(); it++) {
@@ -116,14 +139,29 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
                 se->handle_advert();
                 return se;
             } else {
-                se->add_iface((*it)->ifa());
+                
+                ptr<iface> ifa = (*it)->ifa();
+                se->add_iface(ifa);
+                
                 #ifdef WITH_ND_NETLINK
-                if (if_addr_find((*it)->ifa()->name(), &taddr.const_addr())) {
-                    logger::debug() << "Sending NA out " << (*it)->ifa()->name();
+                if (if_addr_find(ifa->name(), &taddr.const_addr())) {
+                    logger::debug() << "Sending NA out " << ifa->name();
                     se->add_iface(_ifa);
                     se->handle_advert();
                 }
                 #endif
+
+                // If a local address exists and it is for the requested interface
+                // then we already have a valid session
+                for (std::list<ptr<route> >::iterator ad = address::addresses_begin();
+                        ad != address::addresses_end(); ad++)
+                {
+                    if ((*ad)->addr() == taddr && (*ad)->ifname() == ifa->name()) {
+                        logger::debug() << "proxy::handle_advert() found local taddr=" << taddr;
+                        se->handle_advert(ifa);
+                        break;
+                    }
+                }
             }
         }
     }
@@ -142,7 +180,7 @@ void proxy::handle_advert(const address& saddr, const address& taddr, const ptr<
         << ", saddr=" << saddr.to_string()
         << ", taddr=" << taddr.to_string();
     
-    ptr<session> se = find_or_create_session(saddr, all_nodes, taddr, receiver);
+    ptr<session> se = find_or_create_session(all_nodes, all_nodes, taddr, receiver);
     if (!se) return;
     
     se->handle_advert(receiver);
