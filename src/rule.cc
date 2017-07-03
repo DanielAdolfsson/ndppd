@@ -29,6 +29,8 @@ std::vector<interface> interfaces;
 
 bool rule::_any_aut = false;
 
+bool rule::_any_iface = false;
+
 rule::rule()
 {
 }
@@ -41,6 +43,7 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     ru->_ifa  = ifa;
     ru->_addr = addr;
     ru->_aut  = false;
+    _any_iface = true;
     unsigned int ifindex;
 
     ifindex = if_nametoindex(pr->ifa()->name().c_str());
@@ -91,6 +94,11 @@ bool rule::is_auto() const
 bool rule::any_auto()
 {
     return _any_aut;
+}
+
+bool rule::any_iface()
+{
+    return _any_iface;
 }
 
 bool rule::check(const address& addr) const

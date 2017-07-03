@@ -15,6 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
+#include <fstream>
+#include <list>
 #include <map>
 
 #include <cstring>
@@ -27,8 +29,15 @@
 
 #include "ndppd.h"
 #include "address.h"
+#include "route.h"
 
 NDPPD_NS_BEGIN
+
+std::list<ptr<route> > address::_addresses;
+
+int address::_ttl;
+
+int address::_c_ttl;
 
 address::address()
 {
@@ -300,6 +309,75 @@ bool address::is_multicast() const
 bool address::is_unicast() const
 {
     return _addr.s6_addr[0] != 0xff;
+}
+
+void address::add(const address& addr, const std::string& ifname)
+{
+    ptr<route> rt(new route(addr, ifname));
+    // logger::debug() << "address::create() addr=" << addr << ", ifname=" << ifname;
+    _addresses.push_back(rt);
+}
+
+std::list<ptr<route> > address::addresses()
+{
+    return _addresses;
+}
+
+void address::load(const std::string& path)
+{
+    // Hack to make sure the addresses are not freed prematurely.
+    std::list<ptr<route> > tmp_addresses(_addresses);
+    _addresses.clear();
+
+    logger::debug() << "reading IP addresses";
+
+    try {
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+        ifs.open(path.c_str(), std::ios::in);
+        ifs.exceptions(std::ifstream::badbit);
+
+        while (!ifs.eof()) {
+            char buf[1024];
+            ifs.getline(buf, sizeof(buf));
+
+            if (ifs.gcount() < 53) {
+                continue;
+            }
+
+            address addr;
+
+            if (route::hexdec(buf, (unsigned char* )&addr.addr(), 32) != 32) {
+                // TODO: Warn here?
+                continue;
+            }
+            
+            addr.prefix(128);
+
+            address::add(addr, route::token(buf + 45));
+        }
+    } catch (std::ifstream::failure e) {
+        logger::warning() << "Failed to parse IPv6 address data from '" << path << "'";
+        logger::error() << e.what();
+    }
+}
+
+void address::update(int elapsed_time)
+{
+    if ((_c_ttl -= elapsed_time) <= 0) {
+        load("/proc/net/if_inet6");
+        _c_ttl = _ttl;
+    }
+}
+
+int address::ttl()
+{
+    return _ttl;
+}
+
+void address::ttl(int ttl)
+{
+    _ttl = ttl;
 }
 
 NDPPD_NS_END

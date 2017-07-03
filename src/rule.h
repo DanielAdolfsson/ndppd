@@ -44,6 +44,8 @@ public:
     bool check(const address& addr) const;
 
     static bool any_auto();
+    
+    static bool any_iface();
 
 private:
     weak_ptr<rule> _ptr;
@@ -57,6 +59,8 @@ private:
     bool _aut;
 
     static bool _any_aut;
+    
+    static bool _any_iface;
 
     rule();
 };

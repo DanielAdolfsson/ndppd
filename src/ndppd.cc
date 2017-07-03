@@ -141,6 +141,11 @@ static bool configure(ptr<conf>& cf)
         route::ttl(30000);
     else
         route::ttl(*x_cf);
+    
+    if (!(x_cf = cf->find("address-ttl")))
+        address::ttl(30000);
+    else
+        address::ttl(*x_cf);
 
     std::vector<ptr<conf> >::const_iterator p_it;
 
@@ -334,6 +339,9 @@ int main(int argc, char* argv[], char* env[])
 
         if (rule::any_auto())
             route::update(elapsed_time);
+        
+        if (rule::any_iface())
+            address::update(elapsed_time);
 
         session::update_all(elapsed_time);
     }

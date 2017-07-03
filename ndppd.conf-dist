@@ -4,6 +4,12 @@
 
 route-ttl 30000
 
+# address-ttl <integer> (NEW)
+# This tells 'ndppd' how often to reload the IP address file /proc/net/if_inet6
+# Default value is '30000' (30 seconds).
+
+address-ttl 30000
+
 # proxy <interface>
 # This sets up a listener, that will listen for any Neighbor Solicitation
 # messages, and respond to them according to a set of rules (see below).
