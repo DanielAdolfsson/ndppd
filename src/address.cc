@@ -57,6 +57,19 @@ address::address(const address& addr)
     _mask.s6_addr32[3] = addr._mask.s6_addr32[3];
 }
 
+address::address(const ptr<address>& addr)
+{
+    _addr.s6_addr32[0] = addr->_addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr->_addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr->_addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr->_addr.s6_addr32[3];
+
+    _mask.s6_addr32[0] = addr->_mask.s6_addr32[0];
+    _mask.s6_addr32[1] = addr->_mask.s6_addr32[1];
+    _mask.s6_addr32[2] = addr->_mask.s6_addr32[2];
+    _mask.s6_addr32[3] = addr->_mask.s6_addr32[3];
+}
+
 address::address(const std::string& str)
 {
     parse_string(str);

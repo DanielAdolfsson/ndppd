@@ -43,6 +43,8 @@ private:
     // An array of interfaces this session is monitoring for
     // ND_NEIGHBOR_ADVERT on.
     std::list<ptr<iface> > _ifaces;
+    
+    std::list<ptr<address> > _pending;
 
     // The remaining time in miliseconds the object will stay in the
     // interface's session array or cache.
@@ -70,10 +72,11 @@ public:
     // Destructor.
     ~session();
 
-    static ptr<session> create(const ptr<proxy>& pr, const address& saddr,
-        const address& daddr, const address& taddr, bool autowire, bool keepalive, int retries);
+    static ptr<session> create(const ptr<proxy>& pr, const address& taddr, bool autowire, bool keepalive, int retries);
 
     void add_iface(const ptr<iface>& ifa);
+    
+    void add_pending(const address& addr);
 
     const address& taddr() const;
 
@@ -107,7 +110,7 @@ public:
     
     void touch();
 
-    void send_advert();
+    void send_advert(const address& daddr);
 
     void send_solicit();
 

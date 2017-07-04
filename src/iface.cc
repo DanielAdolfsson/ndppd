@@ -385,7 +385,7 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
     saddr = ip6h->ip6_src;
 
     logger::debug() << "iface::read_solicit() saddr=" << saddr.to_string()
-                    << ", daddr=" << daddr.to_string() << ", len=" << len;
+                    << ", daddr=" << daddr.to_string() << ", taddr=" << taddr.to_string() << ", len=" << len;
 
     return len;
 }
@@ -589,10 +589,22 @@ int iface::poll_all()
             if (!saddr.is_unicast()/* || !daddr.is_multicast()*/) {
                 continue;
             }
+            
+            if (ifa->_pr)
+            {
+                // Setup the reverse path
+                if (saddr.is_unicast()) {
+                    ptr<session> se = ifa->_pr->find_or_create_session(saddr);
+                    if (se) {
+                        se->add_iface(ifa);
+                        se->handle_advert(ifa);
+                    }
+                }
 
-            if (ifa->_pr) {
-                ifa->_pr->handle_solicit(saddr, daddr, taddr);
+                // Now process the solicit
+                ifa->_pr->handle_solicit(saddr, taddr);
             }
+            
         } else {
             if (ifa->read_advert(saddr, taddr) < 0) {
                 logger::error() << "Failed to read from interface '%s'", ifa->_name.c_str();
@@ -606,7 +618,7 @@ int iface::poll_all()
 
                 const ptr<session> sess = *s_it;
 
-                if ((sess->taddr() == taddr) && (sess->status() == session::WAITING || sess->status() == session::RENEWING)) {
+                if ((sess->taddr() == taddr)) {
                     sess->handle_advert(ifa);
                     found = true;
                     break;
@@ -615,7 +627,7 @@ int iface::poll_all()
             
             if (found == false) {
                 if (ifa->owner()) {
-                    ifa->owner()->handle_advert(saddr, taddr, ifa);
+                    ifa->owner()->handle_advert(taddr, ifa);
                 } else {
                     logger::debug() << "iface::poll_all - ignoring advert on proxy iface=" << ifa->name();
                 }

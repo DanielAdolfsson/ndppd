@@ -31,6 +31,7 @@ class address {
 public:
     address();
     address(const address& addr);
+    address(const ptr<address>& addr);
     address(const std::string& str);
     address(const char* str);
     address(const in6_addr& addr);

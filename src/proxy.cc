@@ -63,7 +63,7 @@ ptr<proxy> proxy::open(const std::string& ifname, bool promiscuous)
     return create(ifa, promiscuous);
 }
 
-ptr<session> proxy::find_or_create_session(const address& saddr, const address& daddr, const address& taddr, const ptr<iface>& receiver)
+ptr<session> proxy::find_or_create_session(const address& taddr)
 {
     // Let's check this proxy's list of sessions to see if we can
     // find one with the same target address.
@@ -75,30 +75,7 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
             return (*sit);
     }
     
-    // Check if there is an address for this specific interface it was received
-    // on (if so then immediately return a notice)
-    
     ptr<session> se;
-    
-    if (receiver) {
-        for (std::list<ptr<route> >::iterator ad = address::addresses_begin();
-                ad != address::addresses_end(); ad++)
-        {
-            if ((*ad)->addr() == taddr && (*ad)->ifname() == receiver->name())
-            {
-                se = session::create(_ptr, saddr, daddr, taddr, _autowire, _keepalive, _retries);
-                if (se) {
-                    se->add_iface(receiver);
-                    _sessions.push_back(se);
-                    
-                    logger::debug() << "proxy::handle_advert() found local taddr=" << taddr;
-                    se->handle_advert(receiver);
-                    
-                    return se;
-                }
-            }
-        }
-    }
     
     // Since we couldn't find a session that matched, we'll try to find
     // a matching rule instead, and then set up a new session.
@@ -109,16 +86,9 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
 
         logger::debug() << "checking " << ru->addr() << " against " << taddr;
 
-        if (!daddr.is_multicast() && ru->addr() != daddr && daddr != taddr) {
-            continue;
-        }
-        
-        if (receiver && ru->ifa() && receiver->name() != ru->ifa()->name())
-            continue;
-
         if (ru->addr() == taddr) {
             if (!se) {
-                se = session::create(_ptr, saddr, daddr, taddr, _autowire, _keepalive, _retries);
+                se = session::create(_ptr, taddr, _autowire, _keepalive, _retries);
             }
             
             if (ru->is_auto()) {
@@ -138,6 +108,7 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
                 // it "static" and immediately send the response.
                 se->handle_advert();
                 return se;
+                
             } else {
                 
                 ptr<iface> ifa = (*it)->ifa();
@@ -150,18 +121,6 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
                     se->handle_advert();
                 }
                 #endif
-
-                // If a local address exists and it is for the requested interface
-                // then we already have a valid session
-                for (std::list<ptr<route> >::iterator ad = address::addresses_begin();
-                        ad != address::addresses_end(); ad++)
-                {
-                    if ((*ad)->addr() == taddr && (*ad)->ifname() == ifa->name()) {
-                        logger::debug() << "proxy::handle_advert() found local taddr=" << taddr;
-                        se->handle_advert(ifa);
-                        break;
-                    }
-                }
             }
         }
     }
@@ -173,27 +132,46 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
     return se;
 }
 
-void proxy::handle_advert(const address& saddr, const address& taddr, const ptr<iface>& receiver)
+void proxy::handle_advert(const address& taddr, const ptr<iface>& receiver)
 {
     logger::debug()
-        << "proxy::handle_advert() proxy=" << (ifa() ? ifa()->name() : "null") << ", receiver=" << (receiver ? receiver->name() : "null")
-        << ", saddr=" << saddr.to_string()
-        << ", taddr=" << taddr.to_string();
+        << "proxy::handle_advert() proxy=" << (ifa() ? ifa()->name() : "null") << ", receiver=" << (receiver ? receiver->name() : "null");
     
-    ptr<session> se = find_or_create_session(all_nodes, all_nodes, taddr, receiver);
+    ptr<session> se = find_or_create_session(taddr);
     if (!se) return;
     
     se->handle_advert(receiver);
 }
 
-void proxy::handle_solicit(const address& saddr, const address& daddr, const address& taddr)
+void proxy::handle_solicit(const address& saddr, const address& taddr)
 {
     logger::debug()
-        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null")
-        << ", saddr=" << saddr.to_string()
-        << ", taddr=" << taddr.to_string();
+        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null");
     
-    ptr<session> se = find_or_create_session(saddr, daddr, taddr, ptr<iface>());
+    // Check if the address is for an interface we own that is attached to
+    // one of the slave interfaces    
+    for (std::list<ptr<route> >::iterator ad = address::addresses_begin(); ad != address::addresses_end(); ad++)
+    {
+        if ((*ad)->addr() == taddr)
+        {
+            for (std::list<ptr<rule> >::iterator it = _rules.begin(); it != _rules.end(); it++) {
+                ptr<rule> ru = *it;
+                
+                if (ru->ifa() && ru->ifa()->name() == (*ad)->ifname())
+                {
+                    logger::debug() << "proxy::handle_solicit() found local taddr=" << taddr;
+                    
+                    if (_ifa)
+                        _ifa->write_advert(saddr, taddr, router());
+                }
+            }
+            
+            return;
+        }
+    }
+    
+    // Otherwise find or create a session to scan for this address
+    ptr<session> se = find_or_create_session(taddr);
     if (!se) return;
     
     se->touch();
@@ -201,11 +179,11 @@ void proxy::handle_solicit(const address& saddr, const address& daddr, const add
     switch (se->status()) {
         case session::WAITING:
         case session::INVALID:
-            return;
+            se->add_pending(saddr);
 
         case session::VALID:
         case session::RENEWING:
-            se->send_advert();
+            se->send_advert(saddr);
     }
 }
 

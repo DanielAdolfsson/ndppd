@@ -34,11 +34,11 @@ public:
 
     static ptr<proxy> open(const std::string& ifn, bool promiscuous);
     
-    ptr<session> find_or_create_session(const address& saddr, const address& daddr, const address& taddr, const ptr<iface>& receiver);
+    ptr<session> find_or_create_session(const address& taddr);
     
-    void handle_advert(const address& saddr, const address& taddr, const ptr<iface>& receiver);
+    void handle_advert(const address& taddr, const ptr<iface>& receiver);
 
-    void handle_solicit(const address& saddr, const address& daddr, const address& taddr);
+    void handle_solicit(const address& saddr, const address& taddr);
 
     void remove_session(const ptr<session>& se);
 

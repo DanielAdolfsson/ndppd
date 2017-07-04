@@ -114,16 +114,13 @@ session::~session()
     }
 }
 
-ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
-    const address& daddr, const address& taddr, bool auto_wire, bool keepalive, int retries)
+ptr<session> session::create(const ptr<proxy>& pr, const address& taddr, bool auto_wire, bool keepalive, int retries)
 {
     ptr<session> se(new session());
 
     se->_ptr       = se;
     se->_pr        = pr;
-    se->_saddr     = address("::") == saddr ? all_nodes : saddr;
     se->_taddr     = taddr;
-    se->_daddr     = daddr;
     se->_autowire  = auto_wire;
     se->_keepalive = keepalive;
     se->_retries   = retries;
@@ -134,8 +131,8 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     _sessions.push_back(se);
 
     logger::debug()
-        << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", proxy=" << ((pr->ifa()) ? pr->ifa()->name() : "null") << ", saddr=" << saddr
-        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session* )se);
+        << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", proxy=" << ((pr->ifa()) ? pr->ifa()->name() : "null")
+        << ", taddr=" << taddr << " =" << logger::format("%x", (session* )se);
 
     return se;
 }
@@ -147,6 +144,16 @@ void session::add_iface(const ptr<iface>& ifa)
 
     ifa->add_session(_ptr);
     _ifaces.push_back(ifa);
+}
+
+void session::add_pending(const address& addr)
+{
+    for (std::list<ptr<address> >::iterator ad = _pending.begin(); ad != _pending.end(); ad++) {
+        if (addr == (*ad))
+            return;
+    }
+
+    _pending.push_back(new address(addr));
 }
 
 void session::send_solicit()
@@ -171,13 +178,16 @@ void session::touch()
     }
 }
 
-void session::send_advert()
+void session::send_advert(const address& daddr)
 {
-    _pr->ifa()->write_advert(_saddr, _taddr, _pr->router());
+    _pr->ifa()->write_advert(daddr, _taddr, _pr->router());
 }
 
 void session::handle_auto_wire(const ptr<iface>& ifa)
 {
+    if (_wired == true)
+        return;
+    
     logger::debug()
         << "session::handle_auto_wire() taddr=" << _taddr << ", ifa=" << ifa->name();
     
@@ -238,23 +248,23 @@ void session::handle_advert()
     _status = VALID;
     _ttl    = _pr->ttl();
     _fails  = 0;
+    
+    if (!_pending.empty()) {
+        for (std::list<ptr<address> >::iterator ad = _pending.begin();
+                ad != _pending.end(); ad++) {
+            ptr<address> addr = (*ad);
+            logger::debug() << " - forward to " << addr;
 
-    send_advert();
+            send_advert(addr);
+        }
+
+        _pending.clear();
+    }
 }
 
 const address& session::taddr() const
 {
     return _taddr;
-}
-
-const address& session::saddr() const
-{
-    return _saddr;
-}
-
-const address& session::daddr() const
-{
-    return _daddr;
 }
 
 bool session::autowire() const
