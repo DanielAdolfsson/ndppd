@@ -57,6 +57,14 @@ public:
     bool autowire() const;
 
     void autowire(bool val);
+    
+    int retries() const;
+
+    void retries(int val);
+    
+    bool keepalive() const;
+
+    void keepalive(bool val);
 
     int timeout() const;
 
@@ -86,6 +94,10 @@ private:
     bool _router;
     
     bool _autowire;
+    
+    int _retries;
+    
+    bool _keepalive;
 
     int _ttl, _deadtime, _timeout;
 

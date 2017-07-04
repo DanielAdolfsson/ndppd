@@ -32,7 +32,7 @@ static address all_nodes = address("ff02::1");
 std::list<ptr<proxy> > proxy::_list;
 
 proxy::proxy() :
-    _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false), _promiscuous(false)
+    _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false), _keepalive(true), _promiscuous(false), _retries(3)
 {
 }
 
@@ -86,7 +86,7 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
         {
             if ((*ad)->addr() == taddr && (*ad)->ifname() == receiver->name())
             {
-                se = session::create(_ptr, saddr, daddr, taddr, _autowire);
+                se = session::create(_ptr, saddr, daddr, taddr, _autowire, _keepalive, _retries);
                 if (se) {
                     se->add_iface(receiver);
                     _sessions.push_back(se);
@@ -118,7 +118,7 @@ ptr<session> proxy::find_or_create_session(const address& saddr, const address& 
 
         if (ru->addr() == taddr) {
             if (!se) {
-                se = session::create(_ptr, saddr, daddr, taddr, _autowire);
+                se = session::create(_ptr, saddr, daddr, taddr, _autowire, _keepalive, _retries);
             }
             
             if (ru->is_auto()) {
@@ -256,6 +256,26 @@ bool proxy::autowire() const
 void proxy::autowire(bool val)
 {
     _autowire = val;
+}
+
+int proxy::retries() const
+{
+    return _retries;
+}
+
+void proxy::retries(int val)
+{
+    _retries = val;
+}
+
+bool proxy::keepalive() const
+{
+    return _keepalive;
+}
+
+void proxy::keepalive(bool val)
+{
+    _keepalive = val;
 }
 
 int proxy::ttl() const

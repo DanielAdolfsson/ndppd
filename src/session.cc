@@ -46,20 +46,41 @@ void session::update_all(int elapsed_time)
             
         case session::WAITING:
             logger::debug() << "session is now invalid [taddr=" << se->_taddr << "]";
-            se->_status = session::INVALID;
-            se->_ttl    = se->_pr->deadtime();
+            
+            if (se->_fails < se->_retries) {
+                se->_ttl     = se->_pr->timeout();
+                se->_fails++;
+                
+                // Send another solicit
+                se->send_solicit();
+            } else {
+                se->_status = session::INVALID;
+                se->_ttl    = se->_pr->deadtime();
+            }
             break;
             
         case session::RENEWING:
             logger::debug() << "session is became invalid [taddr=" << se->_taddr << "]";
-            se->_pr->remove_session(se);
+            
+            if (se->_fails < se->_retries) {
+                se->_ttl     = se->_pr->timeout();
+                se->_fails++;
+                
+                // Send another solicit
+                se->send_solicit();
+            } else {            
+                se->_pr->remove_session(se);
+            }
             break;
             
         case session::VALID:            
-            if (se->_touched == true) {
+            if (se->touched() == true ||
+                se->keepalive() == true)
+            {
                 logger::debug() << "session is renewing [taddr=" << se->_taddr << "]";
                 se->_status  = session::RENEWING;
                 se->_ttl     = se->_pr->timeout();
+                se->_fails   = 0;
                 se->_touched = false;
 
                 // Send another solicit to make sure the route is still valid
@@ -94,7 +115,7 @@ session::~session()
 }
 
 ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
-    const address& daddr, const address& taddr, bool auto_wire)
+    const address& daddr, const address& taddr, bool auto_wire, bool keepalive, int retries)
 {
     ptr<session> se(new session());
 
@@ -104,6 +125,8 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
     se->_taddr     = taddr;
     se->_daddr     = daddr;
     se->_autowire  = auto_wire;
+    se->_keepalive = keepalive;
+    se->_retries   = retries;
     se->_wired     = false;
     se->_ttl       = pr->timeout();
     se->_touched   = false;
@@ -112,7 +135,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& saddr,
 
     logger::debug()
         << "session::create() pr=" << logger::format("%x", (proxy* )pr) << ", proxy=" << ((pr->ifa()) ? pr->ifa()->name() : "null") << ", saddr=" << saddr
-        << ", daddr=" << daddr << ", taddr=" << taddr << ", autowire=" << (auto_wire == true ? "yes" : "no") << " =" << logger::format("%x", (session* )se);
+        << ", daddr=" << daddr << ", taddr=" << taddr << " =" << logger::format("%x", (session* )se);
 
     return se;
 }
@@ -214,6 +237,7 @@ void session::handle_advert()
     
     _status = VALID;
     _ttl    = _pr->ttl();
+    _fails  = 0;
 
     send_advert();
 }
@@ -236,6 +260,21 @@ const address& session::daddr() const
 bool session::autowire() const
 {
     return _autowire;
+}
+
+bool session::keepalive() const
+{
+    return _keepalive;
+}
+
+int session::retries() const
+{
+    return _retries;
+}
+
+int session::fails() const
+{
+    return _fails;
 }
 
 bool session::wired() const

@@ -34,6 +34,8 @@ private:
     
     bool _autowire;
     
+    bool _keepalive;
+    
     bool _wired;
     
     bool _touched;
@@ -45,6 +47,10 @@ private:
     // The remaining time in miliseconds the object will stay in the
     // interface's session array or cache.
     int _ttl;
+    
+    int _fails;
+    
+    int _retries;
 
     int _status;
 
@@ -65,7 +71,7 @@ public:
     ~session();
 
     static ptr<session> create(const ptr<proxy>& pr, const address& saddr,
-        const address& daddr, const address& taddr, bool autowire);
+        const address& daddr, const address& taddr, bool autowire, bool keepalive, int retries);
 
     void add_iface(const ptr<iface>& ifa);
 
@@ -76,6 +82,12 @@ public:
     const address& saddr() const;
     
     bool autowire() const;
+    
+    int retries() const;
+    
+    int fails() const;
+
+    bool keepalive() const;
     
     bool wired() const;
     

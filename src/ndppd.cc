@@ -178,6 +178,16 @@ static bool configure(ptr<conf>& cf)
             pr->autowire(false);
         else
             pr->autowire(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("keepalive")))
+            pr->keepalive(true);
+        else
+            pr->keepalive(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("retries")))
+            pr->retries(3);
+        else
+            pr->retries(*x_cf);
 
         if (!(x_cf = pr_cf->find("ttl")))
             pr->ttl(30000);
