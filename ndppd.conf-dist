@@ -33,6 +33,8 @@ proxy eth0 {
    # Controls whether ndppd will automatically create host entries
    # in the routing tables when it receives Neighbor Advertisements on a
    # listening interface. The the default value is no.
+   # Note: Autowire will ignore all rules with 'auto' or 'static' given it
+   # is expected that the routes are already defined for these paths
 
    autowire no
 
