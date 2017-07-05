@@ -16,6 +16,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 #include "ndppd.h"
 
@@ -37,6 +38,8 @@ private:
     bool _keepalive;
     
     bool _wired;
+    
+    address _wired_via;
     
     bool _touched;
 
@@ -102,11 +105,11 @@ public:
     
     void handle_advert();
 
-    void handle_advert(const ptr<iface>& ifa);
+    void handle_advert(const address& saddr, const std::string& ifname, bool use_via);
     
-    void handle_auto_wire(const ptr<iface>& ifa);
+    void handle_auto_wire(const address& saddr, const std::string& ifname, bool use_via);
     
-    void handle_auto_unwire(const ptr<iface>& ifa);
+    void handle_auto_unwire(const std::string& ifname);
     
     void touch();
 

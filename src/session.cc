@@ -45,15 +45,18 @@ void session::update_all(int elapsed_time)
         switch (se->_status) {
             
         case session::WAITING:
-            logger::debug() << "session is now invalid [taddr=" << se->_taddr << "]";
-            
             if (se->_fails < se->_retries) {
+                logger::debug() << "session will keep trying [taddr=" << se->_taddr << "]";
+                
                 se->_ttl     = se->_pr->timeout();
                 se->_fails++;
                 
                 // Send another solicit
                 se->send_solicit();
             } else {
+                
+                logger::debug() << "session is now invalid [taddr=" << se->_taddr << "]";
+                
                 se->_status = session::INVALID;
                 se->_ttl    = se->_pr->deadtime();
             }
@@ -103,14 +106,8 @@ session::~session()
     if (_wired == true) {
         for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
             it != _ifaces.end(); it++) {
-            handle_auto_unwire((*it));
+            handle_auto_unwire((*it)->name());
         }
-    }
-
-    for (std::list<ptr<iface> >::iterator it = _ifaces.begin();
-            it != _ifaces.end(); it++)
-    {
-        (*it)->remove_session(_ptr);
     }
 }
 
@@ -125,7 +122,7 @@ ptr<session> session::create(const ptr<proxy>& pr, const address& taddr, bool au
     se->_keepalive = keepalive;
     se->_retries   = retries;
     se->_wired     = false;
-    se->_ttl       = pr->timeout();
+    se->_ttl       = pr->ttl();
     se->_touched   = false;
 
     _sessions.push_back(se);
@@ -142,7 +139,6 @@ void session::add_iface(const ptr<iface>& ifa)
     if (std::find(_ifaces.begin(), _ifaces.end(), ifa) != _ifaces.end())
         return;
 
-    ifa->add_session(_ptr);
     _ifaces.push_back(ifa);
 }
 
@@ -173,8 +169,13 @@ void session::touch()
     {
         _touched = true;
         
-        if (status() == session::WAITING || status() == session::INVALID)
+        if (status() == session::WAITING || status() == session::INVALID) {
+            _ttl = _pr->timeout();
+            
+            logger::debug() << "session is now probing [taddr=" << _taddr << "]";
+            
             send_solicit();
+        }
     }
 }
 
@@ -183,57 +184,110 @@ void session::send_advert(const address& daddr)
     _pr->ifa()->write_advert(daddr, _taddr, _pr->router());
 }
 
-void session::handle_auto_wire(const ptr<iface>& ifa)
+void session::handle_auto_wire(const address& saddr, const std::string& ifname, bool use_via)
 {
-    if (_wired == true)
+    if (_wired == true && (_wired_via.is_empty() || _wired_via == saddr))
         return;
     
     logger::debug()
-        << "session::handle_auto_wire() taddr=" << _taddr << ", ifa=" << ifa->name();
+        << "session::handle_auto_wire() taddr=" << _taddr << ", ifname=" << ifname;
     
-    std::stringstream route_cmd;
-    route_cmd << "ip";
-    route_cmd << " " << "-6";
-    route_cmd << " " << "route";
-    route_cmd << " " << "replace";
-    route_cmd << " " << std::string(_taddr);
-    route_cmd << " " << "dev";
-    route_cmd << " " << ifa->name();
-            
-    logger::debug()
-        << "session::system(" << route_cmd.str() << ")";
+    if (use_via == true &&
+        _taddr != saddr &&
+        saddr.is_unicast() == true &&
+        saddr.is_multicast() == false)
+    {
+        std::stringstream route_cmd;
+        route_cmd << "ip";
+        route_cmd << " " << "-6";
+        route_cmd << " " << "route";
+        route_cmd << " " << "replace";
+        route_cmd << " " << std::string(saddr);
+        route_cmd << " " << "dev";
+        route_cmd << " " << ifname;
+
+        logger::debug()
+            << "session::system(" << route_cmd.str() << ")";
+        
+        system(route_cmd.str().c_str());
+        
+        _wired_via = saddr;
+    }
+    else
+        _wired_via.reset();
     
-    system(route_cmd.str().c_str());
+    {
+        std::stringstream route_cmd;
+        route_cmd << "ip";
+        route_cmd << " " << "-6";
+        route_cmd << " " << "route";
+        route_cmd << " " << "replace";
+        route_cmd << " " << std::string(_taddr);
+        if (_wired_via.is_empty() == false) {
+            route_cmd << " " << "via";
+            route_cmd << " " << std::string(_wired_via);
+        }
+        route_cmd << " " << "dev";
+        route_cmd << " " << ifname;
+
+        logger::debug()
+            << "session::system(" << route_cmd.str() << ")";
+
+        system(route_cmd.str().c_str());
+    }
     
     _wired = true;
 }
 
-void session::handle_auto_unwire(const ptr<iface>& ifa)
+void session::handle_auto_unwire(const std::string& ifname)
 {
     logger::debug()
-        << "session::handle_auto_unwire() taddr=" << _taddr << ", ifa=" << ifa->name();
+        << "session::handle_auto_unwire() taddr=" << _taddr << ", ifname=" << ifname;
     
-    std::stringstream route_cmd;
-    route_cmd << "ip";
-    route_cmd << " " << "-6";
-    route_cmd << " " << "route";
-    route_cmd << " " << "flush";
-    route_cmd << " " << std::string(_taddr);
-    route_cmd << " " << "dev";
-    route_cmd << " " << ifa->name();
-            
-    logger::debug()
-        << "session::system(" << route_cmd.str() << ")";
+    {
+        std::stringstream route_cmd;
+        route_cmd << "ip";
+        route_cmd << " " << "-6";
+        route_cmd << " " << "route";
+        route_cmd << " " << "flush";
+        route_cmd << " " << std::string(_taddr);
+        if (_wired_via.is_empty() == false) {
+            route_cmd << " " << "via";
+            route_cmd << " " << std::string(_wired_via);
+        }
+        route_cmd << " " << "dev";
+        route_cmd << " " << ifname;
+
+        logger::debug()
+            << "session::system(" << route_cmd.str() << ")";
+
+        system(route_cmd.str().c_str());
+    }
     
-    system(route_cmd.str().c_str());
+    if (_wired_via.is_empty() == false) {
+        std::stringstream route_cmd;
+        route_cmd << "ip";
+        route_cmd << " " << "-6";
+        route_cmd << " " << "route";
+        route_cmd << " " << "flush";
+        route_cmd << " " << std::string(_wired_via);
+        route_cmd << " " << "dev";
+        route_cmd << " " << ifname;
+
+        logger::debug()
+            << "session::system(" << route_cmd.str() << ")";
+
+        system(route_cmd.str().c_str());
+    }
     
     _wired = false;
+    _wired_via.reset();
 }
 
-void session::handle_advert(const ptr<iface>& ifa)
+void session::handle_advert(const address& saddr, const std::string& ifname, bool use_via)
 {
     if (_autowire == true && _status == WAITING) {
-        handle_auto_wire(ifa);
+        handle_auto_wire(saddr, ifname, use_via);
     }
     
     handle_advert();
@@ -245,7 +299,12 @@ void session::handle_advert()
     logger::debug()
         << "session::handle_advert() taddr=" << _taddr << ", ttl=" << _pr->ttl();
     
-    _status = VALID;
+    if (_status != VALID) {
+        _status = VALID;
+        
+        logger::debug() << "session is active [taddr=" << _taddr << "]";
+    }
+    
     _ttl    = _pr->ttl();
     _fails  = 0;
     

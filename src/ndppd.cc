@@ -146,6 +146,8 @@ static bool configure(ptr<conf>& cf)
         address::ttl(30000);
     else
         address::ttl(*x_cf);
+    
+    std::list<ptr<rule> > myrules;
 
     std::vector<ptr<conf> >::const_iterator p_it;
 
@@ -212,6 +214,12 @@ static bool configure(ptr<conf>& cf)
             ptr<conf> ru_cf =* r_it;
 
             address addr(*ru_cf);
+            
+            bool autovia = false;
+            if (!(x_cf = ru_cf->find("autovia")))
+                autovia = false;
+            else
+                autovia = *x_cf;
 
             if (x_cf = ru_cf->find("iface"))
             {
@@ -219,17 +227,58 @@ static bool configure(ptr<conf>& cf)
                 if (!ifa || ifa.is_null() == true) {
                     return false;
                 }
-                ifa->owner(pr);
                 
-                pr->add_rule(addr, ifa);
+                ifa->add_parent(pr);
+                
+                myrules.push_back(pr->add_rule(addr, ifa, autovia));
             } else if (ru_cf->find("auto")) {
-                pr->add_rule(addr, true);
+                myrules.push_back(pr->add_rule(addr, true));
             } else {
-                pr->add_rule(addr, false);
+                myrules.push_back(pr->add_rule(addr, false));
             }
         }
     }
-
+    
+    // Print out all the topology    
+    for (std::map<std::string, weak_ptr<iface> >::iterator i_it = iface::_map.begin(); i_it != iface::_map.end(); i_it++) {
+        ptr<iface> ifa = i_it->second;
+        
+        logger::debug() << "iface " << ifa->name() << " {";
+        
+        for (std::list<weak_ptr<proxy> >::iterator pit = ifa->serves_begin(); pit != ifa->serves_end(); pit++) {
+            ptr<proxy> pr = (*pit);
+            if (!pr) continue;
+            
+            logger::debug() << "  " << "proxy " << logger::format("%x", pr.get_pointer()) << " {";
+            
+             for (std::list<ptr<rule> >::iterator rit = pr->rules_begin(); rit != pr->rules_end(); rit++) {
+                ptr<rule> ru = *rit;
+                
+                logger::debug() << "    " << "rule " << logger::format("%x", ru.get_pointer()) << " {";
+                logger::debug() << "      " << "taddr " << ru->addr()<< ";";
+                if (ru->is_auto())
+                    logger::debug() << "      " << "auto;";
+                else if (!ru->daughter())
+                    logger::debug() << "      " << "static;";
+                else
+                    logger::debug() << "      " << "iface " << ru->daughter()->name() << ";";
+                logger::debug() << "    }";
+             }
+            
+            logger::debug() << "  }";
+        }
+        
+        logger::debug() << "  " << "parents {";
+        for (std::list<weak_ptr<proxy> >::iterator pit = ifa->parents_begin(); pit != ifa->parents_end(); pit++) {
+            ptr<proxy> pr = (*pit);
+            
+            logger::debug() << "    " << "parent " << logger::format("%x", pr.get_pointer()) << ";";
+        }
+        logger::debug() << "  }";
+        
+        logger::debug() << "}";
+    }
+    
     return true;
 }
 

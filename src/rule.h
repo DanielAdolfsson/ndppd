@@ -37,7 +37,7 @@ public:
 
     const address& addr() const;
 
-    ptr<iface> ifa() const;
+    ptr<iface> daughter() const;
 
     bool is_auto() const;
 
@@ -45,14 +45,20 @@ public:
 
     static bool any_auto();
     
+    static bool any_static();
+    
     static bool any_iface();
+    
+    bool autovia() const;
+
+    void autovia(bool val);
 
 private:
     weak_ptr<rule> _ptr;
 
     weak_ptr<proxy> _pr;
 
-    ptr<iface> _ifa;
+    ptr<iface> _daughter;
 
     address _addr;
 
@@ -60,7 +66,11 @@ private:
 
     static bool _any_aut;
     
+    static bool _any_static;
+    
     static bool _any_iface;
+    
+    bool _autovia;
 
     rule();
 };

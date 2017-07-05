@@ -91,6 +91,13 @@ proxy eth0 {
 
       auto
 
+      # autovia <yes|no|true|false>
+      # Any addresses updated using NDP advertisments will use a gateway to
+      # route traffic on this particular interface (only works wiith the iface
+      # rule type). Default is no
+
+      autovia no
+
       # Note that before version 0.2.2 of 'ndppd', if you didn't choose a
       # method, it defaulted to 'static'. For compatibility reasons we choose
       # to keep this behavior - for now (it may be removed in a future version).

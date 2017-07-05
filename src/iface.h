@@ -42,7 +42,7 @@ public:
 
     static int poll_all();
 
-    ssize_t read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size);
+    ssize_t read(int fd, struct sockaddr* saddr, ssize_t saddr_size, uint8_t* msg, size_t size);
 
     ssize_t write(int fd, const address& daddr, const uint8_t* msg, size_t size);
 
@@ -57,25 +57,31 @@ public:
 
     // Reads a NB_NEIGHBOR_ADVERT message from the _ifd socket;
     ssize_t read_advert(address& saddr, address& taddr);
+    
+    bool handle_local(const address& saddr, const address& taddr);
+    
+    bool is_local(const address& addr);
+    
+    void handle_reverse_advert(const address& saddr, const std::string& ifname);
 
     // Returns the name of the interface.
     const std::string& name() const;
-
-    // Adds a session to be monitored for ND_NEIGHBOR_ADVERT messages.
-    void add_session(const ptr<session>& se);
-
-    void remove_session(const ptr<session>& se);
-
-    void pr(const ptr<proxy>& pr);
     
-    const ptr<proxy>& pr() const;
+    std::list<weak_ptr<proxy> >::iterator serves_begin();
     
-    void owner(const ptr<proxy>& pr);
+    std::list<weak_ptr<proxy> >::iterator serves_end();
     
-    const ptr<proxy>& owner() const;
+    void add_serves(const ptr<proxy>& proxy);
+    
+    std::list<weak_ptr<proxy> >::iterator parents_begin();
+    
+    std::list<weak_ptr<proxy> >::iterator parents_end();
+    
+    void add_parent(const ptr<proxy>& parent);
+    
+    static std::map<std::string, weak_ptr<iface> > _map;
 
 private:
-    static std::map<std::string, weak_ptr<iface> > _map;
 
     static bool _map_dirty;
 
@@ -106,14 +112,10 @@ private:
 
     // Name of this interface.
     std::string _name;
-
-    // An array of sessions that are monitoring this interface for
-    // ND_NEIGHBOR_ADVERT messages.
-    std::list<weak_ptr<session> > _sessions;
-
-    weak_ptr<proxy> _pr;
     
-    weak_ptr<proxy> _owner;
+    std::list<weak_ptr<proxy> > _serves;
+    
+    std::list<weak_ptr<proxy> > _parents;
 
     // The link-layer address of this interface.
     struct ether_addr hwaddr;

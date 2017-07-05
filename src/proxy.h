@@ -29,22 +29,30 @@ class iface;
 class rule;
 
 class proxy {
-public:
+public:    
     static ptr<proxy> create(const ptr<iface>& ifa, bool promiscuous);
+    
+    static ptr<proxy> find_aunt(const std::string& ifname, const address& taddr);
 
     static ptr<proxy> open(const std::string& ifn, bool promiscuous);
     
     ptr<session> find_or_create_session(const address& taddr);
     
-    void handle_advert(const address& taddr, const ptr<iface>& receiver);
-
-    void handle_solicit(const address& saddr, const address& taddr);
+    void handle_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via);
+    
+    void handle_stateless_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via);
+    
+    void handle_solicit(const address& saddr, const address& taddr, const std::string& ifname);
 
     void remove_session(const ptr<session>& se);
 
-    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
+    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa, bool autovia);
 
     ptr<rule> add_rule(const address& addr, bool aut = false);
+    
+    std::list<ptr<rule> >::iterator rules_begin();
+    
+    std::list<ptr<rule> >::iterator rules_end();
 
     const ptr<iface>& ifa() const;
     

@@ -132,6 +132,21 @@ bool address::operator!=(const address& addr) const
               ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
 }
 
+bool address::is_empty() const
+{
+    if (_addr.s6_addr32[0] == 0 &&
+        _addr.s6_addr32[1] == 0 &&
+        _addr.s6_addr32[2] == 0 &&
+        _addr.s6_addr32[3] == 0 &&
+        _mask.s6_addr32[0] == 0xffffffff &&
+        _mask.s6_addr32[1] == 0xffffffff &&
+        _mask.s6_addr32[2] == 0xffffffff &&
+        _mask.s6_addr32[3] == 0xffffffff)
+        return true;
+        
+    return false;
+}
+
 void address::reset()
 {
     _addr.s6_addr32[0] = 0;
@@ -321,6 +336,10 @@ bool address::is_multicast() const
 
 bool address::is_unicast() const
 {
+    if (_addr.s6_addr32[2] == 0 &&
+        _addr.s6_addr32[3] == 0)
+        return false;
+    
     return _addr.s6_addr[0] != 0xff;
 }
 
@@ -360,7 +379,8 @@ void address::load(const std::string& path)
             ifs.getline(buf, sizeof(buf));
 
             if (ifs.gcount() < 53) {
-                logger::debug() << "skipping entry (size=" << ifs.gcount() << ")";
+                if (ifs.gcount() > 0)
+                    logger::debug() << "skipping entry (size=" << ifs.gcount() << ")";
                 continue;
             }
 

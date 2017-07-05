@@ -36,6 +36,34 @@ proxy::proxy() :
 {
 }
 
+ptr<proxy> proxy::find_aunt(const std::string& ifname, const address& taddr)
+{
+    for (std::list<ptr<proxy> >::iterator sit = _list.begin();
+            sit != _list.end(); sit++)
+    {
+        ptr<proxy> pr = (*sit);
+        
+        bool has_addr = false;
+        for (std::list<ptr<rule> >::iterator it = pr->_rules.begin(); it != pr->_rules.end(); it++) {
+            ptr<rule> ru = *it;
+            
+            if (ru->addr() == taddr) {
+                has_addr = true;
+                break;
+            }
+        }
+        
+        if (has_addr == false) {
+            continue;
+        }
+        
+        if (pr->ifa() && pr->ifa()->name() == ifname)
+            return pr;
+    }
+    
+    return ptr<proxy>();
+}
+
 ptr<proxy> proxy::create(const ptr<iface>& ifa, bool promiscuous)
 {
     ptr<proxy> pr(new proxy());
@@ -45,7 +73,7 @@ ptr<proxy> proxy::create(const ptr<iface>& ifa, bool promiscuous)
 
     _list.push_back(pr);
 
-    ifa->pr(pr);
+    ifa->add_serves(pr);
 
     logger::debug() << "proxy::create() if=" << ifa->name();
 
@@ -99,11 +127,11 @@ ptr<session> proxy::find_or_create_session(const address& taddr)
                 } else {
                     ptr<iface> ifa = rt->ifa();
 
-                    if (ifa && (ifa != ru->ifa())) {
+                    if (ifa && (ifa != ru->daughter())) {
                         se->add_iface(ifa);
                     }
                 }
-            } else if (!ru->ifa()) {
+            } else if (!ru->daughter()) {
                 // This rule doesn't have an interface, and thus we'll consider
                 // it "static" and immediately send the response.
                 se->handle_advert();
@@ -111,9 +139,9 @@ ptr<session> proxy::find_or_create_session(const address& taddr)
                 
             } else {
                 
-                ptr<iface> ifa = (*it)->ifa();
+                ptr<iface> ifa = ru->daughter();
                 se->add_iface(ifa);
-                
+     
                 #ifdef WITH_ND_NETLINK
                 if (if_addr_find(ifa->name(), &taddr.const_addr())) {
                     logger::debug() << "Sending NA out " << ifa->name();
@@ -132,64 +160,67 @@ ptr<session> proxy::find_or_create_session(const address& taddr)
     return se;
 }
 
-void proxy::handle_advert(const address& taddr, const ptr<iface>& receiver)
+void proxy::handle_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via)
+{
+    // If a session exists then process the advert in the context of the session
+    for (std::list<ptr<session> >::iterator s_it = _sessions.begin();
+            s_it != _sessions.end(); s_it++)
+    {
+        const ptr<session> sess = *s_it;
+
+        if ((sess->taddr() == taddr)) {
+            sess->handle_advert(saddr, ifname, use_via);
+        }
+    }
+}
+
+void proxy::handle_stateless_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via)
 {
     logger::debug()
-        << "proxy::handle_advert() proxy=" << (ifa() ? ifa()->name() : "null") << ", receiver=" << (receiver ? receiver->name() : "null");
+        << "proxy::handle_stateless_advert() proxy=" << (ifa() ? ifa()->name() : "null") << ", taddr=" << taddr.to_string() << ", ifname=" << ifname;
     
     ptr<session> se = find_or_create_session(taddr);
     if (!se) return;
     
-    se->handle_advert(receiver);
+    if (_autowire == true && se->status() == session::WAITING) {
+        se->handle_auto_wire(saddr, ifname, use_via);
+    }
 }
 
-void proxy::handle_solicit(const address& saddr, const address& taddr)
+void proxy::handle_solicit(const address& saddr, const address& taddr, const std::string& ifname)
 {
     logger::debug()
-        << "proxy::handle_solicit() ifa=" << ((_ifa) ? _ifa->name() : "null");
-    
-    // Check if the address is for an interface we own that is attached to
-    // one of the slave interfaces    
-    for (std::list<ptr<route> >::iterator ad = address::addresses_begin(); ad != address::addresses_end(); ad++)
-    {
-        if ((*ad)->addr() == taddr)
-        {
-            for (std::list<ptr<rule> >::iterator it = _rules.begin(); it != _rules.end(); it++) {
-                ptr<rule> ru = *it;
-                
-                if (ru->ifa() && ru->ifa()->name() == (*ad)->ifname())
-                {
-                    logger::debug() << "proxy::handle_solicit() found local taddr=" << taddr;
-                    
-                    if (_ifa)
-                        _ifa->write_advert(saddr, taddr, router());
-                }
-            }
-            
-            return;
-        }
-    }
+        << "proxy::handle_solicit()";
     
     // Otherwise find or create a session to scan for this address
     ptr<session> se = find_or_create_session(taddr);
     if (!se) return;
     
+    // Touching the session will cause an NDP advert to be transmitted to all
+    // the daughters
     se->touch();
     
-    switch (se->status()) {
-        case session::WAITING:
-        case session::INVALID:
-            se->add_pending(saddr);
+    // If our session is confirmed then we can respoond with an advert otherwise
+    // subscribe so that if it does become active we can notify everyone
+    if (saddr != taddr) {
+        switch (se->status()) {
+            case session::WAITING:
+            case session::INVALID:
+                se->add_pending(saddr);
+                break;
 
-        case session::VALID:
-        case session::RENEWING:
-            se->send_advert(saddr);
-    }
+            case session::VALID:
+            case session::RENEWING:
+                se->send_advert(saddr);
+                break;
+        }
+     }
 }
 
-ptr<rule> proxy::add_rule(const address& addr, const ptr<iface>& ifa)
+ptr<rule> proxy::add_rule(const address& addr, const ptr<iface>& ifa, bool autovia)
 {
     ptr<rule> ru(rule::create(_ptr, addr, ifa));
+    ru->autovia(autovia);
     _rules.push_back(ru);
     return ru;
 }
@@ -199,6 +230,16 @@ ptr<rule> proxy::add_rule(const address& addr, bool aut)
     ptr<rule> ru(rule::create(_ptr, addr, aut));
     _rules.push_back(ru);
     return ru;
+}
+
+std::list<ptr<rule> >::iterator proxy::rules_begin()
+{
+    return _rules.begin();
+}
+
+std::list<ptr<rule> >::iterator proxy::rules_end()
+{
+    return _rules.end();
 }
 
 void proxy::remove_session(const ptr<session>& se)

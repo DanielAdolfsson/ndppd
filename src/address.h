@@ -56,6 +56,8 @@ public:
     bool operator!=(const address& addr) const;
 
     void reset();
+    
+    bool is_empty() const;
 
     const std::string to_string() const;
 
