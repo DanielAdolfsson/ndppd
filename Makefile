@@ -21,7 +21,7 @@ ifdef WITH_ND_NETLINK
   OBJ      = ${OBJ} src/nd-netlink.o
 endif
 
-all: ndppd ndppd.1.gz ndppd.conf.5.gz
+all: ndppd ndppd.1.gz ndppd.conf.5.gz nd-proxy
 
 install: all
 	mkdir -p ${SBINDIR} ${MANDIR} ${MANDIR}/man1 ${MANDIR}/man5
