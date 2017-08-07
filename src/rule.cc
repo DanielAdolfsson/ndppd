@@ -29,6 +29,10 @@ std::vector<interface> interfaces;
 
 bool rule::_any_aut = false;
 
+bool rule::_any_iface = false;
+
+bool rule::_any_static = false;
+
 rule::rule()
 {
 }
@@ -38,9 +42,10 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     ptr<rule> ru(new rule());
     ru->_ptr  = ru;
     ru->_pr   = pr;
-    ru->_ifa  = ifa;
+    ru->_daughter  = ifa;
     ru->_addr = addr;
     ru->_aut  = false;
+    _any_iface = true;
     unsigned int ifindex;
 
     ifindex = if_nametoindex(pr->ifa()->name().c_str());
@@ -52,7 +57,7 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, const ptr<ifac
     if_add_to_list(ifindex, ifa);
 #endif
 
-    logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", addr=" << addr;
+    logger::debug() << "rule::create() if=" << pr->ifa()->name() << ", slave=" << ifa->name() << ", addr=" << addr;
 
     return ru;
 }
@@ -65,6 +70,9 @@ ptr<rule> rule::create(const ptr<proxy>& pr, const address& addr, bool aut)
     ru->_addr  = addr;
     ru->_aut   = aut;
     _any_aut   = _any_aut || aut;
+    
+    if (aut == false)
+        _any_static = true;
 
     logger::debug()
         << "rule::create() if=" << pr->ifa()->name().c_str() << ", addr=" << addr
@@ -78,9 +86,9 @@ const address& rule::addr() const
     return _addr;
 }
 
-ptr<iface> rule::ifa() const
+ptr<iface> rule::daughter() const
 {
-    return _ifa;
+    return _daughter;
 }
 
 bool rule::is_auto() const
@@ -88,9 +96,29 @@ bool rule::is_auto() const
     return _aut;
 }
 
+bool rule::autovia() const
+{
+    return _autovia;
+}
+
+void rule::autovia(bool val)
+{
+    _autovia = val;
+}
+
 bool rule::any_auto()
 {
     return _any_aut;
+}
+
+bool rule::any_iface()
+{
+    return _any_iface;
+}
+
+bool rule::any_static()
+{
+    return _any_static;
 }
 
 bool rule::check(const address& addr) const

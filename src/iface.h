@@ -38,13 +38,13 @@ public:
 
     static ptr<iface> open_ifd(const std::string& name);
 
-    static ptr<iface> open_pfd(const std::string& name);
+    static ptr<iface> open_pfd(const std::string& name, bool promiscuous);
 
     static int poll_all();
 
-    static ssize_t read(int fd, struct sockaddr* saddr, uint8_t* msg, size_t size);
+    ssize_t read(int fd, struct sockaddr* saddr, ssize_t saddr_size, uint8_t* msg, size_t size);
 
-    static ssize_t write(int fd, const address& daddr, const uint8_t* msg, size_t size);
+    ssize_t write(int fd, const address& daddr, const uint8_t* msg, size_t size);
 
     // Writes a NB_NEIGHBOR_SOLICIT message to the _ifd socket.
     ssize_t write_solicit(const address& taddr);
@@ -57,21 +57,31 @@ public:
 
     // Reads a NB_NEIGHBOR_ADVERT message from the _ifd socket;
     ssize_t read_advert(address& saddr, address& taddr);
+    
+    bool handle_local(const address& saddr, const address& taddr);
+    
+    bool is_local(const address& addr);
+    
+    void handle_reverse_advert(const address& saddr, const std::string& ifname);
 
     // Returns the name of the interface.
     const std::string& name() const;
-
-    // Adds a session to be monitored for ND_NEIGHBOR_ADVERT messages.
-    void add_session(const ptr<session>& se);
-
-    void remove_session(const ptr<session>& se);
-
-    void pr(const ptr<proxy>& pr);
-
-    const ptr<proxy>& pr() const;
+    
+    std::list<weak_ptr<proxy> >::iterator serves_begin();
+    
+    std::list<weak_ptr<proxy> >::iterator serves_end();
+    
+    void add_serves(const ptr<proxy>& proxy);
+    
+    std::list<weak_ptr<proxy> >::iterator parents_begin();
+    
+    std::list<weak_ptr<proxy> >::iterator parents_end();
+    
+    void add_parent(const ptr<proxy>& parent);
+    
+    static std::map<std::string, weak_ptr<iface> > _map;
 
 private:
-    static std::map<std::string, weak_ptr<iface> > _map;
 
     static bool _map_dirty;
 
@@ -96,15 +106,16 @@ private:
 
     // Previous state of ALLMULTI for the interface.
     int _prev_allmulti;
+    
+    // Previous state of PROMISC for the interface
+    int _prev_promiscuous;
 
     // Name of this interface.
     std::string _name;
-
-    // An array of sessions that are monitoring this interface for
-    // ND_NEIGHBOR_ADVERT messages.
-    std::list<weak_ptr<session> > _sessions;
-
-    weak_ptr<proxy> _pr;
+    
+    std::list<weak_ptr<proxy> > _serves;
+    
+    std::list<weak_ptr<proxy> > _parents;
 
     // The link-layer address of this interface.
     struct ether_addr hwaddr;
@@ -112,6 +123,10 @@ private:
     // Turns on/off ALLMULTI for this interface - returns the previous state
     // or -1 if there was an error.
     int allmulti(int state);
+    
+    // Turns on/off PROMISC for this interface - returns the previous state
+    // or -1 if there was an error
+    int promiscuous(int state);
 
     // Constructor.
     iface();

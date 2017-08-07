@@ -15,6 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
+#include <fstream>
+#include <list>
 #include <map>
 
 #include <cstring>
@@ -27,8 +29,15 @@
 
 #include "ndppd.h"
 #include "address.h"
+#include "route.h"
 
 NDPPD_NS_BEGIN
+
+std::list<ptr<route> > address::_addresses;
+
+int address::_ttl;
+
+int address::_c_ttl;
 
 address::address()
 {
@@ -46,6 +55,19 @@ address::address(const address& addr)
     _mask.s6_addr32[1] = addr._mask.s6_addr32[1];
     _mask.s6_addr32[2] = addr._mask.s6_addr32[2];
     _mask.s6_addr32[3] = addr._mask.s6_addr32[3];
+}
+
+address::address(const ptr<address>& addr)
+{
+    _addr.s6_addr32[0] = addr->_addr.s6_addr32[0];
+    _addr.s6_addr32[1] = addr->_addr.s6_addr32[1];
+    _addr.s6_addr32[2] = addr->_addr.s6_addr32[2];
+    _addr.s6_addr32[3] = addr->_addr.s6_addr32[3];
+
+    _mask.s6_addr32[0] = addr->_mask.s6_addr32[0];
+    _mask.s6_addr32[1] = addr->_mask.s6_addr32[1];
+    _mask.s6_addr32[2] = addr->_mask.s6_addr32[2];
+    _mask.s6_addr32[3] = addr->_mask.s6_addr32[3];
 }
 
 address::address(const std::string& str)
@@ -108,6 +130,21 @@ bool address::operator!=(const address& addr) const
               ((_addr.s6_addr32[1] ^ addr._addr.s6_addr32[1]) & _mask.s6_addr32[1]) |
               ((_addr.s6_addr32[2] ^ addr._addr.s6_addr32[2]) & _mask.s6_addr32[2]) |
               ((_addr.s6_addr32[3] ^ addr._addr.s6_addr32[3]) & _mask.s6_addr32[3]));
+}
+
+bool address::is_empty() const
+{
+    if (_addr.s6_addr32[0] == 0 &&
+        _addr.s6_addr32[1] == 0 &&
+        _addr.s6_addr32[2] == 0 &&
+        _addr.s6_addr32[3] == 0 &&
+        _mask.s6_addr32[0] == 0xffffffff &&
+        _mask.s6_addr32[1] == 0xffffffff &&
+        _mask.s6_addr32[2] == 0xffffffff &&
+        _mask.s6_addr32[3] == 0xffffffff)
+        return true;
+        
+    return false;
 }
 
 void address::reset()
@@ -299,7 +336,93 @@ bool address::is_multicast() const
 
 bool address::is_unicast() const
 {
+    if (_addr.s6_addr32[2] == 0 &&
+        _addr.s6_addr32[3] == 0)
+        return false;
+    
     return _addr.s6_addr[0] != 0xff;
+}
+
+void address::add(const address& addr, const std::string& ifname)
+{
+    ptr<route> rt(new route(addr, ifname));
+    // logger::debug() << "address::create() addr=" << addr << ", ifname=" << ifname;
+    _addresses.push_back(rt);
+}
+
+std::list<ptr<route> >::iterator address::addresses_begin()
+{
+    return _addresses.begin();
+}
+
+std::list<ptr<route> >::iterator address::addresses_end()
+{
+    return _addresses.end();
+}
+
+void address::load(const std::string& path)
+{
+    // Hack to make sure the addresses are not freed prematurely.
+    std::list<ptr<route> > tmp_addresses(_addresses);
+    _addresses.clear();
+
+    logger::debug() << "reading IP addresses";
+
+    try {
+        std::ifstream ifs;
+        ifs.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+        ifs.open(path.c_str(), std::ios::in);
+        ifs.exceptions(std::ifstream::badbit);
+
+        while (!ifs.eof()) {
+            char buf[1024];
+            ifs.getline(buf, sizeof(buf));
+
+            if (ifs.gcount() < 53) {
+                if (ifs.gcount() > 0)
+                    logger::debug() << "skipping entry (size=" << ifs.gcount() << ")";
+                continue;
+            }
+
+            address addr;
+
+            if (route::hexdec(buf, (unsigned char* )&addr.addr(), 16) != 16) {
+                logger::warning() << "failed to load address (" << buf << ")";
+                continue;
+            }
+            
+            addr.prefix(128);
+            
+            std::string iface = route::token(buf + 45);
+
+            address::add(addr, iface);
+            
+            logger::debug() << "found local addr=" << addr << ", iface=" << iface;
+        }
+    } catch (std::ifstream::failure e) {
+        logger::warning() << "Failed to parse IPv6 address data from '" << path << "'";
+        logger::error() << e.what();
+    }
+    
+    logger::debug() << "completed IP addresses load";
+}
+
+void address::update(int elapsed_time)
+{
+    if ((_c_ttl -= elapsed_time) <= 0) {
+        load("/proc/net/if_inet6");
+        _c_ttl = _ttl;
+    }
+}
+
+int address::ttl()
+{
+    return _ttl;
+}
+
+void address::ttl(int ttl)
+{
+    _ttl = ttl;
 }
 
 NDPPD_NS_END

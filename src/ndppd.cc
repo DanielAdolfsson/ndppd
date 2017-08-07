@@ -36,9 +36,10 @@ using namespace ndppd;
 static int daemonize()
 {
     pid_t pid = fork();
-
-    if (pid < 0)
+    if (pid < 0) {
+        logger::error() << "Failed to fork during daemonize: " << logger::err();
         return -1;
+    }
 
     if (pid > 0)
         exit(0);
@@ -46,12 +47,15 @@ static int daemonize()
     umask(0);
 
     pid_t sid = setsid();
-
-    if (sid < 0)
+    if (sid < 0) {
+        logger::error() << "Failed to setsid during daemonize: " << logger::err();
         return -1;
+    }
 
-    if (chdir("/") < 0)
+    if (chdir("/") < 0) {
+        logger::error() << "Failed to change path during daemonize: " << logger::err();
         return -1;
+    }
 
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
@@ -137,6 +141,13 @@ static bool configure(ptr<conf>& cf)
         route::ttl(30000);
     else
         route::ttl(*x_cf);
+    
+    if (!(x_cf = cf->find("address-ttl")))
+        address::ttl(30000);
+    else
+        address::ttl(*x_cf);
+    
+    std::list<ptr<rule> > myrules;
 
     std::vector<ptr<conf> >::const_iterator p_it;
 
@@ -148,22 +159,47 @@ static bool configure(ptr<conf>& cf)
         if (pr_cf->empty()) {
             return false;
         }
+        
+        bool promiscuous = false;
+        if (!(x_cf = pr_cf->find("promiscuous")))
+            promiscuous = false;
+        else
+            promiscuous = *x_cf;
 
-        ptr<proxy> pr = proxy::open(*pr_cf);
-
-        if (!pr) {
-            return true;
+        ptr<proxy> pr = proxy::open(*pr_cf, promiscuous);
+        if (!pr || pr.is_null() == true) {
+            return false;
         }
 
         if (!(x_cf = pr_cf->find("router")))
             pr->router(true);
         else
             pr->router(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("autowire")))
+            pr->autowire(false);
+        else
+            pr->autowire(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("keepalive")))
+            pr->keepalive(true);
+        else
+            pr->keepalive(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("retries")))
+            pr->retries(3);
+        else
+            pr->retries(*x_cf);
 
         if (!(x_cf = pr_cf->find("ttl")))
             pr->ttl(30000);
         else
             pr->ttl(*x_cf);
+        
+        if (!(x_cf = pr_cf->find("deadtime")))
+            pr->deadtime(pr->ttl());
+        else
+            pr->deadtime(*x_cf);
 
         if (!(x_cf = pr_cf->find("timeout")))
             pr->timeout(500);
@@ -178,17 +214,71 @@ static bool configure(ptr<conf>& cf)
             ptr<conf> ru_cf =* r_it;
 
             address addr(*ru_cf);
+            
+            bool autovia = false;
+            if (!(x_cf = ru_cf->find("autovia")))
+                autovia = false;
+            else
+                autovia = *x_cf;
 
-            if (x_cf = ru_cf->find("iface")) {
-                pr->add_rule(addr, iface::open_ifd(*x_cf));
+            if (x_cf = ru_cf->find("iface"))
+            {
+                ptr<iface> ifa = iface::open_ifd(*x_cf);
+                if (!ifa || ifa.is_null() == true) {
+                    return false;
+                }
+                
+                ifa->add_parent(pr);
+                
+                myrules.push_back(pr->add_rule(addr, ifa, autovia));
             } else if (ru_cf->find("auto")) {
-                pr->add_rule(addr, true);
+                myrules.push_back(pr->add_rule(addr, true));
             } else {
-                pr->add_rule(addr, false);
+                myrules.push_back(pr->add_rule(addr, false));
             }
         }
     }
-
+    
+    // Print out all the topology    
+    for (std::map<std::string, weak_ptr<iface> >::iterator i_it = iface::_map.begin(); i_it != iface::_map.end(); i_it++) {
+        ptr<iface> ifa = i_it->second;
+        
+        logger::debug() << "iface " << ifa->name() << " {";
+        
+        for (std::list<weak_ptr<proxy> >::iterator pit = ifa->serves_begin(); pit != ifa->serves_end(); pit++) {
+            ptr<proxy> pr = (*pit);
+            if (!pr) continue;
+            
+            logger::debug() << "  " << "proxy " << logger::format("%x", pr.get_pointer()) << " {";
+            
+             for (std::list<ptr<rule> >::iterator rit = pr->rules_begin(); rit != pr->rules_end(); rit++) {
+                ptr<rule> ru = *rit;
+                
+                logger::debug() << "    " << "rule " << logger::format("%x", ru.get_pointer()) << " {";
+                logger::debug() << "      " << "taddr " << ru->addr()<< ";";
+                if (ru->is_auto())
+                    logger::debug() << "      " << "auto;";
+                else if (!ru->daughter())
+                    logger::debug() << "      " << "static;";
+                else
+                    logger::debug() << "      " << "iface " << ru->daughter()->name() << ";";
+                logger::debug() << "    }";
+             }
+            
+            logger::debug() << "  }";
+        }
+        
+        logger::debug() << "  " << "parents {";
+        for (std::list<weak_ptr<proxy> >::iterator pit = ifa->parents_begin(); pit != ifa->parents_end(); pit++) {
+            ptr<proxy> pr = (*pit);
+            
+            logger::debug() << "    " << "parent " << logger::format("%x", pr.get_pointer()) << ";";
+        }
+        logger::debug() << "  }";
+        
+        logger::debug() << "}";
+    }
+    
     return true;
 }
 
@@ -261,17 +351,15 @@ int main(int argc, char* argv[], char* env[])
     if (cf.is_null())
         return -1;
 
+    if (!configure(cf))
+        return -1;
+
     if (daemon) {
         logger::syslog(true);
 
-        if (daemonize() < 0) {
-            logger::error() << "Failed to daemonize process";
+        if (daemonize() < 0)
             return 1;
-        }
     }
-
-    if (!configure(cf))
-        return -1;
 
     if (!pidfile.empty()) {
         std::ofstream pf;
@@ -310,6 +398,9 @@ int main(int argc, char* argv[], char* env[])
 
         if (rule::any_auto())
             route::update(elapsed_time);
+        
+        if (rule::any_iface())
+            address::update(elapsed_time);
 
         session::update_all(elapsed_time);
     }

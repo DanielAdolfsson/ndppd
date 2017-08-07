@@ -4,6 +4,12 @@
 
 route-ttl 30000
 
+# address-ttl <integer> (NEW)
+# This tells 'ndppd' how often to reload the IP address file /proc/net/if_inet6
+# Default value is '30000' (30 seconds).
+
+address-ttl 30000
+
 # proxy <interface>
 # This sets up a listener, that will listen for any Neighbor Solicitation
 # messages, and respond to them according to a set of rules (see below).
@@ -22,6 +28,36 @@ proxy eth0 {
    # invalidating the entry, in milliseconds. Default value is '500'.
 
    timeout 500   
+
+   # autowire <yes|no|true|false>
+   # Controls whether ndppd will automatically create host entries
+   # in the routing tables when it receives Neighbor Advertisements on a
+   # listening interface. The the default value is no.
+   # Note: Autowire will ignore all rules with 'auto' or 'static' given it
+   # is expected that the routes are already defined for these paths
+
+   autowire no
+
+   # keepalive <yes|no|true|false>
+   # Controls whether ndppd will automatically attempt to keep routing
+   # sessions alive by actively sending out NDP Solicitations before the the
+   # session is expired. The the default value is yes.
+   
+   keepalive yes
+
+   # retries <integer>
+   # Number of times a NDP Solicitation will be sent out before the daemon
+   # considers a route unreachable. The default value is 3
+
+   retries 3
+
+   # promiscuous <yes|no|true|false>
+   # Controls whether ndppd will put the proxy listening interface into promiscuous
+   # mode and hence will react to inbound and outbound NDP commands. This is
+   # required for machines behind the gateway to talk to each other in more
+   # complex topology scenarios. The the default value is no.
+
+   promiscuous no
    
    # ttl <integer>
    # Controls how long a valid or invalid entry remains in the cache, in 
@@ -54,6 +90,13 @@ proxy eth0 {
       # interface, 'ndppd' will check for a matching route in /proc/net/ipv6_route.
 
       auto
+
+      # autovia <yes|no|true|false>
+      # Any addresses updated using NDP advertisments will use a gateway to
+      # route traffic on this particular interface (only works wiith the iface
+      # rule type). Default is no
+
+      autovia no
 
       # Note that before version 0.2.2 of 'ndppd', if you didn't choose a
       # method, it defaulted to 'static'. For compatibility reasons we choose

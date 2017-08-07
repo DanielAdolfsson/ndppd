@@ -16,6 +16,7 @@
 #pragma once
 
 #include <string>
+#include <list>
 #include <netinet/ip6.h>
 
 #include "ndppd.h"
@@ -24,15 +25,24 @@ NDPPD_NS_BEGIN
 
 class iface;
 
+class route;
+
 class address {
 public:
     address();
     address(const address& addr);
+    address(const ptr<address>& addr);
     address(const std::string& str);
     address(const char* str);
     address(const in6_addr& addr);
     address(const in6_addr& addr, const in6_addr& mask);
     address(const in6_addr& addr, int prefix);
+    
+    static void update(int elapsed_time);
+
+    static int ttl();
+
+    static void ttl(int ttl);
 
     struct in6_addr& addr();
 
@@ -46,6 +56,8 @@ public:
     bool operator!=(const address& addr) const;
 
     void reset();
+    
+    bool is_empty() const;
 
     const std::string to_string() const;
 
@@ -60,8 +72,22 @@ public:
     bool is_multicast() const;
 
     operator std::string() const;
+    
+    static void add(const address& addr, const std::string& ifname);
+    
+    static void load(const std::string& path);
+    
+    static std::list<ptr<route> >::iterator addresses_begin();
+    
+    static std::list<ptr<route> >::iterator addresses_end();
 
 private:
+    static int _ttl;
+
+    static int _c_ttl;
+    
+    static std::list<ptr<route> > _addresses;
+    
     struct in6_addr _addr, _mask;
 };
 

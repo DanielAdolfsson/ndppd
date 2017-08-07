@@ -29,25 +29,50 @@ class iface;
 class rule;
 
 class proxy {
-public:
-    static ptr<proxy> create(const ptr<iface>& ifa);
+public:    
+    static ptr<proxy> create(const ptr<iface>& ifa, bool promiscuous);
+    
+    static ptr<proxy> find_aunt(const std::string& ifname, const address& taddr);
 
-    static ptr<proxy> open(const std::string& ifn);
-
-    void handle_solicit(const address& saddr, const address& daddr,
-        const address& taddr);
+    static ptr<proxy> open(const std::string& ifn, bool promiscuous);
+    
+    ptr<session> find_or_create_session(const address& taddr);
+    
+    void handle_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via);
+    
+    void handle_stateless_advert(const address& saddr, const address& taddr, const std::string& ifname, bool use_via);
+    
+    void handle_solicit(const address& saddr, const address& taddr, const std::string& ifname);
 
     void remove_session(const ptr<session>& se);
 
-    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa);
+    ptr<rule> add_rule(const address& addr, const ptr<iface>& ifa, bool autovia);
 
     ptr<rule> add_rule(const address& addr, bool aut = false);
+    
+    std::list<ptr<rule> >::iterator rules_begin();
+    
+    std::list<ptr<rule> >::iterator rules_end();
 
     const ptr<iface>& ifa() const;
+    
+    bool promiscuous() const;
 
     bool router() const;
 
     void router(bool val);
+    
+    bool autowire() const;
+
+    void autowire(bool val);
+    
+    int retries() const;
+
+    void retries(int val);
+    
+    bool keepalive() const;
+
+    void keepalive(bool val);
 
     int timeout() const;
 
@@ -56,6 +81,10 @@ public:
     int ttl() const;
 
     void ttl(int val);
+    
+    int deadtime() const;
+
+    void deadtime(int val);
 
 private:
     static std::list<ptr<proxy> > _list;
@@ -67,10 +96,18 @@ private:
     std::list<ptr<rule> > _rules;
 
     std::list<ptr<session> > _sessions;
+    
+    bool _promiscuous;
 
     bool _router;
+    
+    bool _autowire;
+    
+    int _retries;
+    
+    bool _keepalive;
 
-    int _ttl, _timeout;
+    int _ttl, _deadtime, _timeout;
 
     proxy();
 };

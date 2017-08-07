@@ -48,6 +48,20 @@ Controls how long
 .B ndppd
 will cache an entry. This is in milliseconds, and the default value 
 is 30000 (30 seconds).
+.IP "autowire <yes|no>"
+Controls whether
+.B ndppd
+will automatically create host entries in the routing tables when
+.B ndppd receives Neighbor Advertisements on a listening interface.
+The default value is no.
+.IP "promiscuous <yes|no>"
+Controls whether
+.B ndppd
+will put the proxy listening interface into promiscuous mode and
+hence will react to inbound and outbound NDP commands. This is
+required for machines behind the gateway to talk to each other in
+more complex topology scenarios.
+The the default value is no.
 .IP "timeout <value>"
 Controls how long
 .B ndppd

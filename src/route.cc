@@ -105,19 +105,19 @@ void route::load(const std::string& path)
 
             unsigned char pfx;
 
-            if (hexdec(buf, (unsigned char* )&addr.addr(), 16) != 16) {
+            if (route::hexdec(buf, (unsigned char* )&addr.addr(), 16) != 16) {
                 // TODO: Warn here?
                 continue;
             }
 
-            if (hexdec(buf + 33,& pfx, 1) != 1) {
+            if (route::hexdec(buf + 33,& pfx, 1) != 1) {
                 // TODO: Warn here?
                 continue;
             }
 
             addr.prefix((int)pfx);
 
-            route::create(addr, token(buf + 141));
+            route::create(addr, route::token(buf + 141));
         }
     } catch (std::ifstream::failure e) {
         logger::warning() << "Failed to parse IPv6 routing data from '" << path << "'";

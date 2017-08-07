@@ -44,6 +44,12 @@ public:
     const address& addr() const;
 
     ptr<iface> ifa();
+    
+    route(const address& addr, const std::string& ifname);
+
+    static size_t hexdec(const char* str, unsigned char* buf, size_t size);
+
+    static std::string token(const char* str);
 
 private:
     static int _ttl;
@@ -56,13 +62,7 @@ private:
 
     ptr<iface> _ifa;
 
-    static size_t hexdec(const char* str, unsigned char* buf, size_t size);
-
-    static std::string token(const char* str);
-
     static std::list<ptr<route> > _routes;
-
-    route(const address& addr, const std::string& ifname);
 
 };
 
