@@ -29,7 +29,6 @@ install: all
 	chmod +x ${SBINDIR}/ndppd
 	cp ndppd.1.gz ${MANDIR}/man1
 	cp ndppd.conf.5.gz ${MANDIR}/man5
-	cp nd-proxy ${SBINDIR}
 
 ndppd.1.gz:
 	${GZIP} < ndppd.1 > ndppd.1.gz
