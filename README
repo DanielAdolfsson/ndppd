@@ -120,7 +120,20 @@
          order to increase even further.
 
 ------------------------------------------------------------------------
-5. Website and contact
+5. Docker
+------------------------------------------------------------------------
+
+   You can build a docker image with
+
+      docker build -t ndppd .
+
+   In order to run the image, you need to be on the host network
+   with privileged access
+
+      docker run -d --privileged --net=host --restart=always --name ndppd_c ndppd '2607:5300:xxxx:xxxx::/64'
+
+------------------------------------------------------------------------
+6. Website and contact
 ------------------------------------------------------------------------
 
    Contact : Daniel Adolfsson <daniel@priv.nu>
