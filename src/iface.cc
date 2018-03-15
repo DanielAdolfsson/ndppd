@@ -439,7 +439,7 @@ ssize_t iface::write_solicit(const address& taddr)
                  + sizeof(struct nd_opt_hdr) + 6);
 }
 
-ssize_t iface::write_advert(const address& daddr, const address& taddr, bool router)
+ssize_t iface::write_advert(const address& daddr, const address& taddr, bool router, const struct ether_addr* target_hwaddr)
 {
     char buf[128];
 
@@ -459,11 +459,16 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
 
     memcpy(&na->nd_na_target,& taddr.const_addr(), sizeof(struct in6_addr));
 
+    if (!target_hwaddr) {
+        target_hwaddr = &hwaddr;
+    }
+
     memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr),
-           &hwaddr, 6);
+           target_hwaddr, 6);
 
     logger::debug() << "iface::write_advert() daddr=" << daddr.to_string()
-                    << ", taddr=" << taddr.to_string();
+                    << ", taddr=" << taddr.to_string()
+                    << ", hwaddr=" << ether_ntoa(target_hwaddr);
 
     return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);

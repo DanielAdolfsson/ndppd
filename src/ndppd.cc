@@ -26,6 +26,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <netinet/ether.h>
 #include <unistd.h>
 
 #include "ndppd.h"
@@ -205,6 +206,16 @@ static bool configure(ptr<conf>& cf)
             pr->timeout(500);
         else
             pr->timeout(*x_cf);
+
+        if (x_cf = pr_cf->find("target_hwaddr")) {
+            std::string addr_str = *x_cf;
+            struct ether_addr* addr = ether_aton(addr_str.c_str());
+            if (!addr) {
+                logger::error() << "Specified target_hwaddr is invalid";
+                return false;
+            }
+            pr->target_hwaddr(addr);
+        }
 
         std::vector<ptr<conf> >::const_iterator r_it;
 

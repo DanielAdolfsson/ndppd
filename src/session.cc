@@ -181,7 +181,7 @@ void session::touch()
 
 void session::send_advert(const address& daddr)
 {
-    _pr->ifa()->write_advert(daddr, _taddr, _pr->router());
+    _pr->ifa()->write_advert(daddr, _taddr, _pr->router(), _pr->target_hwaddr());
 }
 
 void session::handle_auto_wire(const address& saddr, const std::string& ifname, bool use_via)

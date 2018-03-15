@@ -20,6 +20,7 @@
 #include <map>
 
 #include <sys/poll.h>
+#include <net/ethernet.h>
 
 #include "ndppd.h"
 
@@ -86,6 +87,10 @@ public:
 
     void deadtime(int val);
 
+    const struct ether_addr* target_hwaddr() const;
+
+    void target_hwaddr(const struct ether_addr* val);
+
 private:
     static std::list<ptr<proxy> > _list;
 
@@ -96,11 +101,11 @@ private:
     std::list<ptr<rule> > _rules;
 
     std::list<ptr<session> > _sessions;
-    
+
     bool _promiscuous;
 
     bool _router;
-    
+
     bool _autowire;
     
     int _retries;
@@ -108,6 +113,8 @@ private:
     bool _keepalive;
 
     int _ttl, _deadtime, _timeout;
+
+    struct ether_addr _target_hwaddr;
 
     proxy();
 };

@@ -34,6 +34,7 @@ std::list<ptr<proxy> > proxy::_list;
 proxy::proxy() :
     _router(true), _ttl(30000), _deadtime(3000), _timeout(500), _autowire(false), _keepalive(true), _promiscuous(false), _retries(3)
 {
+    memset(&_target_hwaddr, 0, sizeof(struct ether_addr));
 }
 
 ptr<proxy> proxy::find_aunt(const std::string& ifname, const address& taddr)
@@ -315,6 +316,22 @@ int proxy::deadtime() const
 void proxy::deadtime(int val)
 {
     _deadtime = (val >= 0) ? val : 30000;
+}
+
+const struct ether_addr* proxy::target_hwaddr() const
+{
+    struct ether_addr blank = {{0}};
+    if (memcmp(&blank, &_target_hwaddr, sizeof(struct ether_addr)) == 0) {
+        return NULL;
+    }
+    else {
+        return &_target_hwaddr;
+    }
+}
+
+void proxy::target_hwaddr(const struct ether_addr* val)
+{
+    memcpy(&_target_hwaddr, val, sizeof(struct ether_addr));
 }
 
 int proxy::timeout() const
