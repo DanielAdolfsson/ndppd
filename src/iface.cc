@@ -189,6 +189,10 @@ ptr<iface> iface::open_pfd(const std::string& name, bool promiscuous)
     return ifa;
 }
 
+#ifndef IPV6_FREEBIND
+#define IPV6_FREEBIND 78
+#endif
+
 ptr<iface> iface::open_ifd(const std::string& name)
 {
     int fd;
@@ -216,6 +220,15 @@ ptr<iface> iface::open_ifd(const std::string& name)
     if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,& ifr, sizeof(ifr)) < 0) {
         close(fd);
         logger::error() << "Failed to bind to interface '" << name << "'";
+        return ptr<iface>();
+    }
+
+    // Enable to send with any address (needs Linux 4.15+)
+    int one = 1;
+
+    if (setsockopt(fd, SOL_IPV6, IPV6_FREEBIND,& one, sizeof(one)) < 0) {
+        close(fd);
+        logger::error() << "Failed to enable free bind";
         return ptr<iface>();
     }
 
@@ -333,11 +346,15 @@ ssize_t iface::read(int fd, struct sockaddr* saddr, ssize_t saddr_size, uint8_t*
     return len;
 }
 
-ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t size)
+ssize_t iface::write(int fd, const address* saddr, const address& daddr, const uint8_t* msg, size_t size)
 {
     struct sockaddr_in6 daddr_tmp;
+    struct in6_pktinfo *pktinfo;
     struct msghdr mhdr;
     struct iovec iov;
+
+    socklen_t controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+    uint8_t control[CMSG_SPACE(sizeof(struct in6_pktinfo))] = {};
 
     memset(&daddr_tmp, 0, sizeof(struct sockaddr_in6));
     daddr_tmp.sin6_family = AF_INET6;
@@ -353,14 +370,33 @@ ssize_t iface::write(int fd, const address& daddr, const uint8_t* msg, size_t si
     mhdr.msg_iov =& iov;
     mhdr.msg_iovlen = 1;
 
-    logger::debug() << "iface::write() ifa=" << name() << ", daddr=" << daddr.to_string() << ", len="
-                    << size;
+    if (saddr != NULL)
+    {
+        struct cmsghdr* cmsg;
+        mhdr.msg_control = control;
+        mhdr.msg_controllen = controllen;
+
+        cmsg = CMSG_FIRSTHDR(&mhdr);
+        cmsg->cmsg_level = IPPROTO_IPV6;
+        cmsg->cmsg_type = IPV6_PKTINFO;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+        pktinfo = (struct in6_pktinfo*)CMSG_DATA(cmsg);
+        pktinfo->ipi6_ifindex = 0;
+        memcpy(&pktinfo->ipi6_addr, &saddr->const_addr(), sizeof(struct in6_addr));
+    }
+
+    logger::debug() << "iface::write() ifa=" << name()
+                    << ", saddr=" << ((saddr != NULL)?saddr->to_string():"(none)")
+                    << ", daddr=" << daddr.to_string()
+                    << ", len=" << size;
 
     int len;
 
     if ((len = sendmsg(fd,& mhdr, 0)) < 0)
     {
-        logger::error() << "iface::write() failed! error=" << logger::err() << ", ifa=" << name() << ", daddr=" << daddr.to_string();
+        logger::error() << "iface::write() failed! error=" << logger::err() << ", ifa=" << name()
+                        << ", saddr=" << ((saddr != NULL)?saddr->to_string():"(none)")
+                        << ", daddr=" << daddr.to_string();
         return -1;
     }
 
@@ -435,7 +471,7 @@ ssize_t iface::write_solicit(const address& taddr)
     logger::debug() << "iface::write_solicit() taddr=" << taddr.to_string()
                     << ", daddr=" << daddr.to_string();
 
-    return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_solicit)
+    return write(_ifd, NULL, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_solicit)
                  + sizeof(struct nd_opt_hdr) + 6);
 }
 
@@ -465,7 +501,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
     logger::debug() << "iface::write_advert() daddr=" << daddr.to_string()
                     << ", taddr=" << taddr.to_string();
 
-    return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
+    return write(_ifd, &taddr, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);
 }
 
