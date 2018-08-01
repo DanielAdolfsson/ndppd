@@ -51,7 +51,7 @@ bool iface::_map_dirty = false;
 std::vector<struct pollfd> iface::_pollfds;
 
 iface::iface() :
-    _ifd(-1), _pfd(-1), _name("")
+    _ifd(-1), _pfd(-1), _spoof(false), _name("")
 {
 }
 
@@ -225,11 +225,16 @@ ptr<iface> iface::open_ifd(const std::string& name)
 
     // Enable to send with any address (needs Linux 4.15+)
     int one = 1;
+    bool spoof = true;
 
     if (setsockopt(fd, SOL_IPV6, IPV6_FREEBIND,& one, sizeof(one)) < 0) {
-        close(fd);
-        logger::error() << "Failed to enable free bind";
-        return ptr<iface>();
+        if (errno != ENOPROTOOPT)
+        {
+            close(fd);
+            logger::error() << "Failed to enable free bind";
+            return ptr<iface>();
+        }
+        spoof = false;
     }
 
     // Detect the link-layer address.
@@ -306,6 +311,7 @@ ptr<iface> iface::open_ifd(const std::string& name)
     }
 
     ifa->_ifd = fd;
+    ifa->_spoof = spoof;
 
     memcpy(&ifa->hwaddr, ifr.ifr_hwaddr.sa_data, sizeof(struct ether_addr));
 
@@ -501,7 +507,7 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
     logger::debug() << "iface::write_advert() daddr=" << daddr.to_string()
                     << ", taddr=" << taddr.to_string();
 
-    return write(_ifd, &taddr, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
+    return write(_ifd, _spoof ? &taddr : NULL, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);
 }
 

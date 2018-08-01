@@ -104,6 +104,9 @@ private:
     // NB_NEIGHBOR_SOLICIT messages.
     int _pfd;
 
+    // Can we spoof source IP address when writing NB_NEIGHBOR_ADVERT?
+    bool _spoof;
+
     // Previous state of ALLMULTI for the interface.
     int _prev_allmulti;
     
