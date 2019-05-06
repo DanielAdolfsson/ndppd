@@ -647,11 +647,16 @@ int iface::poll_all()
 
         bool is_pfd = i++ % 2;
 
+        ptr<iface> ifa = i_it->second;
+
+        if (f_it->revents & POLLERR) {
+            logger::error() << "Error polling interface " << ifa->_name.c_str();
+            return -1;
+        }
+
         if (!(f_it->revents & POLLIN)) {
             continue;
         }
-
-        ptr<iface> ifa = i_it->second;
 
         address saddr, daddr, taddr;
         ssize_t size;
