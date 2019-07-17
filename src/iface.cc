@@ -442,6 +442,11 @@ ssize_t iface::write_solicit(const address& taddr)
 ssize_t iface::write_advert(const address& daddr, const address& taddr, bool router)
 {
     char buf[128];
+    address _daddr(daddr);
+    // when dest is unspecified address, assume it is NS during DAD, NA should multicast to all_nodes
+    if (daddr.is_empty()) {
+        _daddr = address("ff02::1");
+    }
 
     memset(buf, 0, sizeof(buf));
 
@@ -455,17 +460,17 @@ ssize_t iface::write_advert(const address& daddr, const address& taddr, bool rou
     opt->nd_opt_len          = 1;
 
     na->nd_na_type           = ND_NEIGHBOR_ADVERT;
-    na->nd_na_flags_reserved = (daddr.is_multicast() ? 0 : ND_NA_FLAG_SOLICITED) | (router ? ND_NA_FLAG_ROUTER : 0);
+    na->nd_na_flags_reserved = (_daddr.is_multicast() ? 0 : ND_NA_FLAG_SOLICITED) | (router ? ND_NA_FLAG_ROUTER : 0);
 
     memcpy(&na->nd_na_target,& taddr.const_addr(), sizeof(struct in6_addr));
 
     memcpy(buf + sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr),
            &hwaddr, 6);
 
-    logger::debug() << "iface::write_advert() daddr=" << daddr.to_string()
+    logger::debug() << "iface::write_advert() daddr=" << _daddr.to_string()
                     << ", taddr=" << taddr.to_string();
 
-    return write(_ifd, daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
+    return write(_ifd, _daddr, (uint8_t* )buf, sizeof(struct nd_neighbor_advert) +
         sizeof(struct nd_opt_hdr) + 6);
 }
 
