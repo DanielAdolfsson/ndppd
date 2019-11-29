@@ -1,11 +1,28 @@
 [Unit]
 Description=NDP Proxy Daemon
+Documentation=man:ndppd(1) man:ndppd.conf(5)
 After=network.target
 
 [Service]
 ExecStart=/usr/sbin/ndppd -d -p /var/run/ndppd/ndppd.pid
 Type=forking
 PIDFile=/var/run/ndppd/ndppd.pid
+
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+LockPersonality=true
+MemoryDenyWriteExecute=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_PACKET AF_INET6 AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RuntimeDirectory=ndppd
 
 [Install]
 WantedBy=multi-user.target
