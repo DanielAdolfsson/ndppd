@@ -1,5 +1,9 @@
 # NDPPD
 
+This is the development branch for version 1.0 of *ndppd*.
+
+It's currently barely usable, but I hope to be able to have a beta ready before the end of the year.
+
 Please read the manpages [ndppd.conf.5](ndppd.conf.5.adoc) and [ndppd.8](ndppd.8.adoc). 
 
 ## To do
@@ -12,7 +16,7 @@ Please read the manpages [ndppd.conf.5](ndppd.conf.5.adoc) and [ndppd.8](ndppd.8
 - [ ] rtnetlink: Memory cleanup
 - [ ] rtnetlink: Managing routes
 - [x] Automatic detection of internal interfaces (auto)
-- [ ] Automatically managing routes (autowire/autovia)
+- [ ] Automatically managing routes (autowire)
 - [x] IPv6/ICMPv6 packet validation
 - [ ] Reloading through SIGHUP
 - [x] Configuration engine
@@ -22,8 +26,7 @@ Please read the manpages [ndppd.conf.5](ndppd.conf.5.adoc) and [ndppd.8](ndppd.8
 - [x] Locking pidfiles
 - [x] Syslog
 - [x] Custom memory management (*nd_alloc*)
-- [ ] Expiration of nd_neigh_t objects
-- [ ] Refreshing nd_neigh_t if needed
+- [x] Refreshing and expiring sessions
 - [x] Set and restore PROMISC and ALLMULTI
 
 ### Undecided
