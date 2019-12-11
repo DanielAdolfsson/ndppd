@@ -1,0 +1,107 @@
+= ndppd.conf(5)
+Daniel Adolfsson <daniel@ashen.se>
+:doctype: manpage
+
+== Name
+ndppd.conf - ndppd configuration file
+
+== Description
+
+This file is used to describe which interfaces to proxy as well as which rules must match in order to respond to any _neighbor solicitation_ messages.
+Most of the configuration options are simple key-value pairs, with the exceptions being *proxy* and *rule* which must also include a block containing
+additional configuration options.
+
+A most basic example of this is *valid-ttl* with a configured value of 10000 milliseconds.
+
+    valid-ttl 10000
+
+Which options are valid depends on the block in which they are defined. The example above is allowed at _top level_, but would not be allowed
+inside a *rule* or a *proxy* block. Please see _Options_ for details regarding valid configuration options. In order for the *ndppd.conf* to be valid,
+at least one *proxy* must be defined. An in each of these proxies, at least one *rule* must be defined.
+
+In short; the general structure of *ndppd.conf* can be simplified to:
+
+[source]
+----
+...
+
+route eth0 {
+    rule dead:beef:: {
+        ...
+    }
+}
+----
+
+=== Comments
+
+*ndppd.conf* supports two types of comments.
+
+C-style
+
+    /* This is a comment */
+
+Python
+
+    # This a comment
+
+==  Options
+
+=== Top-level
+
+*valid-ttl* _milliseconds_::
+    The time a target will be considered valid after having received a _neighbor advertisement_ from a neighbor.
++
+Default: 30000
+
+*invalid-ttl* _milliseconds_::
+    The time a target will be considered invalid after not receiving any _neighbor solicitation_ messages from a neighbor.
++
+Default: 5000
+
+*retrans-time* _milliseconds_::
+    The time *ndppd* will wait before sending another _neighbor solicitation_ to the internal interface.
++
+Default: 1000
+
+*retrans-limit* _count_::
+    How many times *ndppd* attempt to send _neighbor solicitation_ messages, and not receiving a valid _neighbor advertisement_ response,
+    before considering it being invalid.
++
+Default: 3
+
+*proxy* _interface_ _block_::
+    Create a new proxy on the specified interface. That interface will be listening for _neighbor solicitation_
+    messages and then reply with _neighbor advertisement_ messages if the conditions were met.
+
+    proxy eth0 {
+        # Proxy specific configuration
+    }
+
+
+=== Proxy specific
+
+*rule* _ip_ [ */* _prefix_ ] _block_::
+    Add a new rule for the matching IPv6 address. If *prefix* is not specified, it defaults to 128. Note that the
+    address and prefix must be provided without any whitespace between them.
+
+    rule dead:beef::1/127 {
+        # Route specific configuration
+    }
+
+=== Rule specific
+
+auto::
+    If specified, *ndppd* will attempt to automatically determine where to forward _Neighbor Solicitation_ messages.
+    This feature uses the *Netlink* protocol.
+
+static::
+    Automatically respond. *This option is mutually exclusive with iface and auto*.
+
+*iface* _interface_::
+    Forwards the *Neighbor Solicitation* message through this specific interface.
+
+*autowire*::
+    A flag whether or not a new route should be automatically added to the routing table if a match has been found.
+
+*table* _index_::
+    Indicates which routing table should be used when *auto* and *autowire* is used.

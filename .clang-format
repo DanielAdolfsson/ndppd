@@ -1,0 +1,6 @@
+BreakBeforeBraces: Allman
+IndentWidth: 4
+ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: None
+Cpp11BracedListStyle: false
+IndentPPDirectives: AfterHash
