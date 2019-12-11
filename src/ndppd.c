@@ -119,7 +119,6 @@ static bool ndL_daemonize()
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 
-
     return true;
 }
 

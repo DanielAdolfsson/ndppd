@@ -44,7 +44,6 @@ struct nd_rtnl_addr
 
 extern long nd_rtnl_dump_timeout;
 
-
 bool nd_rtnl_open();
 void nd_rtnl_cleanup();
 bool nd_rtnl_query_addresses();

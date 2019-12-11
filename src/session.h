@@ -62,4 +62,4 @@ struct nd_session
 nd_session_t *nd_alloc_session();
 void nd_free_session(nd_session_t *session);
 
-#endif /*NDPPD_SESSION_H*/
+#endif /* NDPPD_SESSION_H */

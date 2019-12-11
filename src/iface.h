@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef NDPPD_IFA_H
-#define NDPPD_IFA_H
+#ifndef NDPPD_IFACE_H
+#define NDPPD_IFACE_H
 
 #include "ndppd.h"
 #include <net/if.h>
@@ -51,4 +51,4 @@ bool nd_iface_set_allmulti(nd_iface_t *iface, bool on);
 bool nd_iface_set_promisc(nd_iface_t *iface, bool on);
 void nd_iface_cleanup();
 
-#endif /* NDPPD_IFA_H */
+#endif /* NDPPD_IFACE_H */

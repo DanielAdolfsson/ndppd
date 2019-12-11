@@ -19,6 +19,8 @@
 #ifndef NDPPD_RULE_H
 #define NDPPD_RULE_H
 
+#include <net/if.h>
+
 #include "ndppd.h"
 
 struct nd_rule
@@ -34,7 +36,6 @@ struct nd_rule
     bool is_auto;
 };
 
-/* rule.c */
 nd_rule_t *nd_rule_create(nd_proxy_t *proxy);
 
-#endif // NDPPD_RULE_H
+#endif /* NDPPD_RULE_H */

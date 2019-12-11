@@ -16,12 +16,11 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef NDPPD_CF_H
-#define NDPPD_CF_H
+#ifndef NDPPD_CONF_H
+#define NDPPD_CONF_H
 
 #include "ndppd.h"
 
-/* cf.c */
 bool nd_conf_load(const char *path);
 
-#endif // NDPPD_CF_H
+#endif /* NDPPD_CONF_H */

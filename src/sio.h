@@ -31,7 +31,6 @@ struct nd_sio
     nd_sio_handler_t *handler;
 };
 
-/* sio.c */
 nd_sio_t *nd_sio_open(int domain, int type, int protocol);
 void nd_sio_close(nd_sio_t *nio);
 bool nd_sio_bind(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen);
