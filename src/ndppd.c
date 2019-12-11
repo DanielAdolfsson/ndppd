@@ -28,14 +28,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "addr.h"
 #include "conf.h"
 #include "iface.h"
+#include "io.h"
 #include "ndppd.h"
 #include "proxy.h"
 #include "rtnl.h"
-#include "rule.h"
-#include "sio.h"
 
 #ifndef NDPPD_CONFIG_PATH
 #    define NDPPD_CONFIG_PATH "../ndppd.conf"
@@ -198,6 +196,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    if (!nd_iface_startup())
+        return -1;
+
     if (!nd_proxy_startup())
         return -1;
 
@@ -211,6 +212,7 @@ int main(int argc, char *argv[])
 
     bool query_addresses = false;
 
+
     while (1)
     {
         if (nd_current_time >= nd_rtnl_dump_timeout)
@@ -222,7 +224,7 @@ int main(int argc, char *argv[])
             nd_rtnl_query_addresses();
         }
 
-        if (!nd_sio_poll())
+        if (!nd_io_poll())
         {
             /* TODO: Error */
             break;

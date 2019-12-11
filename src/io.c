@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #ifndef NDPPD_NO_USE_EPOLL
+#    include <fcntl.h>
 #    include <sys/epoll.h>
 #else
 #    include <poll.h>
@@ -34,16 +35,16 @@
 #    define EPOLLIN POLLIN
 #endif
 
+#include "io.h"
 #include "ndppd.h"
-#include "sio.h"
 
-static nd_sio_t *ndL_first_sio, *ndL_first_free_sio;
+static nd_io_t *ndL_first_io, *ndL_first_free_io;
 
 #ifndef NDPPD_NO_USE_EPOLL
 static int ndL_epoll_fd;
 #else
 #    ifndef NDPPD_STATIC_POLLFDS_SIZE
-#        define NDPPD_STATIC_POLLFDS_SIZE 32
+#        define NDPPD_STATIC_POLLFDS_SIZE 8
 #    endif
 
 static struct pollfd static_pollfds[NDPPD_STATIC_POLLFDS_SIZE];
@@ -74,7 +75,7 @@ static void ndL_refresh_pollfds()
 
     ND_LL_FOREACH(ndL_first_sio, sio, next)
     {
-        pollfds[index].fd = sio->fd;
+        pollfds[index].fd = io->fd;
         pollfds[index].revents = 0;
         pollfds[index].events = POLLIN;
         index++;
@@ -84,73 +85,113 @@ static void ndL_refresh_pollfds()
 }
 #endif
 
-nd_sio_t *nd_sio_open(int domain, int type, int protocol)
+nd_io_t *nd_sio_create(int fd)
 {
-    int fd = socket(domain, type, protocol);
+    nd_io_t *io = ndL_first_free_io;
 
-    if (fd < 0)
-        return NULL;
+    if (io)
+        ND_LL_DELETE(ndL_first_free_io, io, next);
+    else
+        io = ND_ALLOC(nd_io_t);
 
-    /* Non-blocking. */
+    ND_LL_PREPEND(ndL_first_io, io, next);
 
-    int on = 1;
-    if (ioctl(fd, FIONBIO, (char *)&on) < 0)
+    io->fd = fd;
+    io->data = 0;
+    io->handler = NULL;
+
+    return io;
+}
+
+static nd_io_t *ndL_create(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+
+    if (flags == -1)
     {
+        nd_log_error("Could not read flags: %s", strerror(errno));
         close(fd);
-        return NULL;
+        return false;
     }
 
-    /* Allocate the nd_sio_t object. */
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+    {
+        nd_log_error("Could not set flags: %s", strerror(errno));
+        close(fd);
+        return false;
+    }
 
-    nd_sio_t *sio = ndL_first_free_sio;
+    nd_io_t *io = ndL_first_free_io;
 
-    if (sio)
-        ND_LL_DELETE(ndL_first_free_sio, sio, next);
+    if (io)
+        ND_LL_DELETE(ndL_first_free_io, io, next);
     else
-        sio = ND_ALLOC(nd_sio_t);
+        io = ND_ALLOC(nd_io_t);
 
-    ND_LL_PREPEND(ndL_first_sio, sio, next);
+    ND_LL_PREPEND(ndL_first_io, io, next);
 
-    sio->fd = fd;
+    io->fd = fd;
+    io->data = 0;
+    io->handler = NULL;
 
 #ifndef NDPPD_NO_USE_EPOLL
     if (ndL_epoll_fd <= 0 && (ndL_epoll_fd = epoll_create(1)) < 0)
     {
         nd_log_error("epoll_create() failed: %s", strerror(errno));
-        nd_sio_close(sio);
         return NULL;
     }
 
-    struct epoll_event event = { .events = EPOLLIN, .data.ptr = sio };
+    struct epoll_event event = { .events = EPOLLIN, .data.ptr = io };
 
-    if (epoll_ctl(ndL_epoll_fd, EPOLL_CTL_ADD, fd, &event) < 0)
+    if (epoll_ctl(ndL_epoll_fd, EPOLL_CTL_ADD, io->fd, &event) < 0)
     {
         nd_log_error("epoll_ctl() failed: %s", strerror(errno));
-        nd_sio_close(sio);
         return NULL;
     }
-
 #else
     /* Make sure our pollfd array is updated. */
     ndL_dirty = true;
 #endif
 
-    return sio;
+    return io;
 }
 
-void nd_sio_close(nd_sio_t *sio)
+nd_io_t *nd_io_socket(int domain, int type, int protocol)
 {
-    close(sio->fd);
+    int fd = socket(domain, type, protocol);
+
+    if (fd == -1)
+    {
+        nd_log_error("nd_io_socket(): Could not create socket: %s", strerror(errno));
+        return NULL;
+    }
+
+    return ndL_create(fd);
+}
+
+nd_io_t *nd_io_open(const char *file, int oflag)
+{
+    int fd = open(file, oflag);
+
+    if (fd == -1)
+        return NULL;
+
+    return ndL_create(fd);
+}
+
+void nd_io_close(nd_io_t *io)
+{
+    close(io->fd);
 
 #ifdef NDPPD_NO_USE_EPOLL
     ndL_dirty = true;
 #endif
 
-    ND_LL_DELETE(ndL_first_sio, sio, next);
-    ND_LL_PREPEND(ndL_first_free_sio, sio, next);
+    ND_LL_DELETE(ndL_first_io, io, next);
+    ND_LL_PREPEND(ndL_first_free_io, io, next);
 }
 
-ssize_t nd_sio_send(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen)
+ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen)
 {
     struct iovec iov;
     iov.iov_len = msglen;
@@ -164,7 +205,7 @@ ssize_t nd_sio_send(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen, 
 
     ssize_t len;
 
-    if ((len = sendmsg(sio->fd, &mhdr, 0)) < 0)
+    if ((len = sendmsg(io->fd, &mhdr, 0)) < 0)
     {
         printf("send err %s\n", strerror(errno));
         return -1;
@@ -173,7 +214,7 @@ ssize_t nd_sio_send(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen, 
     return len;
 }
 
-ssize_t nd_sio_recv(nd_sio_t *sio, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen)
+ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen)
 {
     struct iovec iov;
     iov.iov_len = msglen;
@@ -188,7 +229,7 @@ ssize_t nd_sio_recv(nd_sio_t *sio, struct sockaddr *addr, size_t addrlen, void *
 
     int len;
 
-    if ((len = recvmsg(sio->fd, &mhdr, 0)) < 0)
+    if ((len = recvmsg(io->fd, &mhdr, 0)) < 0)
     {
         if (errno != EAGAIN)
             nd_log_error("nd_sio_recv() failed: %s", strerror(errno));
@@ -199,12 +240,12 @@ ssize_t nd_sio_recv(nd_sio_t *sio, struct sockaddr *addr, size_t addrlen, void *
     return len;
 }
 
-bool nd_sio_bind(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen)
+bool nd_io_bind(nd_io_t *io, const struct sockaddr *addr, size_t addrlen)
 {
-    return bind(sio->fd, addr, addrlen) == 0;
+    return bind(io->fd, addr, addrlen) == 0;
 }
 
-bool nd_sio_poll()
+bool nd_io_poll()
 {
 #ifndef NDPPD_NO_USE_EPOLL
     struct epoll_event events[8];
@@ -219,10 +260,10 @@ bool nd_sio_poll()
 
     for (int i = 0; i < count; i++)
     {
-        nd_sio_t *sio = (nd_sio_t *)events[i].data.ptr;
+        nd_io_t *io = (nd_io_t *)events[i].data.ptr;
 
-        if (sio->handler)
-            sio->handler(sio, events[i].events);
+        if (io->handler)
+            io->handler(io, events[i].events);
     }
 
 #else
@@ -245,12 +286,12 @@ bool nd_sio_poll()
         if (pollfds[i].revents == 0)
             continue;
 
-        for (nd_sio_t *sio = ndL_first_sio; sio; sio = sio->next)
+        for (nd_sio_t *sio = ndL_first_sio; sio; sio = io->next)
         {
-            if (sio->fd == pollfds[i].fd)
+            if (io->fd == pollfds[i].fd)
             {
-                if (sio->handler != NULL)
-                    sio->handler(sio, pollfds[i].revents);
+                if (io->handler != NULL)
+                    io->handler(sio, pollfds[i].revents);
 
                 break;
             }
@@ -261,16 +302,18 @@ bool nd_sio_poll()
     return true;
 }
 
-void nd_sio_cleanup()
+void nd_io_cleanup()
 {
-    ND_LL_FOREACH_S(ndL_first_sio, sio, tmp, next)
+    ND_LL_FOREACH_S(ndL_first_io, sio, tmp, next)
     {
-        nd_sio_close(sio);
+        nd_io_close(sio);
     }
 
+#ifndef NDPPD_NO_USE_EPOLL
     if (ndL_epoll_fd > 0)
     {
         close(ndL_epoll_fd);
         ndL_epoll_fd = 0;
     }
+#endif
 }

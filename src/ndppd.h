@@ -27,7 +27,7 @@
 #define NDPPD_VERSION "1.0-beta1"
 
 typedef struct nd_iface nd_iface_t;
-typedef struct nd_sio nd_sio_t;
+typedef struct nd_io nd_io_t;
 typedef struct nd_proxy nd_proxy_t;
 typedef struct nd_conf nd_conf_t;
 typedef struct in6_addr nd_addr_t;

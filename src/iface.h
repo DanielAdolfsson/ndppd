@@ -20,6 +20,7 @@
 #define NDPPD_IFACE_H
 
 #include "ndppd.h"
+
 #include <net/if.h>
 
 struct nd_iface
@@ -37,7 +38,6 @@ struct nd_iface
 
     nd_proxy_t *proxy;
     nd_session_t *sessions; /* All sessions expecting NA messages to arrive here. */
-    nd_sio_t *sio;
 };
 
 extern bool nd_iface_no_restore_flags;
@@ -49,6 +49,7 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd
 void nd_iface_get_local_addr(nd_iface_t *iface, nd_addr_t *addr);
 bool nd_iface_set_allmulti(nd_iface_t *iface, bool on);
 bool nd_iface_set_promisc(nd_iface_t *iface, bool on);
+bool nd_iface_startup();
 void nd_iface_cleanup();
 
 #endif /* NDPPD_IFACE_H */

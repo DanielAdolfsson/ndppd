@@ -16,27 +16,30 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef NDPPD_SIO_H
-#define NDPPD_SIO_H
+#ifndef NDPPD_IO_H
+#define NDPPD_IO_H
 
 #include "ndppd.h"
 
-typedef void(nd_sio_handler_t)(nd_sio_t *sio, int events);
+typedef void(nd_io_handler_t)(nd_io_t *io, int events);
 
-struct nd_sio
+struct nd_io
 {
-    nd_sio_t *next;
+    nd_io_t *next;
     int fd;
     uintptr_t data;
-    nd_sio_handler_t *handler;
+    nd_io_handler_t *handler;
 };
 
-nd_sio_t *nd_sio_open(int domain, int type, int protocol);
-void nd_sio_close(nd_sio_t *nio);
-bool nd_sio_bind(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen);
-ssize_t nd_sio_send(nd_sio_t *sio, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen);
-ssize_t nd_sio_recv(nd_sio_t *sio, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen);
-bool nd_sio_poll();
-void nd_sio_cleanup();
+nd_io_t *nd_sio_create(int fd);
+bool nd_sio_set_nonblock(nd_io_t *io, bool value);
 
-#endif /* NDPPD_SIO_H */
+nd_io_t *nd_io_socket(int domain, int type, int protocol);
+void nd_io_close(nd_io_t *io);
+bool nd_io_bind(nd_io_t *io, const struct sockaddr *addr, size_t addrlen);
+ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen);
+ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen);
+bool nd_io_poll();
+void nd_io_cleanup();
+
+#endif /*NDPPD_IO_H*/

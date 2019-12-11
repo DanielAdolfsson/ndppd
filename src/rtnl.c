@@ -22,11 +22,11 @@
 #include <sys/socket.h>
 
 #include "addr.h"
+#include "io.h"
 #include "ndppd.h"
 #include "rtnl.h"
-#include "sio.h"
 
-static nd_sio_t *ndL_sio;
+static nd_io_t *ndL_io;
 static nd_rtnl_route_t *ndL_routes, *ndL_free_routes;
 static nd_rtnl_addr_t *ndL_addrs, *ndL_free_addrs;
 
@@ -189,13 +189,13 @@ static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
     }
 }
 
-static void ndL_sio_handler(__attribute__((unused)) nd_sio_t *unused1, __attribute__((unused)) int unused2)
+static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute__((unused)) int unused2)
 {
     uint8_t buf[4096];
 
     for (;;)
     {
-        ssize_t len = nd_sio_recv(ndL_sio, NULL, 0, buf, sizeof(buf));
+        ssize_t len = nd_io_recv(ndL_io, NULL, 0, buf, sizeof(buf));
 
         if (len < 0)
             /* Failed. */
@@ -230,10 +230,10 @@ static void ndL_sio_handler(__attribute__((unused)) nd_sio_t *unused1, __attribu
 
 bool nd_rtnl_open()
 {
-    if (ndL_sio != NULL)
+    if (ndL_io != NULL)
         return true;
 
-    if (!(ndL_sio = nd_sio_open(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)))
+    if (!(ndL_io = nd_io_socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)))
     {
         nd_log_error("Failed to open netlink socket: %s", strerror(errno));
         return false;
@@ -244,23 +244,23 @@ bool nd_rtnl_open()
     addr.nl_family = AF_NETLINK;
     addr.nl_groups = (1 << (RTNLGRP_IPV6_IFADDR - 1)) | (1 << (RTNLGRP_IPV6_ROUTE - 1));
 
-    if (!nd_sio_bind(ndL_sio, (struct sockaddr *)&addr, sizeof(addr)))
+    if (!nd_io_bind(ndL_io, (struct sockaddr *)&addr, sizeof(addr)))
     {
         nd_log_error("Failed to bind netlink socket: %s", strerror(errno));
-        nd_sio_close(ndL_sio);
-        ndL_sio = NULL;
+        nd_io_close(ndL_io);
+        ndL_io = NULL;
         return false;
     }
 
-    ndL_sio->handler = ndL_sio_handler;
+    ndL_io->handler = ndL_io_handler;
 
     return true;
 }
 
 void nd_rtnl_cleanup()
 {
-    if (ndL_sio)
-        nd_sio_close(ndL_sio);
+    if (ndL_io)
+        nd_io_close(ndL_io);
 }
 
 bool nd_rtnl_query_routes()
@@ -290,7 +290,7 @@ bool nd_rtnl_query_routes()
 
     nd_rtnl_dump_timeout = nd_current_time + 5000;
 
-    nd_sio_send(ndL_sio, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
+    nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
     return false;
 }
 
@@ -320,7 +320,7 @@ bool nd_rtnl_query_addresses()
 
     nd_rtnl_dump_timeout = nd_current_time + 5000;
 
-    nd_sio_send(ndL_sio, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
+    nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
     return false;
 }
 
