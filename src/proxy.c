@@ -78,6 +78,7 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
 
         if (session->state == ND_STATE_VALID || session->state == ND_STATE_STALE)
         {
+            session->atime = nd_current_time;
             nd_iface_write_na(proxy->iface, src, src_ll, tgt, proxy->router);
             return;
         }
@@ -95,10 +96,12 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
         return;
 
     session = nd_alloc_session();
-    session->mtime = nd_current_time;
-    session->tgt = *tgt;
-
     ND_LL_PREPEND(proxy->sessions, session, next_in_proxy);
+
+    session->mtime = nd_current_time;
+    session->atime = nd_current_time;
+    session->rtime = nd_current_time;
+    session->tgt = *tgt;
 
     if (rule->is_auto)
     {
@@ -128,6 +131,7 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
     if (session->iface)
     {
         session->state = ND_STATE_INCOMPLETE;
+        session->rcount = 0;
         nd_iface_write_ns(session->iface, tgt);
 
         ND_LL_PREPEND(session->iface->sessions, session, next_in_iface);
@@ -193,11 +197,16 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
         }
         else
         {
-            long t = session->rcount && !(session->rcount % nd_conf_retrans_limit)
-                         ? ((1 << session->rcount / 3) * nd_conf_retrans_time)
-                         : nd_conf_retrans_time;
+            /* We will only retransmit if nd_conf_keepalive is true, or if the last incoming NS
+             * request was made less than nd_conf_valid_ttl milliseconds ago. */
+            if (!nd_conf_keepalive && nd_current_time - session->atime > nd_conf_valid_ttl)
+                break;
 
-            if (nd_current_time - session->rtime < t)
+            long time = session->rcount && !(session->rcount % nd_conf_retrans_limit)
+                            ? ((1 << session->rcount / 3) * nd_conf_retrans_time)
+                            : nd_conf_retrans_time;
+
+            if (nd_current_time - session->rtime < time)
                 break;
 
             session->rcount++;

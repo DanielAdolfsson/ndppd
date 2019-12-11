@@ -52,8 +52,9 @@ struct nd_session
     nd_session_t *next_in_iface;
     nd_addr_t tgt;
     int rcount;
-    long rtime;
-    long mtime;
+    long atime; /* Last time the session was used in a NA response. */
+    long rtime; /* Last time a NS request was made. */
+    long mtime; /* Last time state was changed. */
     nd_state_t state;
     nd_iface_t *iface;
 };

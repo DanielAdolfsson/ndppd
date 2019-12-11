@@ -93,9 +93,14 @@ static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     if (!session)
         return;
 
-    session->state = ND_STATE_VALID;
-    session->mtime = nd_current_time;
-    nd_log_debug("session [%s] %s INVALID -> (deleted)", "?", nd_addr_to_string(&session->tgt));
+    if (session->state != ND_STATE_VALID)
+    {
+        session->state = ND_STATE_VALID;
+        session->mtime = nd_current_time;
+        nd_log_debug("session [%s] %s ? -> VALID", "?", nd_addr_to_string(&session->tgt));
+    }
+
+    session->atime = nd_current_time;
 }
 
 static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t length)
