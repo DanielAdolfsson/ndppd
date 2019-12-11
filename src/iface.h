@@ -36,7 +36,7 @@ struct nd_iface
     int old_promisc;
 
     nd_proxy_t *proxy;
-    nd_neigh_t *neighs; /* All sessions expecting NA messages to arrive here. */
+    nd_session_t *sessions; /* All sessions expecting NA messages to arrive here. */
     nd_sio_t *sio;
 };
 

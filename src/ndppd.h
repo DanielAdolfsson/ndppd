@@ -34,7 +34,7 @@ typedef struct in6_addr nd_addr_t;
 typedef struct nd_conf_rule nd_conf_rule_t;
 typedef struct nd_conf_proxy nd_conf_proxy_t;
 typedef struct nd_rule nd_rule_t;
-typedef struct nd_neigh nd_neigh_t;
+typedef struct nd_session nd_session_t;
 
 extern long nd_current_time;
 extern bool nd_daemonized;

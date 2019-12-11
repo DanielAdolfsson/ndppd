@@ -225,8 +225,11 @@ int main(int argc, char *argv[])
 
         if (!nd_sio_poll())
         {
+            /* TODO: Error */
             break;
         }
+
+        nd_proxy_update_all();
 
         gettimeofday(&t1, 0);
         nd_current_time = t1.tv_sec * 1000 + t1.tv_usec / 1000;

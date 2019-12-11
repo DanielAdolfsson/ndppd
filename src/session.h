@@ -16,30 +16,49 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <string.h>
+#ifndef NDPPD_SESSION_H
+#define NDPPD_SESSION_H
 
-#include "neigh.h"
 #include "ndppd.h"
 
-static nd_neigh_t *ndL_free_neighs;
-
-nd_neigh_t *nd_alloc_neigh()
+typedef enum
 {
-    nd_neigh_t *neigh = ndL_free_neighs;
+    /*
+     * Address resolution is in progress.
+     */
+    ND_STATE_INCOMPLETE,
 
-    if (neigh)
-        ND_LL_DELETE(ndL_free_neighs, neigh, next_in_proxy);
-    else
-        neigh = ND_ALLOC(nd_neigh_t);
+    /*
+     *
+     */
+    ND_STATE_VALID,
 
-    memset(neigh, 0, sizeof(nd_neigh_t));
+    /*
+     *
+     */
+    ND_STATE_STALE,
 
-    return neigh;
-}
+    /*
+     * Resolution failed, and further Neighbor Solicitation messages will be ignored until
+     * the session is removed or a Neighbor Advertisement is received.
+     */
+    ND_STATE_INVALID,
 
-void nd_free_neigh(nd_neigh_t *session)
+} nd_state_t;
+
+struct nd_session
 {
-    ND_LL_PREPEND(ndL_free_neighs, session, next_in_proxy);
-}
+    nd_session_t *next_in_proxy;
+    nd_session_t *next_in_iface;
+    nd_addr_t tgt;
+    int rcount;
+    long rtime;
+    long mtime;
+    nd_state_t state;
+    nd_iface_t *iface;
+};
 
+nd_session_t *nd_alloc_session();
+void nd_free_session(nd_session_t *session);
 
+#endif /*NDPPD_SESSION_H*/

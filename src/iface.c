@@ -34,8 +34,8 @@
 #include "addr.h"
 #include "iface.h"
 #include "ndppd.h"
-#include "neigh.h"
 #include "proxy.h"
+#include "session.h"
 #include "sio.h"
 
 extern int nd_conf_invalid_ttl;
@@ -55,7 +55,7 @@ typedef struct
     struct icmp6_hdr icmp6_hdr;
 } ndL_icmp6_msg_t;
 
-static void ndL_handle_ns(nd_iface_t *ifa, ndL_icmp6_msg_t *msg)
+static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
 {
     struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)&msg->icmp6_hdr;
 
@@ -76,8 +76,8 @@ static void ndL_handle_ns(nd_iface_t *ifa, ndL_icmp6_msg_t *msg)
 
     uint8_t *lladdr = (uint8_t *)((void *)opt + 2);
 
-    if (ifa->proxy)
-        nd_proxy_handle_ns(ifa->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, lladdr);
+    if (iface->proxy)
+        nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, lladdr);
 }
 
 static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
@@ -87,15 +87,15 @@ static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
 
     struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)&msg->icmp6_hdr;
 
-    nd_neigh_t *neigh;
-    ND_LL_SEARCH(iface->neighs, neigh, next_in_iface, nd_addr_eq(&neigh->tgt, &na->nd_na_target));
+    nd_session_t *session;
+    ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->tgt, &na->nd_na_target));
 
-    if (!neigh)
+    if (!session)
         return;
 
-    neigh->state = ND_STATE_VALID;
-    neigh->ttl = nd_conf_valid_ttl;
-    neigh->touched_at = nd_current_time;
+    session->state = ND_STATE_VALID;
+    session->mtime = nd_current_time;
+    nd_log_debug("session [%s] %s INVALID -> (deleted)", "?", nd_addr_to_string(&session->tgt));
 }
 
 static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t length)

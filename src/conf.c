@@ -40,7 +40,8 @@
 #include "rule.h"
 
 int nd_conf_invalid_ttl = 10000;
-int nd_conf_valid_ttl = 10000;
+int nd_conf_valid_ttl = 30000;
+int nd_conf_stale_ttl = 30000;
 int nd_conf_renew = 5000;
 int nd_conf_retrans_limit = 3;
 int nd_conf_retrans_time = 1000;

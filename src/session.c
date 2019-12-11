@@ -16,29 +16,28 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef NDPPD_PROXY_H
-#define NDPPD_PROXY_H
-
-#include <net/if.h>
+#include <string.h>
 
 #include "ndppd.h"
+#include "session.h"
 
-struct nd_proxy
+static nd_session_t *ndL_free_sessions;
+
+nd_session_t *nd_alloc_session()
 {
-    nd_proxy_t *next;
-    char ifname[IF_NAMESIZE];
+    nd_session_t *session = ndL_free_sessions;
 
-    nd_iface_t *iface;
-    nd_rule_t *rules;
-    nd_session_t *sessions;
-    bool router;
-    bool promisc;
-};
+    if (session)
+        ND_LL_DELETE(ndL_free_sessions, session, next_in_proxy);
+    else
+        session = ND_ALLOC(nd_session_t);
 
-/* proxy.c */
-nd_proxy_t *nd_proxy_create(const char *ifname);
-void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_addr_t *tgt, uint8_t *src_ll);
-bool nd_proxy_startup();
-void nd_proxy_update_all();
+    memset(session, 0, sizeof(nd_session_t));
 
-#endif // NDPPD_PROXY_H
+    return session;
+}
+
+void nd_free_session(nd_session_t *session)
+{
+    ND_LL_PREPEND(ndL_free_sessions, session, next_in_proxy);
+}

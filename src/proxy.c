@@ -22,15 +22,16 @@
 #include "addr.h"
 #include "iface.h"
 #include "ndppd.h"
-#include "neigh.h"
 #include "proxy.h"
 #include "rtnl.h"
 #include "rule.h"
+#include "session.h"
 
 static nd_proxy_t *ndL_proxies;
 
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;
+extern int nd_conf_stale_ttl;
 extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
@@ -54,7 +55,7 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
 
     proxy->iface = NULL;
     proxy->rules = NULL;
-    proxy->neighs = NULL;
+    proxy->sessions = NULL;
     proxy->router = false;
 
     strcpy(proxy->ifname, ifname);
@@ -68,16 +69,15 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
     nd_log_trace("Handle NA src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s", nd_addr_to_string(src), src_ll[0], src_ll[1],
                  src_ll[2], src_ll[3], src_ll[4], src_ll[5], nd_addr_to_string(dst), nd_addr_to_string(tgt));
 
-    nd_neigh_t *neigh;
+    nd_session_t *session;
 
-    ND_LL_FOREACH_NODEF(proxy->neighs, neigh, next_in_proxy)
+    ND_LL_FOREACH_NODEF(proxy->sessions, session, next_in_proxy)
     {
-        if (!nd_addr_eq(&neigh->tgt, tgt))
+        if (!nd_addr_eq(&session->tgt, tgt))
             continue;
 
-        if (neigh->state == ND_STATE_VALID || neigh->state == ND_STATE_VALID_REFRESH)
+        if (session->state == ND_STATE_VALID || session->state == ND_STATE_STALE)
         {
-            neigh->used_at = nd_current_time;
             nd_iface_write_na(proxy->iface, src, src_ll, tgt, proxy->router);
             return;
         }
@@ -94,11 +94,11 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
     if (!rule)
         return;
 
-    neigh = nd_alloc_neigh();
-    neigh->touched_at = nd_current_time;
-    neigh->tgt = *tgt;
+    session = nd_alloc_session();
+    session->mtime = nd_current_time;
+    session->tgt = *tgt;
 
-    ND_LL_PREPEND(proxy->neighs, neigh, next_in_proxy);
+    ND_LL_PREPEND(proxy->sessions, session, next_in_proxy);
 
     if (rule->is_auto)
     {
@@ -109,92 +109,112 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
         if (!route || route->oif == proxy->iface->index)
         {
             /* Could not find a matching route. */
-            neigh->state = ND_STATE_INVALID;
+            session->state = ND_STATE_INVALID;
             return;
         }
 
-        if (!(neigh->iface = nd_iface_open(NULL, route->oif)))
+        if (!(session->iface = nd_iface_open(NULL, route->oif)))
         {
             /* Could not open interface. */
-            neigh->state = ND_STATE_INVALID;
+            session->state = ND_STATE_INVALID;
             return;
         }
     }
-    else if ((neigh->iface = rule->iface))
+    else if ((session->iface = rule->iface))
     {
-        neigh->iface->refs++;
+        session->iface->refs++;
     }
 
-    if (neigh->iface)
+    if (session->iface)
     {
-        neigh->state = ND_STATE_INCOMPLETE;
-        nd_iface_write_ns(neigh->iface, tgt);
+        session->state = ND_STATE_INCOMPLETE;
+        nd_iface_write_ns(session->iface, tgt);
 
-        ND_LL_PREPEND(neigh->iface->neighs, neigh, next_in_iface);
+        ND_LL_PREPEND(session->iface->sessions, session, next_in_iface);
     }
     else
     {
-        neigh->state = ND_STATE_VALID;
+        session->state = ND_STATE_VALID;
         nd_iface_write_na(proxy->iface, src, src_ll, tgt, proxy->router);
     }
 }
 
-void nd_proxy_update_neighs(nd_proxy_t *proxy)
+static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
 {
-    ND_LL_FOREACH_S(proxy->neighs, neigh, tmp, next_in_proxy)
+    switch (session->state)
     {
-        switch (neigh->state)
+    case ND_STATE_INCOMPLETE:
+        if (nd_current_time - session->mtime < nd_conf_retrans_time)
+            break;
+
+        session->mtime = nd_current_time;
+
+        if (++session->rcount > nd_conf_retrans_limit)
         {
-        case ND_STATE_INCOMPLETE:
-            if ((nd_current_time - neigh->touched_at) < nd_conf_retrans_time)
-                break;
+            session->state = ND_STATE_INVALID;
+            nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", proxy->ifname, nd_addr_to_string(&session->tgt));
+            break;
+        }
 
-            neigh->touched_at = nd_current_time;
+        nd_iface_write_ns(session->iface, &session->tgt);
+        break;
 
-            if (++neigh->attempt > 3)
-            {
-                neigh->state = ND_STATE_INVALID;
-                break;
-            }
-
-            nd_iface_write_ns(neigh->iface, &neigh->tgt);
+    case ND_STATE_INVALID:
+        if (nd_current_time - session->mtime < nd_conf_invalid_ttl)
             break;
 
-        case ND_STATE_INVALID:
-            if ((nd_current_time - neigh->touched_at) < nd_conf_invalid_ttl)
-                break;
+        ND_LL_DELETE(session->iface->sessions, session, next_in_iface);
+        ND_LL_DELETE(proxy->sessions, session, next_in_proxy);
 
-            ND_LL_DELETE(neigh->iface->neighs, neigh, next_in_iface);
-            ND_LL_DELETE(proxy->neighs, neigh, next_in_proxy);
+        nd_iface_close(session->iface);
+        nd_free_session(session);
+        nd_log_debug("session [%s] %s INVALID -> (deleted)", proxy->ifname, nd_addr_to_string(&session->tgt));
+        break;
 
-            nd_iface_close(neigh->iface);
-            nd_free_neigh(neigh);
+    case ND_STATE_VALID:
+        if (nd_current_time - session->mtime < nd_conf_valid_ttl)
             break;
 
-        case ND_STATE_VALID:
-            if (nd_current_time - neigh->touched_at < nd_conf_valid_ttl - nd_conf_renew)
+        session->mtime = nd_current_time;
+        session->rtime = nd_current_time;
+        session->state = ND_STATE_STALE;
+        session->rcount = 0;
+
+        nd_log_debug("session [%s] %s VALID -> STALE", proxy->ifname, nd_addr_to_string(&session->tgt));
+        nd_iface_write_ns(session->iface, &session->tgt);
+        break;
+
+    case ND_STATE_STALE:
+        if (nd_current_time - session->mtime >= nd_conf_stale_ttl)
+        {
+            session->mtime = nd_current_time;
+            session->state = ND_STATE_INVALID;
+            nd_log_debug("session [%s] %s STALE -> INVALID", proxy->ifname, nd_addr_to_string(&session->tgt));
+        }
+        else
+        {
+            long t = session->rcount && !(session->rcount % nd_conf_retrans_limit)
+                         ? ((1 << session->rcount / 3) * nd_conf_retrans_time)
+                         : nd_conf_retrans_time;
+
+            if (nd_current_time - session->rtime < t)
                 break;
 
+            session->rcount++;
+            session->rtime = nd_current_time;
+            nd_iface_write_ns(session->iface, &session->tgt);
+        }
+        break;
+    }
+}
 
-
-
-
-            /* TODO: Send solicit. */
-            break;
-
-        case ND_STATE_VALID_REFRESH:
-            if ((nd_current_time - neigh->touched_at) < nd_conf_retrans_time)
-                break;
-
-            if (++neigh->attempt > 3)
-            {
-                neigh->state = ND_STATE_INVALID;
-                neigh->touched_at = nd_current_time;
-                break;
-            }
-
-            /* TODO: Send solicit. */
-            break;
+void nd_proxy_update_all()
+{
+    ND_LL_FOREACH(ndL_proxies, proxy, next)
+    {
+        ND_LL_FOREACH_S(proxy->sessions, session, tmp, next_in_proxy)
+        {
+            ndL_update_session(proxy, session);
         }
     }
 }
@@ -205,6 +225,8 @@ bool nd_proxy_startup()
     {
         if (!(proxy->iface = nd_iface_open(proxy->ifname, 0)))
             return false;
+
+        proxy->iface->proxy = proxy;
 
         if (proxy->promisc)
             nd_iface_set_promisc(proxy->iface, true);
