@@ -32,3 +32,16 @@ Please read the manpages [ndppd.conf.5](ndppd.conf.5.adoc) and [ndppd.8](ndppd.8
 ### Undecided
 - [ ] Control socket
 - [ ] Cleaning up pidfiles
+
+## Compiling
+
+You must have *asciidoctor* installed in order to transpile the documentation.
+
+In most cases, the following should be sufficient:
+
+    make all && make install
+
+## Contact
+
+Daniel Adolfsson <daniel-at-ashen.se>  
+https://github.com/DanielAdolfsson/ndppd
