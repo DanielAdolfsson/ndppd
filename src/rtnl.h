@@ -37,7 +37,7 @@ struct nd_rtnl_route
 struct nd_rtnl_addr
 {
     nd_rtnl_addr_t *next;
-    int iif;
+    unsigned int iif;
     nd_addr_t addr;
     int pflen;
 };

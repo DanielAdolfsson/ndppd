@@ -58,7 +58,7 @@ static void ndL_insert_route(nd_rtnl_route_t *route)
     }
 }
 
-static void ndL_handle_newaddress(struct ifaddrmsg *msg, int length)
+static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
 {
     nd_addr_t *addr = NULL;
 
@@ -75,7 +75,7 @@ static void ndL_handle_newaddress(struct ifaddrmsg *msg, int length)
 
     ND_LL_FOREACH_NODEF(ndL_addrs, rt_addr, next)
     {
-        if (nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == msg->ifa_prefixlen)
+        if (rt_addr->iif == msg->ifa_index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == msg->ifa_prefixlen)
             return;
     }
 
@@ -90,33 +90,29 @@ static void ndL_handle_newaddress(struct ifaddrmsg *msg, int length)
     rt_addr->iif = msg->ifa_index;
     rt_addr->addr = *addr;
 
-    nd_log_debug("rtnl: NEWADDR %s/%d if %d", nd_addr_to_string(addr), msg->ifa_prefixlen, msg->ifa_index);
+    nd_log_debug("rtnl: NEWADDR %s/%d if %d", nd_aton(addr), msg->ifa_prefixlen, msg->ifa_index);
 }
 
-static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
+static void ndL_handle_deladdr(struct ifaddrmsg *msg, int length)
 {
-    nd_addr_t *dst = NULL;
-    int oif = 0;
+    nd_addr_t *addr = NULL;
 
-    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl))
+    for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length))
     {
-        if (rta->rta_type == RTA_OIF)
-            oif = *(int *)RTA_DATA(rta);
-        else if (rta->rta_type == RTA_DST)
-            dst = (nd_addr_t *)RTA_DATA(rta);
+        if (rta->rta_type == IFA_ADDRESS)
+            addr = (nd_addr_t *)RTA_DATA(rta);
     }
 
-    if (!dst || !oif)
+    if (!addr)
         return;
 
-    ND_LL_FOREACH(ndL_routes, route, next)
+    ND_LL_FOREACH(ndL_addrs, rt_addr, next)
     {
-        if (nd_addr_eq(&route->addr, dst) && route->pflen == msg->rtm_dst_len && route->table == msg->rtm_table)
+        if (rt_addr->iif == msg->ifa_index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == msg->ifa_prefixlen)
         {
-            nd_log_debug("rtnl: DELROUTE %s/%d dev %d table %d", nd_addr_to_string(dst), msg->rtm_dst_len, oif,
-                         msg->rtm_table);
-            ND_LL_DELETE(ndL_routes, route, next);
-            ND_LL_PREPEND(ndL_free_routes, route, next);
+            ND_LL_DELETE(ndL_addrs, rt_addr, next);
+            ND_LL_PREPEND(ndL_free_addrs, rt_addr, next);
+            nd_log_debug("rtnl: DELADDR %s/%d if %d", nd_aton(addr), msg->ifa_prefixlen, msg->ifa_index);
             return;
         }
     }
@@ -162,7 +158,35 @@ static void ndL_handle_newroute(struct rtmsg *msg, int rtl)
 
     ndL_insert_route(route);
 
-    nd_log_debug("rtnl: NEWROUTE %s/%d dev %d table %d", nd_addr_to_string(dst), msg->rtm_dst_len, oif, msg->rtm_table);
+    nd_log_debug("rtnl: NEWROUTE %s/%d dev %d table %d", nd_aton(dst), msg->rtm_dst_len, oif, msg->rtm_table);
+}
+
+static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
+{
+    nd_addr_t *dst = NULL;
+    int oif = 0;
+
+    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl))
+    {
+        if (rta->rta_type == RTA_OIF)
+            oif = *(int *)RTA_DATA(rta);
+        else if (rta->rta_type == RTA_DST)
+            dst = (nd_addr_t *)RTA_DATA(rta);
+    }
+
+    if (!dst || !oif)
+        return;
+
+    ND_LL_FOREACH(ndL_routes, route, next)
+    {
+        if (nd_addr_eq(&route->addr, dst) && route->pflen == msg->rtm_dst_len && route->table == msg->rtm_table)
+        {
+            nd_log_debug("rtnl: DELROUTE %s/%d dev %d table %d", nd_aton(dst), msg->rtm_dst_len, oif, msg->rtm_table);
+            ND_LL_DELETE(ndL_routes, route, next);
+            ND_LL_PREPEND(ndL_free_routes, route, next);
+            return;
+        }
+    }
 }
 
 static void ndL_sio_handler(__attribute__((unused)) nd_sio_t *unused1, __attribute__((unused)) int unused2)
@@ -197,7 +221,9 @@ static void ndL_sio_handler(__attribute__((unused)) nd_sio_t *unused1, __attribu
             else if (hdr->nlmsg_type == RTM_DELROUTE)
                 ndL_handle_delroute((struct rtmsg *)NLMSG_DATA(hdr), RTM_PAYLOAD(hdr));
             else if (hdr->nlmsg_type == RTM_NEWADDR)
-                ndL_handle_newaddress((struct ifaddrmsg *)NLMSG_DATA(hdr), IFA_PAYLOAD(hdr));
+                ndL_handle_newaddr((struct ifaddrmsg *)NLMSG_DATA(hdr), IFA_PAYLOAD(hdr));
+            else if (hdr->nlmsg_type == RTM_DELADDR)
+                ndL_handle_deladdr((struct ifaddrmsg *)NLMSG_DATA(hdr), IFA_PAYLOAD(hdr));
         }
     }
 }

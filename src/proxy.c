@@ -66,8 +66,8 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
 void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused)) nd_addr_t *dst, nd_addr_t *tgt,
                         uint8_t *src_ll)
 {
-    nd_log_trace("Handle NA src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s", nd_addr_to_string(src), src_ll[0], src_ll[1],
-                 src_ll[2], src_ll[3], src_ll[4], src_ll[5], nd_addr_to_string(dst), nd_addr_to_string(tgt));
+    nd_log_trace("Handle NA src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s", nd_aton(src), src_ll[0], src_ll[1],
+                 src_ll[2], src_ll[3], src_ll[4], src_ll[5], nd_aton(dst), nd_aton(tgt));
 
     nd_session_t *session;
 
@@ -125,7 +125,7 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
     }
     else if ((session->iface = rule->iface))
     {
-        session->iface->refs++;
+        session->iface->refcount++;
     }
 
     if (session->iface)
@@ -156,7 +156,7 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
         if (++session->rcount > nd_conf_retrans_limit)
         {
             session->state = ND_STATE_INVALID;
-            nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", proxy->ifname, nd_addr_to_string(&session->tgt));
+            nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", proxy->ifname, nd_aton(&session->tgt));
             break;
         }
 
@@ -172,7 +172,7 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
 
         nd_iface_close(session->iface);
         nd_free_session(session);
-        nd_log_debug("session [%s] %s INVALID -> (deleted)", proxy->ifname, nd_addr_to_string(&session->tgt));
+        nd_log_debug("session [%s] %s INVALID -> (deleted)", proxy->ifname, nd_aton(&session->tgt));
         break;
 
     case ND_STATE_VALID:
@@ -184,7 +184,7 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
         session->state = ND_STATE_STALE;
         session->rcount = 0;
 
-        nd_log_debug("session [%s] %s VALID -> STALE", proxy->ifname, nd_addr_to_string(&session->tgt));
+        nd_log_debug("session [%s] %s VALID -> STALE", proxy->ifname, nd_aton(&session->tgt));
         nd_iface_write_ns(session->iface, &session->tgt);
         break;
 
@@ -193,7 +193,7 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
         {
             session->mtime = nd_current_time;
             session->state = ND_STATE_INVALID;
-            nd_log_debug("session [%s] %s STALE -> INVALID", proxy->ifname, nd_addr_to_string(&session->tgt));
+            nd_log_debug("session [%s] %s STALE -> INVALID", proxy->ifname, nd_aton(&session->tgt));
         }
         else
         {

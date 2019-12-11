@@ -34,7 +34,6 @@
 #    define INT_MIN (-INT_MAX - 1)
 #endif
 
-#include "conf.h"
 #include "ndppd.h"
 #include "proxy.h"
 #include "rule.h"

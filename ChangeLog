@@ -12,7 +12,6 @@
         * Managing routes and keeping track of local addresses are now done
           through the use of Netlink. As such, /proc/* support is now gone.
 
-        *
 
 
 2017-01-07  Johnathan Sharratt <johnathan.sharratt@gmail.com>

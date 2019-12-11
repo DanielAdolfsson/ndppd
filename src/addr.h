@@ -24,7 +24,7 @@
 bool nd_addr_is_multicast(nd_addr_t *addr);
 bool nd_addr_is_unicast(nd_addr_t *addr);
 
-const char *nd_addr_to_string(nd_addr_t *addr);
+const char *nd_aton(nd_addr_t *addr);
 bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen);
 bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second);
 

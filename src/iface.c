@@ -47,6 +47,7 @@ extern bool nd_conf_keepalive;
 
 static nd_iface_t *ndL_first_iface, *ndL_first_free_iface;
 
+/* Used when daemonizing to make sure the parent process does not restore these flags upon exit. */
 bool nd_iface_no_restore_flags;
 
 typedef struct
@@ -62,11 +63,9 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_solicit))
         return;
 
-    /* TODO: We need to properly parse options here.  */
+    /* We're not doing "proper" parsing of options here. */
 
-    size_t optlen = ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit);
-
-    if (optlen < 8)
+    if (ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit) < 8)
         return;
 
     struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
@@ -74,10 +73,10 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR)
         return;
 
-    uint8_t *lladdr = (uint8_t *)((void *)opt + 2);
+    uint8_t *src_ll = (uint8_t *)((void *)opt + 2);
 
     if (iface->proxy)
-        nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, lladdr);
+        nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, src_ll);
 }
 
 static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
@@ -97,7 +96,7 @@ static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     {
         session->state = ND_STATE_VALID;
         session->mtime = nd_current_time;
-        nd_log_debug("session [%s] %s ? -> VALID", "?", nd_addr_to_string(&session->tgt));
+        nd_log_debug("session [%s] %s ? -> VALID", "?", nd_aton(&session->tgt));
     }
 
     session->atime = nd_current_time;
@@ -156,22 +155,16 @@ static void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
     ndL_icmp6_msg_t *msg = (ndL_icmp6_msg_t *)buf;
 
     if ((size_t)buflen < sizeof(ndL_icmp6_msg_t))
-        /* TODO: log. Invalid length. */
         return;
 
     if ((size_t)buflen != sizeof(struct ip6_hdr) + ntohs(msg->ip6_hdr.ip6_plen))
-        /* TODO: log. Invalid length. */
         return;
 
     if (msg->ip6_hdr.ip6_nxt != IPPROTO_ICMPV6)
-        /* TODO: log. Invalid next header. */
         return;
 
     if (ndL_calculate_icmp6_checksum(msg, buflen) != msg->icmp6_hdr.icmp6_cksum)
-        /* TODO: log. Invalid checksum. */
         return;
-
-    /* TODO: Validate checksum, lengths, etc. */
 
     if (msg->icmp6_hdr.icmp6_type == ND_NEIGHBOR_SOLICIT)
         ndL_handle_ns(iface, msg);
@@ -199,13 +192,7 @@ static void ndL_sio_handler(nd_sio_t *sio, __attribute__((unused)) int events)
             return;
 
         if (len < 0)
-        {
-            if (errno == EAGAIN)
-                return;
-
-            /* TODO */
             return;
-        }
 
         ndL_handle_packet(ifa, buf, len);
     }
@@ -241,7 +228,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
 
     if (iface)
     {
-        iface->refs++;
+        iface->refcount++;
         return iface;
     }
 
@@ -311,7 +298,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
 
     iface->sio = sio;
     iface->index = index;
-    iface->refs = 1;
+    iface->refcount = 1;
     iface->old_allmulti = -1;
     iface->old_promisc = -1;
     strcpy(iface->name, name);
@@ -327,7 +314,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
 
 void nd_iface_close(nd_iface_t *iface)
 {
-    if (--iface->refs > 0)
+    if (--iface->refcount > 0)
         return;
 
     if (!nd_iface_no_restore_flags)
@@ -408,7 +395,7 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd
 
     memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
 
-    nd_log_info("Write NA tgt=%s, dst=%s [%x:%x:%x:%x:%x:%x dev %s]", nd_addr_to_string(tgt), nd_addr_to_string(dst),
+    nd_log_info("Write NA tgt=%s, dst=%s [%x:%x:%x:%x:%x:%x dev %s]", nd_aton(tgt), nd_aton(dst),
                 dst_ll[0], dst_ll[1], dst_ll[2], dst_ll[3], dst_ll[4], dst_ll[5], iface->name);
 
     return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), dst_ll);
@@ -445,7 +432,7 @@ ssize_t nd_iface_write_ns(nd_iface_t *ifa, nd_addr_t *tgt)
     uint8_t ll_mcast[6] = { 0x33, 0x33 };
     *(uint32_t *)&ll_mcast[2] = tgt->s6_addr32[3];
 
-    nd_log_trace("Write NS iface=%s, tgt=%s", ifa->name, nd_addr_to_string(tgt));
+    nd_log_trace("Write NS iface=%s, tgt=%s", ifa->name, nd_aton(tgt));
 
     return ndL_send_icmp6(ifa, (ndL_icmp6_msg_t *)&msg, sizeof(msg), ll_mcast);
 }
@@ -521,7 +508,7 @@ void nd_iface_cleanup()
     ND_LL_FOREACH_S(ndL_first_iface, iface, tmp, next)
     {
         /* We're gonna be bad and just ignore refs here as all memory will soon be invalid anyway. */
-        iface->refs = 1;
+        iface->refcount = 1;
         nd_iface_close(iface);
     }
 }

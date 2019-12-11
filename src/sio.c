@@ -189,7 +189,12 @@ ssize_t nd_sio_recv(nd_sio_t *sio, struct sockaddr *addr, size_t addrlen, void *
     int len;
 
     if ((len = recvmsg(sio->fd, &mhdr, 0)) < 0)
+    {
+        if (errno != EAGAIN)
+            nd_log_error("nd_sio_recv() failed: %s", strerror(errno));
+
         return -1;
+    }
 
     return len;
 }

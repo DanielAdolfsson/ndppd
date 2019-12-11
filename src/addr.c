@@ -21,15 +21,12 @@
 
 #include "ndppd.h"
 
-/*! Get the string representation of the specified address.
+/*! Returns the string representation of <tt>addr</tt>.
  *
  * @note This function returns a pointer to static data. It uses three different static arrays
  * to allow the function to be chained.
- *
- * @param addr
- * @return
  */
-const char *nd_addr_to_string(nd_addr_t *addr)
+const char *nd_aton(nd_addr_t *addr)
 {
     static int index;
     static char buf[3][64];
@@ -42,7 +39,7 @@ const char *nd_addr_to_string(nd_addr_t *addr)
     return inet_ntop(AF_INET6, addr, buf[n], sizeof(buf[n]));
 }
 
-/*! Returns true if the specified address is a multicast address. */
+/*! Returns true if <tt>addr</tt> is a multicast address. */
 bool nd_addr_is_multicast(nd_addr_t *addr)
 {
     return addr->s6_addr[0] == 0xff;
@@ -53,13 +50,7 @@ bool nd_addr_is_unicast(nd_addr_t *addr)
     return !(addr->s6_addr32[2] == 0 && addr->s6_addr32[3] == 0) && addr->s6_addr[0] != 0xff;
 }
 
-/*! Compares two addresses using the specified prefix length.
- *
- * @param first
- * @param second
- * @param pflen
- * @return true if there is a match
- */
+/*! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>. */
 bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen)
 {
     if (pflen < 0 || pflen > 128)
@@ -101,6 +92,7 @@ bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen)
     return true;
 }
 
+/*! Returns true if <tt>first</tt> and <tt>second</tt> are the same. */
 bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
 {
     return first->s6_addr32[0] == second->s6_addr32[0] && first->s6_addr32[1] == second->s6_addr32[1] &&

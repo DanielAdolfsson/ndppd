@@ -25,7 +25,7 @@
 struct nd_iface
 {
     nd_iface_t *next;
-    int refs;
+    int refcount;
 
     char name[IF_NAMESIZE];
     uint8_t lladdr[6];
