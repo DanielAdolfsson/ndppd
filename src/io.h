@@ -38,6 +38,9 @@ bool nd_io_bind(nd_io_t *io, const struct sockaddr *addr, size_t addrlen);
 ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen);
 ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen);
 bool nd_io_poll();
+ssize_t nd_io_read(nd_io_t *io, void *buf, size_t count);
+ssize_t nd_io_write(nd_io_t *io, void *buf, size_t count);
+
 void nd_io_cleanup();
 
 #endif /*NDPPD_IO_H*/

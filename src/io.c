@@ -21,9 +21,13 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
+
+#if !defined(__linux__) && !defined(NDPPD_NO_USE_EPOLL)
+#    define NDPPD_NO_USE_EPOLL
+#endif
 
 #ifndef NDPPD_NO_USE_EPOLL
-#    include <fcntl.h>
 #    include <sys/epoll.h>
 #else
 #    include <poll.h>
@@ -56,7 +60,7 @@ static void ndL_refresh_pollfds()
 {
     int count;
 
-    ND_LL_COUNT(ndL_first_sio, count, next);
+    ND_LL_COUNT(ndL_first_io, count, next);
 
     if (count > pollfds_size)
     {
@@ -65,14 +69,12 @@ static void ndL_refresh_pollfds()
         pollfds = (struct pollfd *)realloc(pollfds == static_pollfds ? NULL : pollfds,
                                            new_pollfds_size * sizeof(struct pollfd));
 
-        /* TODO: Validate return value */
-
         pollfds_size = new_pollfds_size;
     }
 
     int index = 0;
 
-    ND_LL_FOREACH(ndL_first_sio, sio, next)
+    ND_LL_FOREACH(ndL_first_io, io, next)
     {
         pollfds[index].fd = io->fd;
         pollfds[index].revents = 0;
@@ -83,24 +85,6 @@ static void ndL_refresh_pollfds()
     pollfds_count = index;
 }
 #endif
-
-nd_io_t *nd_sio_create(int fd)
-{
-    nd_io_t *io = ndL_first_free_io;
-
-    if (io)
-        ND_LL_DELETE(ndL_first_free_io, io, next);
-    else
-        io = ND_ALLOC(nd_io_t);
-
-    ND_LL_PREPEND(ndL_first_io, io, next);
-
-    io->fd = fd;
-    io->data = 0;
-    io->handler = NULL;
-
-    return io;
-}
 
 static nd_io_t *ndL_create(int fd)
 {
@@ -239,6 +223,19 @@ ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg
     return len;
 }
 
+ssize_t nd_io_read(nd_io_t *io, void *buf, size_t count)
+{
+    return read(io->fd, buf, count);
+}
+
+ssize_t nd_io_write(nd_io_t *io, void *buf, size_t count)
+{
+    ssize_t len = write(io->fd, buf, count);
+    if (len < 0)
+        nd_log_error("err: %s", strerror(errno));
+    return len;
+}
+
 bool nd_io_bind(nd_io_t *io, const struct sockaddr *addr, size_t addrlen)
 {
     return bind(io->fd, addr, addrlen) == 0;
@@ -264,7 +261,6 @@ bool nd_io_poll()
         if (io->handler)
             io->handler(io, events[i].events);
     }
-
 #else
     if (ndL_dirty)
     {
@@ -285,12 +281,12 @@ bool nd_io_poll()
         if (pollfds[i].revents == 0)
             continue;
 
-        for (nd_sio_t *sio = ndL_first_sio; sio; sio = io->next)
+        ND_LL_FOREACH(ndL_first_io, io, next)
         {
             if (io->fd == pollfds[i].fd)
             {
                 if (io->handler != NULL)
-                    io->handler(sio, pollfds[i].revents);
+                    io->handler(io, pollfds[i].revents);
 
                 break;
             }

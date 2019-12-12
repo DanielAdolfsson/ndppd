@@ -17,9 +17,16 @@
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <errno.h>
-#include <linux/rtnetlink.h>
 #include <string.h>
 #include <sys/socket.h>
+
+#ifdef __linux__
+#    include <linux/rtnetlink.h>
+#else
+#    include <net/if.h>
+#    include <net/if_var.h>
+#    include <net/route.h>
+#endif
 
 #include "addr.h"
 #include "io.h"
@@ -27,15 +34,15 @@
 #include "rtnl.h"
 
 static nd_io_t *ndL_io;
-static nd_rtnl_route_t *ndL_routes, *ndL_free_routes;
-static nd_rtnl_addr_t *ndL_addrs, *ndL_free_addrs;
+__attribute__((unused)) static nd_rtnl_route_t *ndL_routes, *ndL_free_routes;
+__attribute__((unused)) static nd_rtnl_addr_t *ndL_addrs, *ndL_free_addrs;
 
 long nd_rtnl_dump_timeout;
 
 /*
  * This will ensure the linked list is kept sorted, so it will be easier to find a match.
  */
-static void ndL_insert_route(nd_rtnl_route_t *route)
+__attribute__((unused)) static void ndL_insert_route(nd_rtnl_route_t *route)
 {
     nd_rtnl_route_t *prev = NULL;
 
@@ -58,6 +65,7 @@ static void ndL_insert_route(nd_rtnl_route_t *route)
     }
 }
 
+#ifdef __linux__
 static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
 {
     nd_addr_t *addr = NULL;
@@ -227,12 +235,39 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
         }
     }
 }
+#else
+__attribute__((unused)) static void ndL_handle_newaddr(struct ifa_msghdr *msg, int length)
+{
+    (void)msg;
+    (void)length;
+
+    nd_log_debug("rtnl: NEWADDR");
+}
+
+static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute__((unused)) int unused2)
+{
+    uint8_t buf[4096];
+
+    for (;;)
+    {
+        ssize_t len = nd_io_read(ndL_io, buf, sizeof(buf));
+
+        if (len < 0)
+            /* Failed. */
+            return;
+    }
+}
+
+
+#endif
+
 
 bool nd_rtnl_open()
 {
     if (ndL_io != NULL)
         return true;
 
+#ifdef __linux__
     if (!(ndL_io = nd_io_socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)))
     {
         nd_log_error("Failed to open netlink socket: %s", strerror(errno));
@@ -251,6 +286,13 @@ bool nd_rtnl_open()
         ndL_io = NULL;
         return false;
     }
+#else
+    if (!(ndL_io = nd_io_socket(AF_ROUTE, SOCK_RAW, AF_INET6)))
+    {
+        nd_log_error("Failed to open routing socket: %s", strerror(errno));
+        return false;
+    }
+#endif
 
     ndL_io->handler = ndL_io_handler;
 
@@ -268,6 +310,7 @@ bool nd_rtnl_query_routes()
     if (nd_rtnl_dump_timeout)
         return false;
 
+#ifdef __linux__
     struct
     {
         struct nlmsghdr hdr;
@@ -291,6 +334,7 @@ bool nd_rtnl_query_routes()
     nd_rtnl_dump_timeout = nd_current_time + 5000;
 
     nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
+#endif
     return false;
 }
 
@@ -299,6 +343,7 @@ bool nd_rtnl_query_addresses()
     if (nd_rtnl_dump_timeout)
         return false;
 
+#ifdef __linux__
     struct
     {
         struct nlmsghdr hdr;
@@ -321,6 +366,7 @@ bool nd_rtnl_query_addresses()
     nd_rtnl_dump_timeout = nd_current_time + 5000;
 
     nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
+#endif
     return false;
 }
 

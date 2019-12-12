@@ -38,6 +38,10 @@ struct nd_iface
 
     nd_proxy_t *proxy;
     nd_session_t *sessions; /* All sessions expecting NA messages to arrive here. */
+
+#ifndef __linux__
+    nd_io_t *bpf_io;
+#endif
 };
 
 extern bool nd_iface_no_restore_flags;

@@ -19,6 +19,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+#ifdef __FreeBSD__
+#    include <sys/socket.h>
+#    define s6_addr32 __u6_addr.__u6_addr32
+#endif
+
 #include "ndppd.h"
 
 /*! Returns the string representation of <tt>addr</tt>.

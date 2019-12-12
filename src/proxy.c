@@ -237,10 +237,12 @@ bool nd_proxy_startup()
 
         proxy->iface->proxy = proxy;
 
+#ifdef __linux__
         if (proxy->promisc)
             nd_iface_set_promisc(proxy->iface, true);
         else
             nd_iface_set_allmulti(proxy->iface, true);
+#endif
 
         ND_LL_FOREACH(proxy->rules, rule, next)
         {
