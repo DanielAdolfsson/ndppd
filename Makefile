@@ -2,6 +2,7 @@ ifdef DEBUG
 CCFLAGS ?= -g -DDEBUG
 else
 CCFLAGS ?= -Os
+LDFLAGS ?= -s -w
 endif
 
 PREFIX      ?= /usr/local

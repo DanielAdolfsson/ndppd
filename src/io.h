@@ -31,10 +31,8 @@ struct nd_io
     nd_io_handler_t *handler;
 };
 
-nd_io_t *nd_sio_create(int fd);
-bool nd_sio_set_nonblock(nd_io_t *io, bool value);
-
 nd_io_t *nd_io_socket(int domain, int type, int protocol);
+nd_io_t *nd_io_open(const char *file, int oflag);
 void nd_io_close(nd_io_t *io);
 bool nd_io_bind(nd_io_t *io, const struct sockaddr *addr, size_t addrlen);
 ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen);

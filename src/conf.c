@@ -520,7 +520,7 @@ bool nd_conf_load(const char *path)
 
     if (fp == NULL)
     {
-        nd_log_error("Failed to load configuration (%s): %s", path, strerror(errno));
+        nd_log_error("Failed to load configuration: %s", strerror(errno));
         return NULL;
     }
 

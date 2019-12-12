@@ -191,10 +191,7 @@ int main(int argc, char *argv[])
     nd_log_info("Loading configuration \"%s\"...", nd_opt_config_path);
 
     if (!nd_conf_load(nd_opt_config_path))
-    {
-        nd_log_error("Failed to load configuration");
         return -1;
-    }
 
     if (!nd_iface_startup())
         return -1;
@@ -211,7 +208,6 @@ int main(int argc, char *argv[])
     nd_rtnl_query_routes();
 
     bool query_addresses = false;
-
 
     while (1)
     {

@@ -13,7 +13,7 @@ Please read the manpages [ndppd.conf.5](ndppd.conf.5.adoc) and [ndppd.8](ndppd.8
 - [x] EPOLL support
 - [x] rtnetlink: Tracking routes
 - [x] rtnetlink: Tracking local addresses
-- [ ] rtnetlink: Memory cleanup
+- [x] rtnetlink: Cleanup
 - [ ] rtnetlink: Managing routes
 - [x] Automatic detection of internal interfaces (auto)
 - [ ] Automatically managing routes (autowire)
