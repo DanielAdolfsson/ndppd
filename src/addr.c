@@ -103,3 +103,20 @@ bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
     return first->s6_addr32[0] == second->s6_addr32[0] && first->s6_addr32[1] == second->s6_addr32[1] &&
            first->s6_addr32[2] == second->s6_addr32[2] && first->s6_addr32[3] == second->s6_addr32[3];
 }
+
+int ndL_count_bits(uint32_t n)
+{
+    n = (n & 0x55555555u) + ((n >> 1) & 0x55555555u);
+    n = (n & 0x33333333u) + ((n >> 2) & 0x33333333u);
+    n = (n & 0x0f0f0f0fu) + ((n >> 4) & 0x0f0f0f0fu);
+    n = (n & 0x00ff00ffu) + ((n >> 8) & 0x00ff00ffu);
+    n = (n & 0x0000ffffu) + ((n >> 16) & 0x0000ffffu);
+    return n;
+}
+
+int nd_addr_pflen(nd_addr_t *netmask)
+{
+    return ndL_count_bits(netmask->s6_addr32[0]) + ndL_count_bits(netmask->s6_addr32[1]) +
+           ndL_count_bits(netmask->s6_addr32[2]) + ndL_count_bits(netmask->s6_addr32[3]);
+}
+
