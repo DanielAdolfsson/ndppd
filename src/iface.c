@@ -167,7 +167,7 @@ static uint16_t ndL_calculate_icmp6_checksum(ndL_icmp6_msg_t *msg, size_t size)
     return htons(~sum);
 }
 
-static __attribute__((unused)) void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
+static void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
 {
     ndL_icmp6_msg_t *msg = (ndL_icmp6_msg_t *)buf;
 
@@ -268,7 +268,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 }
 #endif
 
-__attribute__((unused)) static bool ndL_configure_filter(nd_io_t *io)
+static bool ndL_configure_filter(nd_io_t *io)
 {
 #ifndef __linux__
 #    define sock_filter bpf_insn
@@ -477,7 +477,7 @@ void nd_iface_close(nd_iface_t *iface)
     ND_LL_PREPEND(ndL_first_free_iface, iface, next);
 }
 
-void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
+static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
 {
     addr->s6_addr[0] = 0xfe;
     addr->s6_addr[1] = 0x80;
