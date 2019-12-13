@@ -73,7 +73,7 @@ enum
 {
     NDL_DEFAULT,
     NDL_PROXY,
-    NDL_ROUTE
+    NDL_RULE
 };
 
 /* Configuration types. */
@@ -111,8 +111,12 @@ static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "retrans-time", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_retrans_time, 0, 60000, NULL },
     { "keepalive", NDL_DEFAULT, NDL_BOOL, (uintptr_t)&nd_conf_keepalive, 0, 0, NULL },
     { "router", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, router), 0, 0, NULL },
-    { "auto", NDL_ROUTE, NDL_BOOL, offsetof(nd_rule_t, is_auto), 0, 0, NULL },
+    { "auto", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, is_auto), 0, 0, NULL },
+    { "autowire", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, autowire), 0, 0, NULL },
     { "promisc", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, promisc), 0, 0, NULL },
+#ifndef __FreeBSD__
+    { "table", NDL_RULE, NDL_INT, offsetof(nd_rule_t, table), 0, 255, NULL },
+#endif
     { NULL, 0, 0, 0, 0, 0, NULL },
 };
 
@@ -388,7 +392,13 @@ static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
         rule->prefix = 128;
     }
 
-    return ndL_parse_block(state, NDL_ROUTE, rule);
+#ifdef __linux__
+    rule->table = 254;
+#else
+    rule->table = 0;
+#endif
+
+    return ndL_parse_block(state, NDL_RULE, rule);
 }
 
 static bool ndL_parse_proxy(ndL_state_t *state, __attribute__((unused)) void *unused)

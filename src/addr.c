@@ -29,7 +29,7 @@
 /*! Returns the string representation of <tt>addr</tt>.
  *
  * @note This function returns a pointer to static data. It uses three different static arrays
- * to allow the function to be chained.
+ *       to allow the function to be chained.
  */
 const char *nd_aton(nd_addr_t *addr)
 {
@@ -105,11 +105,11 @@ bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen)
 
 static int ndL_count_bits(uint32_t n)
 {
-    n = (n & 0x55555555u) + ((n >> 1) & 0x55555555u);
-    n = (n & 0x33333333u) + ((n >> 2) & 0x33333333u);
-    n = (n & 0x0f0f0f0fu) + ((n >> 4) & 0x0f0f0f0fu);
-    n = (n & 0x00ff00ffu) + ((n >> 8) & 0x00ff00ffu);
-    n = (n & 0x0000ffffu) + ((n >> 16) & 0x0000ffffu);
+    n = (n & 0x55555555) + ((n >> 1) & 0x55555555);
+    n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+    n = (n & 0x0f0f0f0f) + ((n >> 4) & 0x0f0f0f0f);
+    n = (n & 0x00ff00ff) + ((n >> 8) & 0x00ff00ff);
+    n = (n & 0x0000ffff) + ((n >> 16) & 0x0000ffff);
     return n;
 }
 
@@ -123,38 +123,37 @@ void nd_addr_from_pflen(int pflen, nd_addr_t *netmask)
 {
     if (pflen >= 97)
     {
-        netmask->s6_addr32[0] = 0xffffffffu;
-        netmask->s6_addr32[1] = 0xffffffffu;
-        netmask->s6_addr32[2] = 0xffffffffu;
+        netmask->s6_addr32[0] = 0xffffffff;
+        netmask->s6_addr32[1] = 0xffffffff;
+        netmask->s6_addr32[2] = 0xffffffff;
         netmask->s6_addr32[3] = ndL_masks[pflen - 97];
     }
     else if (pflen >= 65)
     {
-        netmask->s6_addr32[0] = 0xffffffffu;
-        netmask->s6_addr32[1] = 0xffffffffu;
+        netmask->s6_addr32[0] = 0xffffffff;
+        netmask->s6_addr32[1] = 0xffffffff;
         netmask->s6_addr32[2] = ndL_masks[pflen - 65];
-        netmask->s6_addr32[3] = 0x00000000u;
+        netmask->s6_addr32[3] = 0x00000000;
     }
     else if (pflen >= 33)
     {
-        netmask->s6_addr32[0] = 0xffffffffu;
+        netmask->s6_addr32[0] = 0xffffffff;
         netmask->s6_addr32[1] = ndL_masks[pflen - 33];
-        netmask->s6_addr32[2] = 0x00000000u;
-        netmask->s6_addr32[3] = 0x00000000u;
+        netmask->s6_addr32[2] = 0x00000000;
+        netmask->s6_addr32[3] = 0x00000000;
     }
     else if (pflen >= 1)
     {
         netmask->s6_addr32[0] = ndL_masks[pflen - 1];
-        netmask->s6_addr32[1] = 0x00000000u;
-        netmask->s6_addr32[2] = 0x00000000u;
-        netmask->s6_addr32[3] = 0x00000000u;
+        netmask->s6_addr32[1] = 0x00000000;
+        netmask->s6_addr32[2] = 0x00000000;
+        netmask->s6_addr32[3] = 0x00000000;
     }
     else
     {
-        netmask->s6_addr32[0] = 0x00000000u;
-        netmask->s6_addr32[1] = 0x00000000u;
-        netmask->s6_addr32[2] = 0x00000000u;
-        netmask->s6_addr32[3] = 0x00000000u;
+        netmask->s6_addr32[0] = 0x00000000;
+        netmask->s6_addr32[1] = 0x00000000;
+        netmask->s6_addr32[2] = 0x00000000;
+        netmask->s6_addr32[3] = 0x00000000;
     }
 }
-

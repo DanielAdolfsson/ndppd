@@ -34,6 +34,8 @@ struct nd_rule
 
     nd_iface_t *iface;
     bool is_auto;
+    bool autowire;
+    int table;
 };
 
 nd_rule_t *nd_rule_create(nd_proxy_t *proxy);
