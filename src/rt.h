@@ -16,17 +16,17 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef NDPPD_RTNL_H
-#define NDPPD_RTNL_H
+#ifndef NDPPD_RT_H
+#define NDPPD_RT_H
 
 #include "ndppd.h"
 
-typedef struct nd_rtnl_route nd_rtnl_route_t;
-typedef struct nd_rtnl_addr nd_rtnl_addr_t;
+typedef struct nd_rt_route nd_rt_route_t;
+typedef struct nd_rt_addr nd_rt_addr_t;
 
-struct nd_rtnl_route
+struct nd_rt_route
 {
-    nd_rtnl_route_t *next;
+    nd_rt_route_t *next;
     nd_addr_t addr;
     unsigned int oif;
     int pflen;
@@ -34,20 +34,20 @@ struct nd_rtnl_route
     int metrics;
 };
 
-struct nd_rtnl_addr
+struct nd_rt_addr
 {
-    nd_rtnl_addr_t *next;
+    nd_rt_addr_t *next;
     unsigned int iif;
     nd_addr_t addr;
     int pflen;
 };
 
-extern long nd_rtnl_dump_timeout;
+extern long nd_rt_dump_timeout;
 
-bool nd_rtnl_open();
-void nd_rtnl_cleanup();
-bool nd_rtnl_query_addresses();
-bool nd_rtnl_query_routes();
-nd_rtnl_route_t *nd_rtnl_find_route(nd_addr_t *addr, int table);
+bool nd_rt_open();
+void nd_rt_cleanup();
+bool nd_rt_query_addresses();
+bool nd_rt_query_routes();
+nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, int table);
 
-#endif /* NDPPD_RTNL_H */
+#endif /*NDPPD_RT_H*/

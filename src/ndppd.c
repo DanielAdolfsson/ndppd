@@ -33,7 +33,7 @@
 #include "io.h"
 #include "ndppd.h"
 #include "proxy.h"
-#include "rtnl.h"
+#include "rt.h"
 
 #ifndef NDPPD_CONFIG_PATH
 #    define NDPPD_CONFIG_PATH "../ndppd.conf"
@@ -123,7 +123,7 @@ static bool ndL_daemonize()
 static void ndL_exit()
 {
     nd_iface_cleanup();
-    nd_rtnl_cleanup();
+    nd_rt_cleanup();
     nd_alloc_cleanup();
 }
 
@@ -199,25 +199,25 @@ int main(int argc, char *argv[])
     if (!nd_proxy_startup())
         return -1;
 
-    if (!nd_rtnl_open())
+    if (!nd_rt_open())
         return -1;
 
     if (nd_opt_daemonize && !ndL_daemonize())
         return -1;
 
-    nd_rtnl_query_routes();
+    nd_rt_query_routes();
 
     bool query_addresses = false;
 
     while (1)
     {
-        if (nd_current_time >= nd_rtnl_dump_timeout)
-            nd_rtnl_dump_timeout = 0;
+        if (nd_current_time >= nd_rt_dump_timeout)
+            nd_rt_dump_timeout = 0;
 
-        if (!query_addresses && !nd_rtnl_dump_timeout)
+        if (!query_addresses && !nd_rt_dump_timeout)
         {
             query_addresses = true;
-            nd_rtnl_query_addresses();
+            nd_rt_query_addresses();
         }
 
         if (!nd_io_poll())

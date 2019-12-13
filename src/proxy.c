@@ -23,7 +23,7 @@
 #include "iface.h"
 #include "ndppd.h"
 #include "proxy.h"
-#include "rtnl.h"
+#include "rt.h"
 #include "rule.h"
 #include "session.h"
 
@@ -107,7 +107,7 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
     {
         /* TODO: Loop through valid routes. */
 
-        nd_rtnl_route_t *route = nd_rtnl_find_route(tgt, rule->table);
+        nd_rt_route_t *route = nd_rt_find_route(tgt, rule->table);
 
         if (!route || route->oif == proxy->iface->index)
         {

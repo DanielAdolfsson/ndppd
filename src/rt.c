@@ -33,17 +33,17 @@
 #include "addr.h"
 #include "io.h"
 #include "ndppd.h"
-#include "rtnl.h"
+#include "rt.h"
 
 static nd_io_t *ndL_io;
-static nd_rtnl_route_t *ndL_routes, *ndL_free_routes;
-static nd_rtnl_addr_t *ndL_addrs, *ndL_free_addrs;
+static nd_rt_route_t *ndL_routes, *ndL_free_routes;
+static nd_rt_addr_t *ndL_addrs, *ndL_free_addrs;
 
-long nd_rtnl_dump_timeout;
+long nd_rt_dump_timeout;
 
-static void ndL_add_route(unsigned int oif, nd_addr_t *dst, int pflen, int table)
+static void ndL_new_route(unsigned int oif, nd_addr_t *dst, int pflen, int table)
 {
-    nd_rtnl_route_t *route;
+    nd_rt_route_t *route;
 
     ND_LL_FOREACH_NODEF(ndL_routes, route, next)
     {
@@ -54,7 +54,7 @@ static void ndL_add_route(unsigned int oif, nd_addr_t *dst, int pflen, int table
     if ((route = ndL_free_routes))
         ND_LL_DELETE(ndL_free_routes, route, next);
     else
-        route = ND_ALLOC(nd_rtnl_route_t);
+        route = ND_ALLOC(nd_rt_route_t);
 
     route->addr = *dst;
     route->pflen = pflen;
@@ -65,7 +65,7 @@ static void ndL_add_route(unsigned int oif, nd_addr_t *dst, int pflen, int table
      * This will ensure the linked list is kept sorted, so it will be easier to find a match.
      */
 
-    nd_rtnl_route_t *prev = NULL;
+    nd_rt_route_t *prev = NULL;
 
     ND_LL_FOREACH(ndL_routes, cur, next)
     {
@@ -85,12 +85,12 @@ static void ndL_add_route(unsigned int oif, nd_addr_t *dst, int pflen, int table
         ND_LL_PREPEND(ndL_routes, route, next);
     }
 
-    nd_log_debug("rtnl: NEWROUTE %s/%d dev %d table %d", nd_aton(dst), pflen, oif, table);
+    nd_log_debug("rt: new route %s/%d dev %d table %d", nd_aton(dst), pflen, oif, table);
 }
 
-static void ndL_remove_route(unsigned int oif, nd_addr_t *dst, int pflen, int table)
+static void ndL_delete_route(unsigned int oif, nd_addr_t *dst, int pflen, int table)
 {
-    nd_rtnl_route_t *prev = NULL, *route;
+    nd_rt_route_t *prev = NULL, *route;
 
     ND_LL_FOREACH_NODEF(ndL_routes, route, next)
     {
@@ -108,13 +108,13 @@ static void ndL_remove_route(unsigned int oif, nd_addr_t *dst, int pflen, int ta
     else
         ndL_routes = route->next;
 
-    nd_log_debug("rtnl: DELROUTE %s/%d dev %d table %d", nd_aton(dst), pflen, oif, table);
+    nd_log_debug("rt: delete route %s/%d dev %d table %d", nd_aton(dst), pflen, oif, table);
     ND_LL_PREPEND(ndL_free_routes, route, next);
 }
 
-static void ndL_add_addr(unsigned int index, nd_addr_t *addr, int pflen)
+static void ndL_new_addr(unsigned int index, nd_addr_t *addr, int pflen)
 {
-    nd_rtnl_addr_t *rt_addr;
+    nd_rt_addr_t *rt_addr;
 
     ND_LL_FOREACH_NODEF(ndL_addrs, rt_addr, next)
     {
@@ -125,7 +125,7 @@ static void ndL_add_addr(unsigned int index, nd_addr_t *addr, int pflen)
     if ((rt_addr = ndL_free_addrs))
         ND_LL_DELETE(ndL_free_addrs, rt_addr, next);
     else
-        rt_addr = ND_ALLOC(nd_rtnl_addr_t);
+        rt_addr = ND_ALLOC(nd_rt_addr_t);
 
     ND_LL_PREPEND(ndL_addrs, rt_addr, next);
 
@@ -133,18 +133,18 @@ static void ndL_add_addr(unsigned int index, nd_addr_t *addr, int pflen)
     rt_addr->iif = index;
     rt_addr->addr = *addr;
 
-    nd_log_debug("rtnl: NEWADDR %s/%d if %d", nd_aton(addr), pflen, index);
+    nd_log_debug("rt: new address %s/%d if %d", nd_aton(addr), pflen, index);
 }
 
-static void ndL_remove_addr(unsigned int index, nd_addr_t *addr, int pflen)
+static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, int pflen)
 {
-    nd_rtnl_addr_t *prev = NULL, *rt_addr;
+    nd_rt_addr_t *prev = NULL, *rt_addr;
 
     ND_LL_FOREACH_NODEF(ndL_addrs, rt_addr, next)
     {
         if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen)
         {
-            nd_log_debug("rtnl: DELADDR %s/%d if %d", nd_aton(addr), pflen, index);
+            nd_log_debug("rt: delete address %s/%d if %d", nd_aton(addr), pflen, index);
 
             if (prev)
                 prev->next = rt_addr->next;
@@ -158,7 +158,6 @@ static void ndL_remove_addr(unsigned int index, nd_addr_t *addr, int pflen)
         prev = rt_addr;
     }
 }
-
 
 #ifdef __linux__
 static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
@@ -174,7 +173,7 @@ static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
     if (!addr)
         return;
 
-    ndL_add_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
+    ndL_new_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
 }
 
 static void ndL_handle_deladdr(struct ifaddrmsg *msg, int length)
@@ -190,7 +189,7 @@ static void ndL_handle_deladdr(struct ifaddrmsg *msg, int length)
     if (!addr)
         return;
 
-    ndL_remove_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
+    ndL_delete_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
 }
 
 static void ndL_handle_newroute(struct rtmsg *msg, int rtl)
@@ -209,7 +208,7 @@ static void ndL_handle_newroute(struct rtmsg *msg, int rtl)
     if (!dst || !oif)
         return;
 
-    ndL_add_route(oif, dst, msg->rtm_dst_len, msg->rtm_table);
+    ndL_new_route(oif, dst, msg->rtm_dst_len, msg->rtm_table);
 }
 
 static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
@@ -228,7 +227,7 @@ static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
     if (!dst || !oif)
         return;
 
-    ndL_remove_route(oif, dst, msg->rtm_dst_len, msg->rtm_table);
+    ndL_delete_route(oif, dst, msg->rtm_dst_len, msg->rtm_table);
 }
 
 static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute__((unused)) int unused2)
@@ -247,14 +246,14 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
         {
             if (hdr->nlmsg_type == NLMSG_DONE)
             {
-                nd_rtnl_dump_timeout = 0;
+                nd_rt_dump_timeout = 0;
                 break;
             }
 
             if (hdr->nlmsg_type == NLMSG_ERROR)
             {
                 struct nlmsgerr *e = (struct nlmsgerr *)NLMSG_DATA(hdr);
-                nd_log_error("rtnl: Error \"%s\", type=%d", strerror(-e->error), e->msg.nlmsg_type);
+                nd_log_error("rt: Error \"%s\", type=%d", strerror(-e->error), e->msg.nlmsg_type);
                 continue;
             }
 
@@ -298,16 +297,16 @@ static void ndL_handle_rt(struct rt_msghdr *hdr)
 
     nd_addr_t *dst = &((struct sockaddr_in6 *)rtas[RTAX_DST])->sin6_addr;
 
-#ifdef __FreeBSD__
+#    ifdef __FreeBSD__
     int tableid = 0;
-#else
+#    else
     int tableid = hdr->rtm_tableid;
-#endif
+#    endif
 
     if (hdr->rtm_type == RTM_GET || hdr->rtm_type == RTM_ADD)
-        ndL_add_route(hdr->rtm_index, dst, pflen, tableid);
+        ndL_new_route(hdr->rtm_index, dst, pflen, tableid);
     else if (hdr->rtm_type == RTM_DELETE)
-        ndL_remove_route(hdr->rtm_index, dst, pflen, tableid);
+        ndL_delete_route(hdr->rtm_index, dst, pflen, tableid);
 }
 
 static void ndL_handle_ifa(struct ifa_msghdr *hdr)
@@ -323,9 +322,9 @@ static void ndL_handle_ifa(struct ifa_msghdr *hdr)
     nd_addr_t *ifa = &((struct sockaddr_in6 *)rtas[RTAX_IFA])->sin6_addr;
 
     if (hdr->ifam_type == RTM_NEWADDR)
-        ndL_add_addr(hdr->ifam_index, ifa, pflen);
+        ndL_new_addr(hdr->ifam_index, ifa, pflen);
     else if (hdr->ifam_type == RTM_DELADDR)
-        ndL_remove_addr(hdr->ifam_index, ifa, pflen);
+        ndL_delete_addr(hdr->ifam_index, ifa, pflen);
 }
 
 typedef struct
@@ -406,7 +405,7 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
 
 #endif
 
-bool nd_rtnl_open()
+bool nd_rt_open()
 {
     if (ndL_io != NULL)
         return true;
@@ -443,16 +442,16 @@ bool nd_rtnl_open()
     return true;
 }
 
-void nd_rtnl_cleanup()
+void nd_rt_cleanup()
 {
     if (ndL_io)
         nd_io_close(ndL_io);
 }
 
-bool nd_rtnl_query_routes()
+bool nd_rt_query_routes()
 {
 #ifdef __linux__
-    if (nd_rtnl_dump_timeout)
+    if (nd_rt_dump_timeout)
         return false;
 
     struct
@@ -475,7 +474,7 @@ bool nd_rtnl_query_routes()
     memset(&addr, 0, sizeof(addr));
     addr.nl_family = AF_NETLINK;
 
-    nd_rtnl_dump_timeout = nd_current_time + 5000;
+    nd_rt_dump_timeout = nd_current_time + 5000;
 
     nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
     return true;
@@ -484,10 +483,10 @@ bool nd_rtnl_query_routes()
 #endif
 }
 
-bool nd_rtnl_query_addresses()
+bool nd_rt_query_addresses()
 {
 #ifdef __linux__
-    if (nd_rtnl_dump_timeout)
+    if (nd_rt_dump_timeout)
         return false;
 
     struct
@@ -509,7 +508,7 @@ bool nd_rtnl_query_addresses()
     memset(&addr, 0, sizeof(addr));
     addr.nl_family = AF_NETLINK;
 
-    nd_rtnl_dump_timeout = nd_current_time + 5000;
+    nd_rt_dump_timeout = nd_current_time + 5000;
 
     nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req));
     return true;
@@ -518,7 +517,7 @@ bool nd_rtnl_query_addresses()
 #endif
 }
 
-nd_rtnl_route_t *nd_rtnl_find_route(nd_addr_t *addr, int table)
+nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, int table)
 {
     ND_LL_FOREACH(ndL_routes, route, next)
     {
