@@ -643,6 +643,8 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
     msg.mask.sin6_len = sizeof(msg.mask);
     nd_mask_from_pflen(pflen, &msg.mask.sin6_addr);
 
+    nd_log_info("rt: Adding route %s/%d table %d", nd_aton(dst), pflen, table);
+
     return nd_io_write(ndL_io, &msg, sizeof(msg)) >= 0;
 #endif
 }

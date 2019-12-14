@@ -39,18 +39,18 @@ struct nd_session
 {
     nd_session_t *next_in_proxy;
     nd_session_t *next_in_iface;
-    nd_proxy_t  *proxy;
+    nd_rule_t *rule;
     nd_addr_t tgt;
-    int rcount;
-    long last_announce; // Last time the session was used in a NA response.
-    long rtime; // Last time a NS request was made.
-    long mtime; // Last time state was changed.
+    int ons_count;   // Number of outgoing NS messages.
+    long ons_time;   // Last time we sent a NS message.
+    long ins_time;   // Last time this session was the target of an incoming NS.
+    long state_time; // Time when session entered it's current state.
     nd_state_t state;
     nd_iface_t *iface;
     bool autowired; // If this session had a route set up.
 };
 
-nd_session_t  *nd_session_create(nd_proxy_t *proxy, nd_rule_t *rule, nd_addr_t *tgt);
+nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt);
 void nd_session_update(nd_session_t *session);
 void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, uint8_t *src_ll);
 void nd_session_handle_na(nd_session_t *session);

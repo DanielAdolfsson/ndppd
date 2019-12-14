@@ -24,6 +24,7 @@
 struct nd_rule
 {
     nd_rule_t *next;
+    nd_proxy_t *proxy;
 
     char ifname[IF_NAMESIZE];
 

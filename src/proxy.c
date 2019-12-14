@@ -84,7 +84,7 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_ad
     if (!rule)
         return;
 
-    nd_session_handle_ns(nd_session_create(proxy, rule, tgt), src, src_ll);
+    nd_session_handle_ns(nd_session_create(rule, tgt), src, src_ll);
 }
 
 void nd_proxy_update_all()
