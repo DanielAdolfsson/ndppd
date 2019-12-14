@@ -1,21 +1,19 @@
-/*
- * This file is part of ndppd.
- *
- * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
- *
- * ndppd is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ndppd is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
- */
+// This file is part of ndppd.
+//
+// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+//
+// ndppd is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ndppd is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
@@ -68,7 +66,7 @@ typedef struct
     ndL_cfcb_t cb;
 } ndL_cfinfo_t;
 
-/* Scopes. */
+//! Scopes.
 enum
 {
     NDL_DEFAULT,
@@ -76,7 +74,7 @@ enum
     NDL_RULE
 };
 
-/* Configuration types. */
+//! Configuration types.
 enum
 {
     NDL_NONE,
@@ -85,17 +83,17 @@ enum
     NDL_ADDR
 };
 
-/* Character classes. */
+//! Character classes.
 enum
 {
-    NDL_ALPHA = 256, /* [a-zA-Z] */
-    NDL_ALNUM,       /* [a-zA-Z0-9] */
-    NDL_DIGIT,       /* [0-9] */
-    NDL_EALNM,       /* [a-zA-Z0-9_-] */
-    NDL_SPACE,       /* [\s] */
-    NDL_SNONL,       /* [^\S\n] */
-    NDL_XNONL,       /* [^\n] */
-    NDL_IPV6X,       /* [A-Fa-f0-9:] */
+    NDL_ALPHA = 256, // [a-zA-Z]
+    NDL_ALNUM,       // [a-zA-Z0-9]
+    NDL_DIGIT,       // [0-9]
+    NDL_EALNM,       // [a-zA-Z0-9_-]
+    NDL_SPACE,       // [\s]
+    NDL_SNONL,       // [^\S\n]
+    NDL_XNONL,       // [^\n]
+    NDL_IPV6X,       // [A-Fa-f0-9:]
 };
 
 static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy);
@@ -253,7 +251,7 @@ static bool ndL_accept_bool(ndL_state_t *state, bool *value)
         *value = false;
     else
     {
-        /* For accurate reporting of location. */
+        // For accurate reporting of location.
         ndL_state_t tmp = *state;
         if (ndL_accept_one(&tmp, NDL_XNONL) != 0)
             return false;
@@ -275,7 +273,7 @@ static bool ndL_accept_int(ndL_state_t *state, int *value)
     if (!ndL_accept_all(&tmp, NDL_DIGIT, buf, sizeof(buf)))
         return false;
 
-    /* Trailing [A-Za-z0-9_-] are invalid. */
+    // Trailing [A-Za-z0-9_-] are invalid.
     if (ndL_accept_one(&tmp, NDL_EALNM))
         return false;
 
@@ -340,7 +338,7 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
             if (i == 0)
                 return false;
 
-            /* Make sure we don't have a trailing [A-Za-z0-9-_]. */
+            // Make sure we don't have a trailing [A-Za-z0-9-_].
             if (ndL_accept_one(&tmp, NDL_EALNM))
                 return false;
 
@@ -372,7 +370,7 @@ static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
 
     if (ndL_accept(state, "/", 0))
     {
-        /* Just for accurate logging if there is an error. */
+        // Just for accurate logging if there is an error.
         ndL_state_t tmp = *state;
 
         if (!ndL_accept_int(state, &rule->prefix))

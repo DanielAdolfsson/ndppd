@@ -25,6 +25,4 @@ void nd_alloc_cleanup();
 
 #define ND_ALLOC(type) (type *)nd_alloc(sizeof(type))
 
-
-
-#endif /* NDPPD_ALLOC_H */
+#endif // NDPPD_ALLOC_H

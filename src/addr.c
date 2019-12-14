@@ -1,21 +1,19 @@
-/*
- * This file is part of ndppd.
- *
- * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
- *
- * ndppd is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ndppd is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
- */
+// This file is part of ndppd.
+//
+// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+//
+// ndppd is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ndppd is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <arpa/inet.h>
 #include <string.h>
 
@@ -26,11 +24,9 @@
 
 #include "ndppd.h"
 
-/*! Returns the string representation of <tt>addr</tt>.
- *
- * @note This function returns a pointer to static data. It uses three different static arrays
- *       to allow the function to be chained.
- */
+//! Returns the string representation of <tt>addr</tt>.
+//! @note This function returns a pointer to static data. It uses three different static arrays
+//!       to allow the function to be chained.
 const char *nd_aton(nd_addr_t *addr)
 {
     static int index;
@@ -44,7 +40,7 @@ const char *nd_aton(nd_addr_t *addr)
     return inet_ntop(AF_INET6, addr, buf[n], sizeof(buf[n]));
 }
 
-/*! Returns true if <tt>addr</tt> is a multicast address. */
+//! Returns true if <tt>addr</tt> is a multicast address.
 bool nd_addr_is_multicast(nd_addr_t *addr)
 {
     return addr->s6_addr[0] == 0xff;
@@ -57,11 +53,11 @@ bool nd_addr_is_unicast(nd_addr_t *addr)
 
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 static const uint32_t ndL_masks[] = {
-        0x80000000, 0xc0000000, 0xe0000000, 0xf0000000, 0xf8000000, 0xfc000000, 0xfe000000, 0xff000000,
-        0xff800000, 0xffc00000, 0xffe00000, 0xfff00000, 0xfff80000, 0xfffc0000, 0xfffe0000, 0xffff0000,
-        0xffff8000, 0xffffc000, 0xffffe000, 0xfffff000, 0xfffff800, 0xfffffc00, 0xfffffe00, 0xffffff00,
-        0xffffff80, 0xffffffc0, 0xffffffe0, 0xfffffff0, 0xfffffff8, 0xfffffffc, 0xfffffffe, 0xffffffff,
-    };
+    0x80000000, 0xc0000000, 0xe0000000, 0xf0000000, 0xf8000000, 0xfc000000, 0xfe000000, 0xff000000,
+    0xff800000, 0xffc00000, 0xffe00000, 0xfff00000, 0xfff80000, 0xfffc0000, 0xfffe0000, 0xffff0000,
+    0xffff8000, 0xffffc000, 0xffffe000, 0xfffff000, 0xfffff800, 0xfffffc00, 0xfffffe00, 0xffffff00,
+    0xffffff80, 0xffffffc0, 0xffffffe0, 0xfffffff0, 0xfffffff8, 0xfffffffc, 0xfffffffe, 0xffffffff,
+};
 #elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 static const uint32_t ndL_masks[] = {
     0x00000080, 0x000000c0, 0x000000e0, 0x000000f0, 0x000000f8, 0x000000fc, 0x000000fe, 0x000000ff,
@@ -73,14 +69,14 @@ static const uint32_t ndL_masks[] = {
 #    error __BYTE_ORDER__ is not defined
 #endif
 
-/*! Returns true if <tt>first</tt> and <tt>second</tt> are the same. */
+//! Returns true if <tt>first</tt> and <tt>second</tt> are the same.
 bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
 {
     return first->s6_addr32[0] == second->s6_addr32[0] && first->s6_addr32[1] == second->s6_addr32[1] &&
            first->s6_addr32[2] == second->s6_addr32[2] && first->s6_addr32[3] == second->s6_addr32[3];
 }
 
-/*! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>. */
+//! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>.
 bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen)
 {
     if (pflen < 0 || pflen > 128)

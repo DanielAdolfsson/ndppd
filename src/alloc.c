@@ -1,21 +1,19 @@
-/*
- * This file is part of ndppd.
- *
- * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
- *
- * ndppd is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ndppd is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
- */
+// This file is part of ndppd.
+//
+// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+//
+// ndppd is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ndppd is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +49,7 @@ void *nd_alloc(size_t size)
 {
     assert(size > 0 && size < 512);
 
-    /* To keep everything properly aligned, we'll make sure it's multiple of 8. */
+    // To keep everything properly aligned, we'll make sure it's multiple of 8.
     size = (size + 7U) & ~7U;
 
     for (ndL_chunk_t *chunk = ndL_chunks; chunk; chunk = chunk->next)

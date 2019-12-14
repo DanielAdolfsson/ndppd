@@ -1,22 +1,19 @@
-/*
- * This file is part of ndppd.
- *
- * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
- *
- * ndppd is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ndppd is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
- */
-
+// This file is part of ndppd.
+//
+// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+//
+// ndppd is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ndppd is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <string.h>
 
 #include "addr.h"
@@ -66,8 +63,8 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
 void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused)) nd_addr_t *dst, nd_addr_t *tgt,
                         uint8_t *src_ll)
 {
-    nd_log_trace("Handle NA src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s", nd_aton(src), src_ll[0], src_ll[1],
-                 src_ll[2], src_ll[3], src_ll[4], src_ll[5], nd_aton(dst), nd_aton(tgt));
+    nd_log_trace("Handle NA src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s", nd_aton(src), src_ll[0], src_ll[1], src_ll[2],
+                 src_ll[3], src_ll[4], src_ll[5], nd_aton(dst), nd_aton(tgt));
 
     nd_session_t *session;
 
@@ -86,8 +83,8 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
         return;
     }
 
-    /* If we get down here it means we don't have any valid sessions we can use.
-     * See if we can find one more more matching rules. */
+    // If we get down here it means we don't have any valid sessions we can use.
+    // See if we can find one more more matching rules.
 
     nd_rule_t *rule;
     ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
@@ -111,14 +108,14 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, __attribute__((unused
 
         if (!route || route->oif == proxy->iface->index)
         {
-            /* Could not find a matching route. */
+            // Could not find a matching route.
             session->state = ND_STATE_INVALID;
             return;
         }
 
         if (!(session->iface = nd_iface_open(NULL, route->oif)))
         {
-            /* Could not open interface. */
+            // Could not open interface.
             session->state = ND_STATE_INVALID;
             return;
         }
@@ -197,8 +194,8 @@ static void ndL_update_session(nd_proxy_t *proxy, nd_session_t *session)
         }
         else
         {
-            /* We will only retransmit if nd_conf_keepalive is true, or if the last incoming NS
-             * request was made less than nd_conf_valid_ttl milliseconds ago. */
+            // We will only retransmit if nd_conf_keepalive is true, or if the last incoming NS
+            // request was made less than nd_conf_valid_ttl milliseconds ago.
             if (!nd_conf_keepalive && nd_current_time - session->atime > nd_conf_valid_ttl)
                 break;
 

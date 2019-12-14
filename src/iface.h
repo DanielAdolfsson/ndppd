@@ -37,7 +37,7 @@ struct nd_iface
     int old_promisc;
 
     nd_proxy_t *proxy;
-    nd_session_t *sessions; /* All sessions expecting NA messages to arrive here. */
+    nd_session_t *sessions; // All sessions expecting NA messages to arrive here.
 
 #ifndef __linux__
     nd_io_t *bpf_io;
@@ -56,4 +56,4 @@ bool nd_iface_set_promisc(nd_iface_t *iface, bool on);
 bool nd_iface_startup();
 void nd_iface_cleanup();
 
-#endif /* NDPPD_IFACE_H */
+#endif // NDPPD_IFACE_H

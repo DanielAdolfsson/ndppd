@@ -1,26 +1,24 @@
-/*
- * This file is part of ndppd.
- *
- * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
- *
- * ndppd is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * ndppd is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
- */
+// This file is part of ndppd.
+//
+// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+//
+// ndppd is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// ndppd is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <assert.h>
 #include <errno.h>
 #include <net/if.h>
 #include <netinet/in.h>
-/* Need to include netinet/in.h first on FreeBSD. */
+// Need to include netinet/in.h first on FreeBSD.
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
@@ -64,7 +62,7 @@ extern bool nd_conf_keepalive;
 static nd_iface_t *ndL_first_iface, *ndL_first_free_iface;
 static nd_io_t *ndL_io;
 
-/* Used when daemonizing to make sure the parent process does not restore these flags upon exit. */
+//! Used when daemonizing to make sure the parent process does not restore these flags upon exit.
 bool nd_iface_no_restore_flags;
 
 typedef struct
@@ -80,7 +78,7 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_solicit))
         return;
 
-    /* We're not doing "proper" parsing of options here. */
+    // We're not doing "proper" parsing of options here.
 
     if (ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit) < 8)
         return;
@@ -139,7 +137,6 @@ static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t le
 
 static uint16_t ndL_calculate_icmp6_checksum(ndL_icmp6_msg_t *msg, size_t size)
 {
-    /* IPv6 pseudo-header. */
     struct __attribute__((packed))
     {
         struct in6_addr src;
@@ -190,7 +187,7 @@ static void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
 }
 
 #ifdef __linux__
-/* Called from nd_io_poll() when there are pending events on the nd_io_t. */
+// Called from nd_io_poll() when there are pending events on the nd_io_t.
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
     struct sockaddr_ll lladdr;
@@ -229,7 +226,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
     }
 }
 #else
-/* Called from nd_io_poll() when there are pending events on the nd_io_t. */
+// Called from nd_io_poll() when there are pending events on the nd_io_t.
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
     __attribute__((aligned(BPF_ALIGNMENT))) uint8_t buf[4096]; /* Depends on BIOCGBLEN */
@@ -275,7 +272,7 @@ static bool ndL_configure_filter(nd_io_t *io)
 #    define sock_fprog bpf_program
 #endif
 
-    /* Set up filter, so we only get NS and NA messages. */
+    // Set up filter, so we only get NS and NA messages.
     static struct sock_filter filter[] = {
         /* Load ether_type. */
         BPF_STMT(BPF_LD | BPF_H | BPF_ABS, offsetof(struct ether_header, ether_type)),
@@ -304,6 +301,9 @@ static bool ndL_configure_filter(nd_io_t *io)
     if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1)
         return false;
 #else
+#    undef sock_filter
+#    undef sock_fprog
+
     if (ioctl(io->fd, BIOCSETF, &fprog) == -1)
         return false;
 #endif
@@ -334,7 +334,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
         return NULL;
     }
 
-    /* If the specified interface is already opened, just increase the reference counter. */
+    // If the specified interface is already opened, just increase the reference counter.
 
     nd_iface_t *iface;
     ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == index);
@@ -346,7 +346,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
     }
 
 #ifdef __linux__
-    /* Determine link-layer address. */
+    // Determine link-layer address.
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
@@ -425,11 +425,9 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
     uint8_t *lladdr = (uint8_t *)LLADDR((struct sockaddr_dl *)(sysctl_buf + sizeof(struct if_msghdr)));
 #endif
 
-    /* Allocate the nd_iface_t object. */
-
     iface = ndL_first_free_iface;
 
-    if (iface != NULL)
+    if (iface)
         ND_LL_DELETE(ndL_first_free_iface, iface, next);
     else
         iface = ND_ALLOC(nd_iface_t);
@@ -507,7 +505,6 @@ static ssize_t ndL_send_icmp6(nd_iface_t *ifa, ndL_icmp6_msg_t *msg, size_t size
     struct ether_header *eh = (struct ether_header *)buf;
 
     eh->ether_type = htons(ETHERTYPE_IPV6);
-    /* TODO: Maybe use BIOCSHDRCMPLT instead. */
     memcpy(eh->ether_shost, ifa->lladdr, ETHER_ADDR_LEN);
     memcpy(eh->ether_dhost, hwaddr, ETHER_ADDR_LEN);
 
@@ -554,8 +551,10 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd
 
     memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
 
-    nd_log_info("Write NA tgt=%s, dst=%s [%x:%x:%x:%x:%x:%x dev %s]", nd_aton(tgt), nd_aton(dst), dst_ll[0], dst_ll[1],
-                dst_ll[2], dst_ll[3], dst_ll[4], dst_ll[5], iface->name);
+    nd_log_info("Write NA tgt=%s, dst=%s [%x:%x:%x:%x:%x:%x dev %s]",             //
+                nd_aton(tgt), nd_aton(dst),                                       //
+                dst_ll[0], dst_ll[1], dst_ll[2], dst_ll[3], dst_ll[4], dst_ll[5], //
+                iface->name);
 
     return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), dst_ll);
 }
@@ -601,8 +600,6 @@ bool nd_iface_startup()
 #ifdef __linux__
     if (!(ndL_io = nd_io_socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))))
         return false;
-
-    /* Set up filter, so we only get NS and NA messages. */
 
     if (!ndL_configure_filter(ndL_io))
     {
