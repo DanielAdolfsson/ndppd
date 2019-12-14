@@ -45,9 +45,6 @@ static nd_io_t *ndL_io;
 // All IPV6 routes on the system.
 static nd_rt_route_t *ndL_routes;
 
-// All routes that have been created by ndppd.
-__attribute__((unused)) static nd_rt_route_t *ndL_owned_routes;
-
 // Freelist.
 static nd_rt_route_t *ndL_free_routes;
 
@@ -576,6 +573,8 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
         uint32_t oif;
         struct rtattr dst_attr __attribute__((aligned(RTA_ALIGNTO)));
         nd_addr_t dst;
+        //struct rtattr exp_attr __attribute__((aligned(RTA_ALIGNTO)));
+        //uint32_t exp;
     } req;
 
     memset(&req, 0, sizeof(req));
@@ -589,9 +588,14 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
     req.oif_attr.rta_type = RTA_OIF;
     req.oif_attr.rta_len = RTA_LENGTH(sizeof(req.oif));
     req.oif = oif;
+
     req.dst_attr.rta_type = RTA_DST;
     req.dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst));
     req.dst = *dst;
+
+    //req.exp_attr.rta_type = RTA_EXPIRES;
+    //req.exp_attr.rta_len = RTA_LENGTH(sizeof(req.exp));
+    //req.exp = 60;
 
     req.hdr.nlmsg_type = RTM_NEWROUTE;
     req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
@@ -620,6 +624,7 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
     msg.hdr.rtm_msglen = sizeof(msg);
     msg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
     msg.hdr.rtm_index = oif;
+
 #    ifdef __FreeBSD__
     (void)table;
 #    else
@@ -688,6 +693,7 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
     req.hdr.rtm_pid = getpid();
     req.hdr.rtm_msglen = sizeof(req);
     req.hdr.rtm_addrs = RTA_DST | RTA_NETMASK;
+
 #    ifdef __FreeBSD__
     (void)table;
 #    else
@@ -702,6 +708,17 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
     req.mask.sin6_len = sizeof(req.mask);
     nd_mask_from_pflen(pflen, &req.mask.sin6_addr);
 
+    nd_log_info("rt: Removing route %s/%d table %d", nd_aton(dst), pflen, table);
+
     return nd_io_write(ndL_io, &req, sizeof(req)) >= 0;
 #endif
+}
+
+void nl_rt_remove_owned_routes()
+{
+    ND_LL_FOREACH_S(ndL_routes, route, tmp, next)
+    {
+        if (route->owned)
+            nd_rt_remove_route(&route->dst, route->pflen, route->table);
+    }
 }

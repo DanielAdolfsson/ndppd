@@ -208,17 +208,17 @@ int main(int argc, char *argv[])
         return -1;
 
     nd_rt_query_routes();
-
-    bool query_addresses = false;
+    bool querying_routes = true;
 
     while (1)
     {
         if (nd_current_time >= nd_rt_dump_timeout)
             nd_rt_dump_timeout = 0;
 
-        if (!query_addresses && !nd_rt_dump_timeout)
+        if (querying_routes && !nd_rt_dump_timeout)
         {
-            query_addresses = true;
+            querying_routes = false;
+            nl_rt_remove_owned_routes();
             nd_rt_query_addresses();
         }
 
