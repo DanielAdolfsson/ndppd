@@ -20,6 +20,7 @@
 #define NDPPD_SESSION_H
 
 #include "ndppd.h"
+#include "rt.h"
 
 typedef enum
 {
@@ -57,6 +58,7 @@ struct nd_session
     long mtime; /* Last time state was changed. */
     nd_state_t state;
     nd_iface_t *iface;
+    nd_rt_route_t *route; /* Autowired route. */
 };
 
 nd_session_t *nd_alloc_session();

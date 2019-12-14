@@ -27,17 +27,17 @@ typedef struct nd_rt_addr nd_rt_addr_t;
 struct nd_rt_route
 {
     nd_rt_route_t *next;
-    nd_addr_t addr;
-    unsigned int oif;
+    nd_addr_t dst;
+    unsigned oif;
     int pflen;
     int table;
-    int metrics;
+    bool owned; // If this route is owned by ndppd.
 };
 
 struct nd_rt_addr
 {
     nd_rt_addr_t *next;
-    unsigned int iif;
+    unsigned iif;
     nd_addr_t addr;
     int pflen;
 };
@@ -49,5 +49,6 @@ void nd_rt_cleanup();
 bool nd_rt_query_addresses();
 bool nd_rt_query_routes();
 nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, int table);
+bool nd_rt_add_route(nd_addr_t *dst, int pflen, unsigned oif, unsigned table);
 
-#endif /*NDPPD_RT_H*/
+#endif // NDPPD_RT_H

@@ -31,7 +31,7 @@ struct nd_iface
     char name[IF_NAMESIZE];
     uint8_t lladdr[6];
 
-    unsigned int index;
+    uint index;
 
     int old_allmulti;
     int old_promisc;

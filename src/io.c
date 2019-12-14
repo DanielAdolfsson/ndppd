@@ -190,7 +190,7 @@ ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, con
 
     if ((len = sendmsg(io->fd, &mhdr, 0)) < 0)
     {
-        printf("send err %s\n", strerror(errno));
+        nd_log_error("nd_sio_send() failed: %s", strerror(errno));
         return -1;
     }
 

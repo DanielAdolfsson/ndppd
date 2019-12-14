@@ -19,11 +19,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <stdint.h>
+/**/
+#include <netinet/in.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -205,6 +209,15 @@ int main(int argc, char *argv[])
     if (nd_opt_daemonize && !ndL_daemonize())
         return -1;
 
+    nd_addr_t addr;
+    memset(&addr, 0, sizeof(addr));
+#ifdef __linux__
+    addr.__in6_u.__u6_addr32[0] = 0x65656565;
+#else
+    addr.__u6_addr.__u6_addr32[0] = 0x65656565;
+#endif
+    nd_rt_add_route(&addr, 64, 23, 0);
+
     nd_rt_query_routes();
 
     bool query_addresses = false;
@@ -234,5 +247,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
-
