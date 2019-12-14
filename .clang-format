@@ -4,3 +4,4 @@ ColumnLimit: 120
 AllowShortFunctionsOnASingleLine: None
 Cpp11BracedListStyle: false
 IndentPPDirectives: AfterHash
+MaxEmptyLinesToKeep: 1

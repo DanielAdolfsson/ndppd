@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <net/if.h>
 #include <netinet/in.h>
+
 // Need to include netinet/in.h first on FreeBSD.
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>
@@ -311,7 +312,7 @@ static bool ndL_configure_filter(nd_io_t *io)
     return true;
 }
 
-nd_iface_t *nd_iface_open(const char *name, unsigned int index)
+nd_iface_t *nd_iface_open(const char *name, unsigned index)
 {
     char tmp_name[IF_NAMESIZE];
 
@@ -365,7 +366,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
     /* This requires a cloning bpf device, but I hope most sane systems got them. */
     if (!(io = nd_io_open("/dev/bpf", O_RDWR)))
     {
-        nd_log_error("Failed to open a /dev/bpf device");
+        nd_log_error("Failed to open /dev/bpf");
         return NULL;
     }
 
@@ -373,7 +374,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned int index)
 
     /* Set buffer length. */
 
-    unsigned int len = 4096; /* TODO: Configure */
+    unsigned len = 4096; /* TODO: Configure */
     if (ioctl(io->fd, BIOCSBLEN, &len) < 0)
     {
         nd_log_error("BIOCSBLEN: %s", strerror(errno));

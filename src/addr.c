@@ -107,13 +107,13 @@ static int ndL_count_bits(uint32_t n)
     return n;
 }
 
-int nd_addr_to_pflen(nd_addr_t *netmask)
+int nd_mask_to_pflen(nd_addr_t *netmask)
 {
     return ndL_count_bits(netmask->s6_addr32[0]) + ndL_count_bits(netmask->s6_addr32[1]) +
            ndL_count_bits(netmask->s6_addr32[2]) + ndL_count_bits(netmask->s6_addr32[3]);
 }
 
-void nd_addr_from_pflen(unsigned pflen, nd_addr_t *netmask)
+void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
 {
     if (pflen >= 97)
     {

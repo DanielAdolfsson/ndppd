@@ -325,7 +325,7 @@ static void ndL_handle_rt(struct rt_msghdr *hdr)
     if (!rtas[RTAX_DST] || rtas[RTAX_DST]->sa_family != AF_INET6)
         return;
 
-    int pflen = rtas[RTAX_NETMASK] ? nd_addr_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
+    int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
 
     // FIXME: Should we use RTAX_GATEWAY to get the interface index?
 
@@ -355,7 +355,7 @@ static void ndL_handle_ifa(struct ifa_msghdr *hdr)
     if (!rtas[RTAX_IFA] || rtas[RTAX_IFA]->sa_family != AF_INET6)
         return;
 
-    int pflen = rtas[RTAX_NETMASK] ? nd_addr_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
+    int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
 
     nd_addr_t *ifa = &((struct sockaddr_in6 *)rtas[RTAX_IFA])->sin6_addr;
 
@@ -636,7 +636,7 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
 
     msg.mask.sin6_family = AF_INET6;
     msg.mask.sin6_len = sizeof(msg.mask);
-    nd_addr_from_pflen(pflen, &msg.mask.sin6_addr);
+    nd_mask_from_pflen(pflen, &msg.mask.sin6_addr);
 
     return nd_io_write(ndL_io, &msg, sizeof(msg)) >= 0;
 #endif
@@ -700,7 +700,7 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 
     req.mask.sin6_family = AF_INET6;
     req.mask.sin6_len = sizeof(req.mask);
-    nd_addr_from_pflen(pflen, &req.mask.sin6_addr);
+    nd_mask_from_pflen(pflen, &req.mask.sin6_addr);
 
     return nd_io_write(ndL_io, &req, sizeof(req)) >= 0;
 #endif

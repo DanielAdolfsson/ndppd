@@ -80,7 +80,8 @@ enum
     NDL_NONE,
     NDL_INT,
     NDL_BOOL,
-    NDL_ADDR
+    NDL_ADDR,
+    NDL_IDENT
 };
 
 //! Character classes.
@@ -112,6 +113,7 @@ static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "auto", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, is_auto), 0, 0, NULL },
     { "autowire", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, autowire), 0, 0, NULL },
     { "promisc", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, promisc), 0, 0, NULL },
+    { "iface", NDL_RULE, NDL_IDENT, offsetof(nd_rule_t, ifname), 0, IF_NAMESIZE, NULL },
 #ifndef __FreeBSD__
     { "table", NDL_RULE, NDL_INT, offsetof(nd_rule_t, table), 0, 255, NULL },
 #endif
@@ -331,29 +333,32 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
 
     char buf[64];
 
-    for (size_t i = 0; i < sizeof(buf); i++)
+    if (!ndL_accept_all(&tmp, NDL_IPV6X, buf, sizeof(buf)))
+        return false;
+
+    // Make sure we don't have a trailing [A-Za-z0-9-_]
+    if (ndL_accept_one(&tmp, NDL_EALNM))
+        return false;
+
+    if (inet_pton(AF_INET6, buf, addr) != 1)
     {
-        if (!(buf[i] = ndL_accept_one(&tmp, NDL_IPV6X)))
-        {
-            if (i == 0)
-                return false;
-
-            // Make sure we don't have a trailing [A-Za-z0-9-_].
-            if (ndL_accept_one(&tmp, NDL_EALNM))
-                return false;
-
-            if (inet_pton(AF_INET6, buf, addr) != 1)
-            {
-                ndL_error(state, "Invalid IPv6 address \"%s\"", buf);
-                return false;
-            }
-
-            *state = tmp;
-            return true;
-        }
+        ndL_error(state, "Invalid IPv6 address \"%s\"", buf);
+        return false;
     }
 
-    return false;
+    *state = tmp;
+    return true;
+}
+
+static bool ndL_accept_ident(ndL_state_t *state, char *str, size_t size)
+{
+    ndL_state_t tmp = *state;
+
+    if (!ndL_accept_all(&tmp, NDL_EALNM, str, size))
+        return false;
+
+    *state = tmp;
+    return true;
 }
 
 static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr);
@@ -462,7 +467,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             const ndL_cfinfo_t *t = &ndL_cfinfo_table[i];
             const ndL_state_t saved_state = *state;
 
-            switch (ndL_cfinfo_table[i].type)
+            switch (t->type)
             {
             case NDL_NONE:
                 break;
@@ -492,6 +497,14 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
                 if (!ndL_accept_addr(state, (nd_addr_t *)(ptr + t->offset)))
                 {
                     ndL_error(&saved_state, "Expected an IPv6 address");
+                    return false;
+                }
+                break;
+
+            case NDL_IDENT:
+                if (!ndL_accept_ident(state, (char *)(ptr + t->offset), t->max))
+                {
+                    ndL_error(&saved_state, "Expected identifier");
                     return false;
                 }
                 break;

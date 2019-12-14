@@ -15,11 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #if !defined(__linux__) && !defined(NDPPD_NO_USE_EPOLL)
 #    define NDPPD_NO_USE_EPOLL
@@ -48,10 +48,10 @@ static int ndL_epoll_fd;
 #        define NDPPD_STATIC_POLLFDS_SIZE 8
 #    endif
 
-static struct pollfd static_pollfds[NDPPD_STATIC_POLLFDS_SIZE];
-static struct pollfd *pollfds = static_pollfds;
-static int pollfds_size = NDPPD_STATIC_POLLFDS_SIZE;
-static int pollfds_count = 0;
+static struct pollfd ndL_static_pollfds[NDPPD_STATIC_POLLFDS_SIZE];
+static struct pollfd *ndL_pollfds = ndL_static_pollfds;
+static int ndL_pollfds_size = NDPPD_STATIC_POLLFDS_SIZE;
+static int ndL_pollfds_count = 0;
 static bool ndL_dirty;
 
 static void ndL_refresh_pollfds()
@@ -60,27 +60,27 @@ static void ndL_refresh_pollfds()
 
     ND_LL_COUNT(ndL_first_io, count, next);
 
-    if (count > pollfds_size)
+    if (count > ndL_pollfds_size)
     {
         int new_pollfds_size = count * 2;
 
-        pollfds = (struct pollfd *)realloc(pollfds == static_pollfds ? NULL : pollfds,
+        ndL_pollfds = (struct pollfd *)realloc(ndL_pollfds == ndL_static_pollfds ? NULL : ndL_pollfds,
                                            new_pollfds_size * sizeof(struct pollfd));
 
-        pollfds_size = new_pollfds_size;
+        ndL_pollfds_size = new_pollfds_size;
     }
 
     int index = 0;
 
     ND_LL_FOREACH(ndL_first_io, io, next)
     {
-        pollfds[index].fd = io->fd;
-        pollfds[index].revents = 0;
-        pollfds[index].events = POLLIN;
+        ndL_pollfds[index].fd = io->fd;
+        ndL_pollfds[index].revents = 0;
+        ndL_pollfds[index].events = POLLIN;
         index++;
     }
 
-    pollfds_count = index;
+    ndL_pollfds_count = index;
 }
 #endif
 
@@ -266,7 +266,7 @@ bool nd_io_poll()
         ndL_dirty = false;
     }
 
-    int len = poll(pollfds, pollfds_count, 250);
+    int len = poll(ndL_pollfds, ndL_pollfds_count, 250);
 
     if (len < 0)
         return false;
@@ -274,17 +274,17 @@ bool nd_io_poll()
     if (len == 0)
         return true;
 
-    for (int i = 0; i < pollfds_count; i++)
+    for (int i = 0; i < ndL_pollfds_count; i++)
     {
-        if (pollfds[i].revents == 0)
+        if (ndL_pollfds[i].revents == 0)
             continue;
 
         ND_LL_FOREACH(ndL_first_io, io, next)
         {
-            if (io->fd == pollfds[i].fd)
+            if (io->fd == ndL_pollfds[i].fd)
             {
                 if (io->handler != NULL)
-                    io->handler(io, pollfds[i].revents);
+                    io->handler(io, ndL_pollfds[i].revents);
 
                 break;
             }

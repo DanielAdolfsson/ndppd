@@ -64,7 +64,7 @@ void *nd_alloc(size_t size)
 
     ndL_chunk_t *chunk = (ndL_chunk_t *)calloc(1, ndL_alloc_size);
 
-    /* Should never happen. */
+    // This should never happen.
     if (chunk == NULL)
         abort();
 
