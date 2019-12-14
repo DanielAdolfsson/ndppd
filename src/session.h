@@ -39,17 +39,20 @@ struct nd_session
 {
     nd_session_t *next_in_proxy;
     nd_session_t *next_in_iface;
+    nd_proxy_t  *proxy;
     nd_addr_t tgt;
     int rcount;
-    long atime; // Last time the session was used in a NA response.
+    long last_announce; // Last time the session was used in a NA response.
     long rtime; // Last time a NS request was made.
     long mtime; // Last time state was changed.
     nd_state_t state;
     nd_iface_t *iface;
-    nd_rt_route_t *route; // Autowired route.
+    bool autowired; // If this session had a route set up.
 };
 
-nd_session_t *nd_alloc_session();
-void nd_free_session(nd_session_t *session);
+nd_session_t  *nd_session_create(nd_proxy_t *proxy, nd_rule_t *rule, nd_addr_t *tgt);
+void nd_session_update(nd_session_t *session);
+void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, uint8_t *src_ll);
+void nd_session_handle_na(nd_session_t *session);
 
 #endif // NDPPD_SESSION_H
