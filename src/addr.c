@@ -77,20 +77,18 @@ bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
 }
 
 //! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>.
-bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, int pflen)
+bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, unsigned pflen)
 {
-    if (pflen < 0 || pflen > 128)
+    if (pflen > 128)
         return false;
-
-    if (pflen == 0)
+    else if (pflen == 0)
         return true;
-
-    if (pflen == 128)
+    else if (pflen == 128)
         return nd_addr_eq(first, second);
 
-    for (unsigned int i = 0, top = (unsigned int)(pflen - 1) >> 5U; i <= top; i++)
+    for (unsigned i = 0, top = (pflen - 1) >> 5U; i <= top; i++)
     {
-        uint32_t mask = i < top ? 0xffffffff : ndL_masks[(unsigned int)(pflen - 1) & 31U];
+        uint32_t mask = i < top ? 0xffffffff : ndL_masks[(pflen - 1) & 31U];
 
         if ((first->s6_addr32[i] ^ second->s6_addr32[i]) & mask)
             return false;
@@ -115,7 +113,7 @@ int nd_addr_to_pflen(nd_addr_t *netmask)
            ndL_count_bits(netmask->s6_addr32[2]) + ndL_count_bits(netmask->s6_addr32[3]);
 }
 
-void nd_addr_from_pflen(int pflen, nd_addr_t *netmask)
+void nd_addr_from_pflen(unsigned pflen, nd_addr_t *netmask)
 {
     if (pflen >= 97)
     {

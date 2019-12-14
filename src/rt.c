@@ -130,7 +130,7 @@ static void ndL_delete_route(nd_rt_route_t *route)
     ND_LL_PREPEND(ndL_free_routes, cur, next);
 }
 
-static void ndL_new_addr(unsigned int index, nd_addr_t *addr, int pflen)
+static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
 {
     nd_rt_addr_t *rt_addr;
 
@@ -154,7 +154,7 @@ static void ndL_new_addr(unsigned int index, nd_addr_t *addr, int pflen)
     nd_log_debug("rt: (event) new address %s/%d if %d", nd_aton(addr), pflen, index);
 }
 
-static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, int pflen)
+static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
 {
     nd_rt_addr_t *prev = NULL, *rt_addr;
 
@@ -554,7 +554,7 @@ bool nd_rt_query_addresses()
 #endif
 }
 
-nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, int table)
+nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, unsigned table)
 {
     ND_LL_FOREACH(ndL_routes, route, next)
     {
@@ -565,7 +565,7 @@ nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, int table)
     return NULL;
 }
 
-bool nd_rt_add_route(nd_addr_t *dst, int pflen, unsigned oif, unsigned table)
+bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned table)
 {
 #ifdef __linux__
     struct __attribute__((packed))
@@ -603,8 +603,6 @@ bool nd_rt_add_route(nd_addr_t *dst, int pflen, unsigned oif, unsigned table)
 
     return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 #else
-    (void)table;
-
     struct
     {
         struct rt_msghdr hdr;
@@ -614,14 +612,19 @@ bool nd_rt_add_route(nd_addr_t *dst, int pflen, unsigned oif, unsigned table)
     } msg;
 
     memset(&msg, 0, sizeof(msg));
+
     msg.hdr.rtm_type = RTM_ADD;
     msg.hdr.rtm_version = RTM_VERSION;
     msg.hdr.rtm_pid = getpid();
-    msg.hdr.rtm_seq = 1;
     msg.hdr.rtm_flags = RTF_UP | RTF_PROTO3;
     msg.hdr.rtm_msglen = sizeof(msg);
     msg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
     msg.hdr.rtm_index = oif;
+#    ifdef __FreeBSD__
+    (void)table;
+#    else
+    msg.hdr->rtm_tableid = table;
+#    endif
 
     msg.dst.sin6_family = AF_INET6;
     msg.dst.sin6_len = sizeof(msg.dst);
@@ -636,5 +639,69 @@ bool nd_rt_add_route(nd_addr_t *dst, int pflen, unsigned oif, unsigned table)
     nd_addr_from_pflen(pflen, &msg.mask.sin6_addr);
 
     return nd_io_write(ndL_io, &msg, sizeof(msg)) >= 0;
+#endif
+}
+
+bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
+{
+#ifdef __linux__
+    struct __attribute__((packed))
+    {
+        struct nlmsghdr hdr;
+        struct rtmsg msg;
+        struct rtattr dst_attr __attribute__((aligned(NLMSG_ALIGNTO)));
+        nd_addr_t dst;
+    } req;
+
+    memset(&req, 0, sizeof(req));
+
+    req.msg.rtm_protocol = RTPROT_NDPPD;
+    req.msg.rtm_family = AF_INET6;
+    req.msg.rtm_dst_len = pflen;
+    req.msg.rtm_table = table;
+    req.msg.rtm_scope = RT_SCOPE_UNIVERSE;
+
+    req.dst_attr.rta_type = RTA_DST;
+    req.dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst));
+    req.dst = *dst;
+
+    req.hdr.nlmsg_type = RTM_DELROUTE;
+    req.hdr.nlmsg_flags = NLM_F_REQUEST;
+    req.hdr.nlmsg_len = sizeof(req);
+
+    struct sockaddr_nl addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+
+    return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
+#else
+    struct __attribute__((packed))
+    {
+        struct rt_msghdr hdr;
+        struct sockaddr_in6 dst;
+        struct sockaddr_in6 mask __aligned(sizeof(u_long));
+    } req;
+
+    memset(&req, 0, sizeof(req));
+    req.hdr.rtm_type = RTM_DELETE;
+    req.hdr.rtm_version = RTM_VERSION;
+    req.hdr.rtm_pid = getpid();
+    req.hdr.rtm_msglen = sizeof(req);
+    req.hdr.rtm_addrs = RTA_DST | RTA_NETMASK;
+#    ifdef __FreeBSD__
+    (void)table;
+#    else
+    msg.hdr->rtm_tableid = table;
+#    endif
+
+    req.dst.sin6_family = AF_INET6;
+    req.dst.sin6_len = sizeof(req.dst);
+    req.dst.sin6_addr = *dst;
+
+    req.mask.sin6_family = AF_INET6;
+    req.mask.sin6_len = sizeof(req.mask);
+    nd_addr_from_pflen(pflen, &req.mask.sin6_addr);
+
+    return nd_io_write(ndL_io, &req, sizeof(req)) >= 0;
 #endif
 }
