@@ -1,16 +1,18 @@
 ifdef DEBUG
-CCFLAGS ?= -g -DDEBUG
+CFLAGS  ?= -g -DDEBUG
 else
-CCFLAGS ?= -Os
+CFLAGS  ?= -Os
 LDFLAGS ?= -s -w
 endif
 
 PREFIX      ?= /usr/local
-CCC         ?= gcc
+CC          ?= gcc
 GZIP        ?= /bin/gzip
 MANDIR      ?= ${DESTDIR}${PREFIX}/share/man
 SBINDIR     ?= ${DESTDIR}${PREFIX}/sbin
 ASCIIDOCTOR ?= /usr/bin/asciidoctor
+
+CFLAGS := ${CFLAGS} -Werror -Wall -Wextra -Wno-missing-braces -Wno-missing-field-initializers
 
 OBJS = $(patsubst %.c,%.o,$(wildcard src/*.c))
 
@@ -30,7 +32,7 @@ ndppd: ${OBJS}
 	${CC} -o ndppd ${LDFLAGS} ${OBJS} ${LIBS}
 
 %.o: %.c
-	${CC} -c ${CPPFLAGS} $(CCFLAGS) -o $@ $<
+	${CC} -c ${CPPFLAGS} $(CFLAGS) -o $@ $<
 
 clean:
 	rm -f ndppd ndppd.conf.5.gz ndppd.8.gz ${OBJS}

@@ -145,16 +145,14 @@ static uint16_t ndL_calculate_icmp6_checksum(ndL_icmp6_msg_t *msg, size_t size)
         uint8_t unused[3];
         uint8_t type;
         struct icmp6_hdr icmp6_hdr;
-    } hdr;
+    } hdr = {
+        .src = msg->ip6_hdr.ip6_src,
+        .dst = msg->ip6_hdr.ip6_dst,
+        .len = htonl(size - sizeof(struct ip6_hdr)),
+        .type = IPPROTO_ICMPV6,
+        .icmp6_hdr = msg->icmp6_hdr,
+    };
 
-    hdr.src = msg->ip6_hdr.ip6_src;
-    hdr.dst = msg->ip6_hdr.ip6_dst;
-    hdr.len = htonl(size - sizeof(struct ip6_hdr));
-    hdr.unused[0] = 0;
-    hdr.unused[1] = 0;
-    hdr.unused[2] = 0;
-    hdr.type = IPPROTO_ICMPV6;
-    hdr.icmp6_hdr = msg->icmp6_hdr;
     hdr.icmp6_hdr.icmp6_cksum = 0;
 
     uint16_t sum;
@@ -195,29 +193,33 @@ static void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
 // Called from nd_io_poll() when there are pending events on the nd_io_t.
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
-    struct sockaddr_ll lladdr;
-    memset(&lladdr, 0, sizeof(struct sockaddr_ll));
-    lladdr.sll_family = AF_PACKET;
-    lladdr.sll_protocol = htons(ETH_P_IPV6);
+    struct sockaddr_ll lladdr = {
+        .sll_family = AF_PACKET,
+        .sll_protocol = htons(ETH_P_IPV6),
+    };
 
     uint8_t buf[1024];
 
     for (;;) {
         ssize_t len = nd_io_recv(io, (struct sockaddr *)&lladdr, sizeof(lladdr), buf, sizeof(buf));
 
-        if (len == 0)
+        if (len == 0) {
             return;
+        }
 
-        if (len < 0)
+        if (len < 0) {
             return;
+        }
 
-        if ((size_t)len < sizeof(struct ether_header) + sizeof(struct ip6_hdr))
+        if ((size_t)len < sizeof(struct ether_header) + sizeof(struct ip6_hdr)) {
             continue;
+        }
 
         struct ether_header *eh = (struct ether_header *)(buf);
 
-        if (eh->ether_type != ntohs(ETHERTYPE_IPV6))
+        if (eh->ether_type != ntohs(ETHERTYPE_IPV6)) {
             continue;
+        }
 
         struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(eh + 1);
 
@@ -225,8 +227,9 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 
         ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
 
-        if (iface)
+        if (iface) {
             ndL_handle_packet(iface, (uint8_t *)ip6_hdr, len - sizeof(struct ether_header));
+        }
     }
 }
 #else
@@ -271,13 +274,11 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 
 static bool ndL_configure_filter(nd_io_t *io)
 {
-#ifndef __linux__
-#    define sock_filter bpf_insn
-#    define sock_fprog bpf_program
-#endif
-
-    // Set up filter, so we only get NS and NA messages.
+#ifdef __linux__
     static struct sock_filter filter[] = {
+#else
+    static struct bpf_insn filter[] = {
+#endif
         /* Load ether_type. */
         BPF_STMT(BPF_LD | BPF_H | BPF_ABS, offsetof(struct ether_header, ether_type)),
         /* Drop packet if not ETHERTYPE_IPV6. */
@@ -296,17 +297,17 @@ static bool ndL_configure_filter(nd_io_t *io)
         /* Drop packet. */
         BPF_STMT(BPF_RET | BPF_K, 0),
         /* Keep packet. */
-        BPF_STMT(BPF_RET | BPF_K, (u_int32_t)-1)
+        BPF_STMT(BPF_RET | BPF_K, (u_int32_t)-1),
     };
 
-    static struct sock_fprog fprog = { 9, filter };
-
 #ifdef __linux__
-    if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1)
+    static struct sock_fprog fprog = { .len = 9, .filter = filter };
+
+    if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1) {
         return false;
+    }
 #else
-#    undef sock_filter
-#    undef sock_fprog
+    static struct bpf_program fprog = { .bf_len = 9, .bf_insns = filter };
 
     if (ioctl(io->fd, BIOCSETF, &fprog) == -1) {
         return false;
@@ -348,8 +349,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 #ifdef __linux__
     // Determine link-layer address.
 
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
+    struct ifreq ifr = { 0 };
     strcpy(ifr.ifr_name, name);
 
     if (ioctl(ndL_io->fd, SIOCGIFHWADDR, &ifr) < 0) {
@@ -426,24 +426,25 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
         iface = ND_ALLOC(nd_iface_t);
     }
 
-    memset(iface, 0, sizeof(nd_iface_t));
+    *iface = (nd_iface_t){
+        .index = index,
+        .refcount = 1,
+        .old_allmulti = -1,
+        .old_promisc = -1,
+    };
 
-    ND_LL_PREPEND(ndL_first_iface, iface, next);
-
-    iface->index = index;
-    iface->refcount = 1;
-    iface->old_allmulti = -1;
-    iface->old_promisc = -1;
     strcpy(iface->name, name);
     memcpy(iface->lladdr, lladdr, 6);
+
+    ND_LL_PREPEND(ndL_first_iface, iface, next);
 
 #ifndef __linux__
     io->data = (uintptr_t)iface;
     iface->bpf_io = io;
 #endif
 
-    nd_log_info("New interface %s [%02x:%02x:%02x:%02x:%02x:%02x]", iface->name, lladdr[0], lladdr[1], lladdr[2],
-                lladdr[3], lladdr[4], lladdr[5]);
+    nd_log_info("New interface %s [%02x:%02x:%02x:%02x:%02x:%02x]", //
+                iface->name, lladdr[0], lladdr[1], lladdr[2], lladdr[3], lladdr[4], lladdr[5]);
 
     return iface;
 }
@@ -485,7 +486,7 @@ static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
     addr->s6_addr[15] = iface->lladdr[5];
 }
 
-static ssize_t ndL_send_icmp6(nd_iface_t *ifa, ndL_icmp6_msg_t *msg, size_t size, const uint8_t *hwaddr)
+static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_icmp6_msg_t *msg, size_t size, const uint8_t *hwaddr)
 {
     assert(size >= sizeof(ndL_icmp6_msg_t));
 
@@ -501,39 +502,38 @@ static ssize_t ndL_send_icmp6(nd_iface_t *ifa, ndL_icmp6_msg_t *msg, size_t size
     struct ether_header *eh = (struct ether_header *)buf;
 
     eh->ether_type = htons(ETHERTYPE_IPV6);
-    memcpy(eh->ether_shost, ifa->lladdr, ETHER_ADDR_LEN);
+    memcpy(eh->ether_shost, iface->lladdr, ETHER_ADDR_LEN);
     memcpy(eh->ether_dhost, hwaddr, ETHER_ADDR_LEN);
 
     memcpy(eh + 1, msg, size);
 
 #ifdef __linux__
-    struct sockaddr_ll ll;
-    memset(&ll, 0, sizeof(ll));
-    ll.sll_family = AF_PACKET;
-    ll.sll_ifindex = (int)ifa->index;
+    struct sockaddr_ll ll = {
+        .sll_family = AF_PACKET,
+        .sll_ifindex = (int)iface->index,
+    };
 
     return nd_io_send(ndL_io, (struct sockaddr *)&ll, sizeof(ll), buf, sizeof(struct ether_header) + size);
 #else
-    return nd_io_write(ifa->bpf_io, buf, sizeof(struct ether_header) + size);
+    return nd_io_write(iface->bpf_io, buf, sizeof(struct ether_header) + size);
 #endif
 }
 
 ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd_addr_t *tgt, bool router)
 {
-    struct {
+    struct __attribute__((packed)) {
         struct ip6_hdr ip;
         struct nd_neighbor_advert na;
         struct nd_opt_hdr opt;
         uint8_t lladdr[6];
-    } msg;
-
-    memset(&msg, 0, sizeof(msg));
-
-    msg.ip.ip6_src = *tgt;
-    msg.ip.ip6_dst = *dst;
-
-    msg.na.nd_na_type = ND_NEIGHBOR_ADVERT;
-    msg.na.nd_na_target = *tgt;
+    } msg = {
+        .ip.ip6_src = *tgt,
+        .ip.ip6_dst = *dst,
+        .na.nd_na_type = ND_NEIGHBOR_ADVERT,
+        .na.nd_na_target = *tgt,
+        .opt.nd_opt_type = ND_OPT_TARGET_LINKADDR,
+        .opt.nd_opt_len = 1,
+    };
 
     if (nd_addr_is_multicast(dst)) {
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_SOLICITED;
@@ -542,9 +542,6 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd
     if (router) {
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_ROUTER;
     }
-
-    msg.opt.nd_opt_type = ND_OPT_TARGET_LINKADDR;
-    msg.opt.nd_opt_len = 1;
 
     memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
 
@@ -556,24 +553,21 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd
     return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), dst_ll);
 }
 
-ssize_t nd_iface_write_ns(nd_iface_t *ifa, nd_addr_t *tgt)
+ssize_t nd_iface_write_ns(nd_iface_t *iface, nd_addr_t *tgt)
 {
-    struct {
+    struct __attribute__((packed)) {
         struct ip6_hdr ip;
         struct nd_neighbor_solicit ns;
         struct nd_opt_hdr opt;
         uint8_t lladdr[6];
-    } msg;
+    } msg = {
+        .ns.nd_ns_type = ND_NEIGHBOR_SOLICIT,
+        .ns.nd_ns_target = *tgt,
+        .opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
+        .opt.nd_opt_len = 1,
+    };
 
-    memset(&msg, 0, sizeof(msg));
-
-    msg.ns.nd_ns_type = ND_NEIGHBOR_SOLICIT;
-    msg.ns.nd_ns_target = *tgt;
-
-    msg.opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR;
-    msg.opt.nd_opt_len = 1;
-
-    ndL_get_local_addr(ifa, &msg.ip.ip6_src);
+    ndL_get_local_addr(iface, &msg.ip.ip6_src);
 
     const uint8_t multicast[] = { 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 255, 0, 0, 0 };
     memcpy(&msg.ip.ip6_dst, multicast, sizeof(struct in6_addr));
@@ -581,21 +575,22 @@ ssize_t nd_iface_write_ns(nd_iface_t *ifa, nd_addr_t *tgt)
     msg.ip.ip6_dst.s6_addr[14] = tgt->s6_addr[14];
     msg.ip.ip6_dst.s6_addr[15] = tgt->s6_addr[15];
 
-    memcpy(msg.lladdr, ifa->lladdr, sizeof(msg.lladdr));
+    memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
 
     uint8_t ll_mcast[6] = { 0x33, 0x33 };
     *(uint32_t *)&ll_mcast[2] = tgt->s6_addr32[3];
 
-    nd_log_trace("Write NS iface=%s, tgt=%s", ifa->name, nd_aton(tgt));
+    nd_log_trace("Write NS iface=%s, tgt=%s", iface->name, nd_aton(tgt));
 
-    return ndL_send_icmp6(ifa, (ndL_icmp6_msg_t *)&msg, sizeof(msg), ll_mcast);
+    return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), ll_mcast);
 }
 
 bool nd_iface_startup()
 {
 #ifdef __linux__
-    if (!(ndL_io = nd_io_socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))))
+    if (!(ndL_io = nd_io_socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6)))) {
         return false;
+    }
 
     if (!ndL_configure_filter(ndL_io)) {
         nd_io_close(ndL_io);
@@ -614,7 +609,7 @@ bool nd_iface_set_allmulti(nd_iface_t *iface, bool on)
 {
     nd_log_debug("%s all multicast mode for interface %s", on ? "Enabling" : "Disabling", iface->name);
 
-    struct ifreq ifr;
+    struct ifreq ifr = { 0 };
     memcpy(ifr.ifr_name, iface->name, IFNAMSIZ);
 
     if (ioctl(ndL_io->fd, SIOCGIFFLAGS, &ifr) < 0) {
@@ -648,7 +643,7 @@ bool nd_iface_set_promisc(nd_iface_t *iface, bool on)
 {
     nd_log_debug("%s promiscuous mode for interface %s", on ? "Enabling" : "Disabling", iface->name);
 
-    struct ifreq ifr;
+    struct ifreq ifr = { 0 };
     memcpy(ifr.ifr_name, iface->name, IFNAMSIZ);
 
     if (ioctl(ndL_io->fd, SIOCGIFFLAGS, &ifr) < 0) {

@@ -180,12 +180,14 @@ static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
     nd_addr_t *addr = NULL;
 
     for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
-        if (rta->rta_type == IFA_ADDRESS)
+        if (rta->rta_type == IFA_ADDRESS) {
             addr = (nd_addr_t *)RTA_DATA(rta);
+        }
     }
 
-    if (!addr)
+    if (!addr) {
         return;
+    }
 
     ndL_new_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
 }
@@ -195,12 +197,14 @@ static void ndL_handle_deladdr(struct ifaddrmsg *msg, int length)
     nd_addr_t *addr = NULL;
 
     for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
-        if (rta->rta_type == IFA_ADDRESS)
+        if (rta->rta_type == IFA_ADDRESS) {
             addr = (nd_addr_t *)RTA_DATA(rta);
+        }
     }
 
-    if (!addr)
+    if (!addr) {
         return;
+    }
 
     ndL_delete_addr(msg->ifa_index, addr, msg->ifa_prefixlen);
 }
@@ -211,14 +215,16 @@ static void ndL_handle_newroute(struct rtmsg *msg, int rtl)
     int oif = 0;
 
     for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl)) {
-        if (rta->rta_type == RTA_OIF)
+        if (rta->rta_type == RTA_OIF) {
             oif = *(int *)RTA_DATA(rta);
-        else if (rta->rta_type == RTA_DST)
+        } else if (rta->rta_type == RTA_DST) {
             dst = (nd_addr_t *)RTA_DATA(rta);
+        }
     }
 
-    if (!dst || !oif)
+    if (!dst || !oif) {
         return;
+    }
 
     nd_rt_route_t route = {
         .table = msg->rtm_table,
@@ -237,14 +243,16 @@ static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
     int oif = 0;
 
     for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl)) {
-        if (rta->rta_type == RTA_OIF)
+        if (rta->rta_type == RTA_OIF) {
             oif = *(int *)RTA_DATA(rta);
-        else if (rta->rta_type == RTA_DST)
+        } else if (rta->rta_type == RTA_DST) {
             dst = (nd_addr_t *)RTA_DATA(rta);
+        }
     }
 
-    if (!dst || !oif)
+    if (!dst || !oif) {
         return;
+    }
 
     nd_rt_route_t route = {
         .table = msg->rtm_table,
@@ -263,8 +271,9 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
     for (;;) {
         ssize_t len = nd_io_recv(ndL_io, NULL, 0, buf, sizeof(buf));
 
-        if (len < 0)
+        if (len < 0) {
             return;
+        }
 
         for (struct nlmsghdr *hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
             if (hdr->nlmsg_type == NLMSG_DONE) {
@@ -278,14 +287,15 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
                 continue;
             }
 
-            if (hdr->nlmsg_type == RTM_NEWROUTE)
+            if (hdr->nlmsg_type == RTM_NEWROUTE) {
                 ndL_handle_newroute((struct rtmsg *)NLMSG_DATA(hdr), RTM_PAYLOAD(hdr));
-            else if (hdr->nlmsg_type == RTM_DELROUTE)
+            } else if (hdr->nlmsg_type == RTM_DELROUTE) {
                 ndL_handle_delroute((struct rtmsg *)NLMSG_DATA(hdr), RTM_PAYLOAD(hdr));
-            else if (hdr->nlmsg_type == RTM_NEWADDR)
+            } else if (hdr->nlmsg_type == RTM_NEWADDR) {
                 ndL_handle_newaddr((struct ifaddrmsg *)NLMSG_DATA(hdr), IFA_PAYLOAD(hdr));
-            else if (hdr->nlmsg_type == RTM_DELADDR)
+            } else if (hdr->nlmsg_type == RTM_DELADDR) {
                 ndL_handle_deladdr((struct ifaddrmsg *)NLMSG_DATA(hdr), IFA_PAYLOAD(hdr));
+            }
         }
     }
 }
@@ -439,10 +449,10 @@ bool nd_rt_open()
         return false;
     }
 
-    struct sockaddr_nl addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
-    addr.nl_groups = (1 << (RTNLGRP_IPV6_IFADDR - 1)) | (1 << (RTNLGRP_IPV6_ROUTE - 1));
+    struct sockaddr_nl addr = {
+        .nl_family = AF_NETLINK,
+        .nl_groups = (1 << (RTNLGRP_IPV6_IFADDR - 1)) | (1 << (RTNLGRP_IPV6_ROUTE - 1)),
+    };
 
     if (!nd_io_bind(ndL_io, (struct sockaddr *)&addr, sizeof(addr))) {
         nd_log_error("Failed to bind netlink socket: %s", strerror(errno));
@@ -472,27 +482,23 @@ void nd_rt_cleanup()
 bool nd_rt_query_routes()
 {
 #ifdef __linux__
-    if (nd_rt_dump_timeout)
+    if (nd_rt_dump_timeout) {
         return false;
+    }
 
     struct {
         struct nlmsghdr hdr;
         struct rtmsg msg;
-    } req;
+    } req = {
+        .hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)),
+        .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+        .hdr.nlmsg_type = RTM_GETROUTE,
+        .msg.rtm_protocol = RTPROT_UNSPEC,
+        .msg.rtm_table = RT_TABLE_UNSPEC,
+        .msg.rtm_family = AF_INET6,
+    };
 
-    memset(&req, 0, sizeof(req));
-
-    req.hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-    req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-    req.hdr.nlmsg_type = RTM_GETROUTE;
-
-    req.msg.rtm_protocol = RTPROT_UNSPEC;
-    req.msg.rtm_table = RT_TABLE_UNSPEC;
-    req.msg.rtm_family = AF_INET6;
-
-    struct sockaddr_nl addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
 
     nd_rt_dump_timeout = nd_current_time + 5000;
 
@@ -506,26 +512,22 @@ bool nd_rt_query_routes()
 bool nd_rt_query_addresses()
 {
 #ifdef __linux__
-    if (nd_rt_dump_timeout)
+    if (nd_rt_dump_timeout) {
         return false;
+    }
 
     struct {
         struct nlmsghdr hdr;
         struct ifaddrmsg msg;
-    } req;
+    } req = {
+        .hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
+        .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP,
+        .hdr.nlmsg_type = RTM_GETADDR,
+        .hdr.nlmsg_seq = 1,
+        .msg.ifa_family = AF_INET6,
+    };
 
-    memset(&req, 0, sizeof(req));
-
-    req.hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-    req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-    req.hdr.nlmsg_type = RTM_GETADDR;
-    req.hdr.nlmsg_seq = 1;
-
-    req.msg.ifa_family = AF_INET6;
-
-    struct sockaddr_nl addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
 
     nd_rt_dump_timeout = nd_current_time + 5000;
 
@@ -559,35 +561,27 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
         nd_addr_t dst;
         // struct rtattr exp_attr __attribute__((aligned(RTA_ALIGNTO)));
         // uint32_t exp;
-    } req;
+    } req = {
+        .msg.rtm_protocol = RTPROT_NDPPD,
+        .msg.rtm_family = AF_INET6,
+        .msg.rtm_dst_len = pflen,
+        .msg.rtm_table = table,
+        .msg.rtm_scope = RT_SCOPE_UNIVERSE,
+        .oif_attr.rta_type = RTA_OIF,
+        .oif_attr.rta_len = RTA_LENGTH(sizeof(req.oif)),
+        .oif = oif,
+        .dst_attr.rta_type = RTA_DST,
+        .dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst)),
+        .dst = *dst,
+        .hdr.nlmsg_type = RTM_NEWROUTE,
+        .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE,
+        .hdr.nlmsg_len = sizeof(req),
+        // .exp_attr.rta_type = RTA_EXPIRES,
+        // .exp_attr.rta_len = RTA_LENGTH(sizeof(req.exp)),
+        // .exp = 60,
+    };
 
-    memset(&req, 0, sizeof(req));
-
-    req.msg.rtm_protocol = RTPROT_NDPPD;
-    req.msg.rtm_family = AF_INET6;
-    req.msg.rtm_dst_len = pflen;
-    req.msg.rtm_table = table;
-    req.msg.rtm_scope = RT_SCOPE_UNIVERSE;
-
-    req.oif_attr.rta_type = RTA_OIF;
-    req.oif_attr.rta_len = RTA_LENGTH(sizeof(req.oif));
-    req.oif = oif;
-
-    req.dst_attr.rta_type = RTA_DST;
-    req.dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst));
-    req.dst = *dst;
-
-    // req.exp_attr.rta_type = RTA_EXPIRES;
-    // req.exp_attr.rta_len = RTA_LENGTH(sizeof(req.exp));
-    // req.exp = 60;
-
-    req.hdr.nlmsg_type = RTM_NEWROUTE;
-    req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
-    req.hdr.nlmsg_len = sizeof(req);
-
-    struct sockaddr_nl addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
 
     return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 #else
@@ -596,34 +590,27 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
         struct sockaddr_in6 dst;
         struct sockaddr_dl dl __aligned(sizeof(u_long));
         struct sockaddr_in6 mask __aligned(sizeof(u_long));
-    } msg;
-
-    memset(&msg, 0, sizeof(msg));
-
-    msg.hdr.rtm_type = RTM_ADD;
-    msg.hdr.rtm_version = RTM_VERSION;
-    msg.hdr.rtm_pid = getpid();
-    msg.hdr.rtm_flags = RTF_UP | RTF_PROTO3;
-    msg.hdr.rtm_msglen = sizeof(msg);
-    msg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
-    msg.hdr.rtm_index = oif;
-
-#    ifdef __FreeBSD__
-    (void)table;
-#    else
-    msg.hdr->rtm_tableid = table;
+    } msg = {
+        .hdr.rtm_type = RTM_ADD,
+        .hdr.rtm_version = RTM_VERSION,
+        .hdr.rtm_pid = getpid(),
+        .hdr.rtm_flags = RTF_UP | RTF_PROTO3,
+        .hdr.rtm_msglen = sizeof(msg),
+        .hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK,
+        .hdr.rtm_index = oif,
+#    ifndef __FreeBSD__
+        msg.hdr->rtm_tableid = table,
 #    endif
+        .dst.sin6_family = AF_INET6,
+        .dst.sin6_len = sizeof(msg.dst),
+        .dst.sin6_addr = *dst,
+        .dl.sdl_family = AF_LINK,
+        .dl.sdl_index = oif,
+        .dl.sdl_len = sizeof(msg.dl),
+        .mask.sin6_family = AF_INET6,
+        .mask.sin6_len = sizeof(msg.mask),
+    };
 
-    msg.dst.sin6_family = AF_INET6;
-    msg.dst.sin6_len = sizeof(msg.dst);
-    msg.dst.sin6_addr = *dst;
-
-    msg.dl.sdl_family = AF_LINK;
-    msg.dl.sdl_index = oif;
-    msg.dl.sdl_len = sizeof(msg.dl);
-
-    msg.mask.sin6_family = AF_INET6;
-    msg.mask.sin6_len = sizeof(msg.mask);
     nd_mask_from_pflen(pflen, &msg.mask.sin6_addr);
 
     nd_log_info("rt: Adding route %s/%d table %d", nd_aton(dst), pflen, table);
@@ -640,27 +627,21 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
         struct rtmsg msg;
         struct rtattr dst_attr __attribute__((aligned(NLMSG_ALIGNTO)));
         nd_addr_t dst;
-    } req;
+    } req = {
+        .msg.rtm_protocol = RTPROT_NDPPD,
+        .msg.rtm_family = AF_INET6,
+        .msg.rtm_dst_len = pflen,
+        .msg.rtm_table = table,
+        .msg.rtm_scope = RT_SCOPE_UNIVERSE,
+        .dst_attr.rta_type = RTA_DST,
+        .dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst)),
+        .dst = *dst,
+        .hdr.nlmsg_type = RTM_DELROUTE,
+        .hdr.nlmsg_flags = NLM_F_REQUEST,
+        .hdr.nlmsg_len = sizeof(req),
+    };
 
-    memset(&req, 0, sizeof(req));
-
-    req.msg.rtm_protocol = RTPROT_NDPPD;
-    req.msg.rtm_family = AF_INET6;
-    req.msg.rtm_dst_len = pflen;
-    req.msg.rtm_table = table;
-    req.msg.rtm_scope = RT_SCOPE_UNIVERSE;
-
-    req.dst_attr.rta_type = RTA_DST;
-    req.dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst));
-    req.dst = *dst;
-
-    req.hdr.nlmsg_type = RTM_DELROUTE;
-    req.hdr.nlmsg_flags = NLM_F_REQUEST;
-    req.hdr.nlmsg_len = sizeof(req);
-
-    struct sockaddr_nl addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.nl_family = AF_NETLINK;
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
 
     return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 #else
@@ -668,27 +649,22 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
         struct rt_msghdr hdr;
         struct sockaddr_in6 dst;
         struct sockaddr_in6 mask __aligned(sizeof(u_long));
-    } req;
-
-    memset(&req, 0, sizeof(req));
-    req.hdr.rtm_type = RTM_DELETE;
-    req.hdr.rtm_version = RTM_VERSION;
-    req.hdr.rtm_pid = getpid();
-    req.hdr.rtm_msglen = sizeof(req);
-    req.hdr.rtm_addrs = RTA_DST | RTA_NETMASK;
-
-#    ifdef __FreeBSD__
-    (void)table;
-#    else
-    msg.hdr->rtm_tableid = table;
+    } req = {
+        .hdr.rtm_type = RTM_DELETE,
+        .hdr.rtm_version = RTM_VERSION,
+        .hdr.rtm_pid = getpid(),
+        .hdr.rtm_msglen = sizeof(req),
+        .hdr.rtm_addrs = RTA_DST | RTA_NETMASK,
+#    ifndef __FreeBSD__
+        .hdr.rtm_tableid = table,
 #    endif
+        .dst.sin6_family = AF_INET6,
+        .dst.sin6_len = sizeof(req.dst),
+        .dst.sin6_addr = *dst,
+        .mask.sin6_family = AF_INET6,
+        .mask.sin6_len = sizeof(req.mask),
+    };
 
-    req.dst.sin6_family = AF_INET6;
-    req.dst.sin6_len = sizeof(req.dst);
-    req.dst.sin6_addr = *dst;
-
-    req.mask.sin6_family = AF_INET6;
-    req.mask.sin6_len = sizeof(req.mask);
     nd_mask_from_pflen(pflen, &req.mask.sin6_addr);
 
     nd_log_info("rt: Removing route %s/%d table %d", nd_aton(dst), pflen, table);

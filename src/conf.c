@@ -320,7 +320,7 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
         return false;
     }
 
-    // Make sure we don't have a trailing [A-Za-z0-9-_]
+    // [A-Za-z0-9_-] must not directly follow the address.
     if (ndL_accept_one(&tmp, NDL_EALNM)) {
         return false;
     }

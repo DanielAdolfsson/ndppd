@@ -46,11 +46,10 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
 
     proxy = ND_ALLOC(nd_proxy_t);
 
-    ND_LL_PREPEND(ndL_proxies, proxy, next);
-
-    memset(proxy, 0, sizeof(nd_proxy_t));
-
+    *proxy = (nd_proxy_t){ 0 };
     strcpy(proxy->ifname, ifname);
+
+    ND_LL_PREPEND(ndL_proxies, proxy, next);
 
     return proxy;
 }

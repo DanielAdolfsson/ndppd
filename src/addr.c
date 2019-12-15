@@ -143,18 +143,12 @@ int nd_mask_to_pflen(nd_addr_t *netmask)
 void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
 {
     if (pflen == 0) {
-        netmask->s6_addr32[0] = 0;
-        netmask->s6_addr32[1] = 0;
-        netmask->s6_addr32[2] = 0;
-        netmask->s6_addr32[3] = 0;
+        *netmask = (nd_addr_t){ 0 };
         return;
     }
 
     if (pflen >= 128) {
-        netmask->s6_addr32[0] = 0xffffffff;
-        netmask->s6_addr32[1] = 0xffffffff;
-        netmask->s6_addr32[2] = 0xffffffff;
-        netmask->s6_addr32[3] = 0xffffffff;
+        memset(netmask, 0xff, sizeof(nd_addr_t));
         return;
     }
 

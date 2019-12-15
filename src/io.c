@@ -72,10 +72,7 @@ static void ndL_refresh_pollfds()
     int index = 0;
 
     ND_LL_FOREACH (ndL_first_io, io, next) {
-        ndL_pollfds[index].fd = io->fd;
-        ndL_pollfds[index].revents = 0;
-        ndL_pollfds[index].events = POLLIN;
-        index++;
+        ndL_pollfds[index++] = (struct pollfd){ .fd = io->fd, .events = POLLIN };
     }
 
     ndL_pollfds_count = index;
@@ -106,11 +103,9 @@ static nd_io_t *ndL_create(int fd)
         io = ND_ALLOC(nd_io_t);
     }
 
-    ND_LL_PREPEND(ndL_first_io, io, next);
+    *io = (nd_io_t){ .fd = fd };
 
-    io->fd = fd;
-    io->data = 0;
-    io->handler = NULL;
+    ND_LL_PREPEND(ndL_first_io, io, next);
 
 #ifndef NDPPD_NO_USE_EPOLL
     if (ndL_epoll_fd <= 0 && (ndL_epoll_fd = epoll_create(1)) < 0) {
@@ -169,15 +164,17 @@ void nd_io_close(nd_io_t *io)
 
 ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen)
 {
-    struct iovec iov;
-    iov.iov_len = msglen;
-    iov.iov_base = (caddr_t)msg;
+    struct iovec iov = {
+        .iov_len = msglen,
+        .iov_base = (caddr_t)msg,
+    };
 
-    struct msghdr mhdr;
-    memset(&mhdr, 0, sizeof(mhdr));
-    mhdr.msg_name = (caddr_t)addr, mhdr.msg_namelen = addrlen;
-    mhdr.msg_iov = &iov;
-    mhdr.msg_iovlen = 1;
+    struct msghdr mhdr = {
+        .msg_name = (caddr_t)addr,
+        mhdr.msg_namelen = addrlen,
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
 
     ssize_t len;
 
@@ -191,16 +188,17 @@ ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, con
 
 ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg, size_t msglen)
 {
-    struct iovec iov;
-    iov.iov_len = msglen;
-    iov.iov_base = (caddr_t)msg;
+    struct iovec iov = {
+        .iov_len = msglen,
+        .iov_base = (caddr_t)msg,
+    };
 
-    struct msghdr mhdr;
-    memset(&mhdr, 0, sizeof(mhdr));
-    mhdr.msg_name = (caddr_t)addr;
-    mhdr.msg_namelen = addrlen;
-    mhdr.msg_iov = &iov;
-    mhdr.msg_iovlen = 1;
+    struct msghdr mhdr = {
+        .msg_name = (caddr_t)addr,
+        .msg_namelen = addrlen,
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
 
     int len;
 
@@ -223,9 +221,11 @@ ssize_t nd_io_read(nd_io_t *io, void *buf, size_t count)
 ssize_t nd_io_write(nd_io_t *io, void *buf, size_t count)
 {
     ssize_t len = write(io->fd, buf, count);
+
     if (len < 0) {
         nd_log_error("err: %s", strerror(errno));
     }
+
     return len;
 }
 

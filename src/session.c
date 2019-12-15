@@ -81,15 +81,15 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
         session = ND_ALLOC(nd_session_t);
     }
 
-    ND_LL_PREPEND(rule->proxy->sessions, session, next_in_proxy);
-
-    memset(session, 0, sizeof(nd_session_t));
-
-    session->rule = rule;
-    session->state_time = nd_current_time;
-    session->tgt = *tgt;
+    *session = (nd_session_t){
+        .rule = rule,
+        .state_time = nd_current_time,
+        .tgt = *tgt,
+    };
 
     nd_addr_combine(&rule->rewrite_tgt, tgt, rule->rewrite_pflen, &session->real_tgt);
+
+    ND_LL_PREPEND(rule->proxy->sessions, session, next_in_proxy);
 
     if (rule->mode == ND_MODE_AUTO) {
         nd_rt_route_t *route = nd_rt_find_route(tgt, rule->table);

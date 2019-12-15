@@ -59,16 +59,18 @@ void *nd_alloc(size_t size)
         }
     }
 
-    ndL_chunk_t *chunk = (ndL_chunk_t *)calloc(1, ndL_alloc_size);
+    ndL_chunk_t *chunk = (ndL_chunk_t *)malloc(ndL_alloc_size);
 
     // This should never happen.
     if (chunk == NULL) {
         abort();
     }
 
-    chunk->next = ndL_chunks;
-    chunk->size = ndL_alloc_size;
-    chunk->free = ndL_alloc_size - ((sizeof(ndL_chunk_t) + 7U) & ~7U);
+    *chunk = (ndL_chunk_t){
+        .next = ndL_chunks,
+        .size = ndL_alloc_size,
+        .free = ndL_alloc_size - ((sizeof(ndL_chunk_t) + 7U) & ~7U),
+    };
 
     ndL_chunks = chunk;
 
