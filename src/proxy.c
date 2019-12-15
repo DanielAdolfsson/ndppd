@@ -118,6 +118,9 @@ bool nd_proxy_startup()
         {
             if (rule->ifname[0] && !(rule->iface = nd_iface_open(rule->ifname, 0)))
                 return false;
+
+            nd_log_error("RULE REWRITE %s/%d", nd_aton(&rule->rewrite_tgt), rule->rewrite_pflen);
+
         }
     }
 

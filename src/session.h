@@ -41,6 +41,7 @@ struct nd_session
     nd_session_t *next_in_iface;
     nd_rule_t *rule;
     nd_addr_t tgt;
+    nd_addr_t real_tgt;
     int ons_count;   // Number of outgoing NS messages.
     long ons_time;   // Last time we sent a NS message.
     long ins_time;   // Last time this session was the target of an incoming NS.

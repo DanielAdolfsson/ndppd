@@ -19,17 +19,16 @@
 #include <getopt.h>
 #include <stdint.h>
 /**/
-#include <netinet/in.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "addr.h"
 #include "conf.h"
 #include "iface.h"
 #include "io.h"

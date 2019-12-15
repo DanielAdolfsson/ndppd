@@ -90,11 +90,13 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
     session->state_time = nd_current_time;
     session->tgt = *tgt;
 
+    nd_addr_combine(&rule->rewrite_tgt, tgt, rule->rewrite_pflen, &session->real_tgt);
+
     if (rule->is_auto)
     {
         nd_rt_route_t *route = nd_rt_find_route(tgt, rule->table);
 
-        if (!route || route->oif == rule->proxy->iface->index ||!(session->iface = nd_iface_open(NULL, route->oif)))
+        if (!route || route->oif == rule->proxy->iface->index || !(session->iface = nd_iface_open(NULL, route->oif)))
         {
             session->state = ND_STATE_INVALID;
             return session;
@@ -112,8 +114,7 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
         session->state = ND_STATE_INCOMPLETE;
         session->ons_count = 1;
         session->ons_time = nd_current_time;
-        nd_iface_write_ns(session->iface, tgt);
-
+        nd_iface_write_ns(session->iface, &session->real_tgt);
     }
     else
     {
@@ -135,11 +136,12 @@ void nd_session_update(nd_session_t *session)
         {
             session->state = ND_STATE_INVALID;
             session->state_time = nd_current_time;
-            nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", session->rule->proxy->ifname, nd_aton(&session->tgt));
+            nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", //
+                         session->rule->proxy->ifname, nd_aton(&session->tgt));
             break;
         }
 
-        nd_iface_write_ns(session->iface, &session->tgt);
+        nd_iface_write_ns(session->iface, &session->real_tgt);
         break;
 
     case ND_STATE_INVALID:
@@ -157,7 +159,8 @@ void nd_session_update(nd_session_t *session)
         ND_LL_DELETE(session->rule->proxy->sessions, session, next_in_proxy);
         ND_LL_PREPEND(ndL_free_sessions, session, next_in_proxy);
 
-        nd_log_debug("session [%s] %s INVALID -> (deleted)", session->rule->proxy->ifname, nd_aton(&session->tgt));
+        nd_log_debug("session [%s] %s INVALID -> (deleted)", //
+                     session->rule->proxy->ifname, nd_aton(&session->tgt));
         break;
 
     case ND_STATE_VALID:
@@ -168,12 +171,13 @@ void nd_session_update(nd_session_t *session)
         session->state_time = nd_current_time;
         session->ons_time = nd_current_time;
 
-        nd_log_debug("session [%s] %s VALID -> STALE", session->rule->proxy->ifname, nd_aton(&session->tgt));
+        nd_log_debug("session [%s] %s VALID -> STALE", //
+                     session->rule->proxy->ifname, nd_aton(&session->tgt));
 
         if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl)
         {
             session->ons_count = 1;
-            nd_iface_write_ns(session->iface, &session->tgt);
+            nd_iface_write_ns(session->iface, &session->real_tgt);
         }
         else
         {
@@ -187,7 +191,9 @@ void nd_session_update(nd_session_t *session)
         {
             session->state = ND_STATE_INVALID;
             session->state_time = nd_current_time;
-            nd_log_debug("session [%s] %s STALE -> INVALID", session->rule->proxy->ifname, nd_aton(&session->tgt));
+
+            nd_log_debug("session [%s] %s STALE -> INVALID", //
+                         session->rule->proxy->ifname, nd_aton(&session->tgt));
         }
         else
         {
@@ -206,7 +212,7 @@ void nd_session_update(nd_session_t *session)
 
             session->ons_count++;
             session->ons_time = nd_current_time;
-            nd_iface_write_ns(session->iface, &session->tgt);
+            nd_iface_write_ns(session->iface, &session->real_tgt);
         }
         break;
     }

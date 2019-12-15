@@ -31,6 +31,9 @@ struct nd_rule
     nd_addr_t addr;
     int prefix;
 
+    nd_addr_t rewrite_tgt;
+    int rewrite_pflen;
+
     nd_iface_t *iface;
     bool is_auto;
     bool autowire;

@@ -103,7 +103,7 @@ static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)&msg->icmp6_hdr;
 
     nd_session_t *session;
-    ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->tgt, &na->nd_na_target));
+    ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->real_tgt, &na->nd_na_target));
 
     if (!session)
         return;

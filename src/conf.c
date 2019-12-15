@@ -98,11 +98,13 @@ enum
 };
 
 static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy);
+static bool ndL_parse_rewrite(ndL_state_t *state, nd_rule_t *rule);
 static bool ndL_parse_proxy(ndL_state_t *state, void *unused);
 
 static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "proxy", NDL_DEFAULT, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_proxy },
     { "rule", NDL_PROXY, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_rule },
+    { "rewrite", NDL_RULE, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_rewrite },
     { "invalid-ttl", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_invalid_ttl, 1000, 3600000, NULL },
     { "valid-ttl", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_valid_ttl, 10000, 3600000, NULL },
     { "renew", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_renew, 0, 0, NULL },
@@ -264,7 +266,7 @@ static bool ndL_accept_bool(ndL_state_t *state, bool *value)
     return true;
 }
 
-static bool ndL_accept_int(ndL_state_t *state, int *value)
+static bool ndL_accept_int(ndL_state_t *state, int *value, int min, int max)
 {
     ndL_state_t tmp = *state;
 
@@ -281,8 +283,11 @@ static bool ndL_accept_int(ndL_state_t *state, int *value)
 
     long longval = strtoll(buf, NULL, 10) * n;
 
-    if (longval < INT_MIN || longval > INT_MAX)
+    if (longval < min || longval > max)
+    {
+        ndL_error(state, "Expected a number between %d and %d", min, max);
         return false;
+    }
 
     *value = (int)longval;
     *state = tmp;
@@ -375,18 +380,9 @@ static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
 
     if (ndL_accept(state, "/", 0))
     {
-        // Just for accurate logging if there is an error.
-        ndL_state_t tmp = *state;
-
-        if (!ndL_accept_int(state, &rule->prefix))
+        if (!ndL_accept_int(state, &rule->prefix, 0, 128))
         {
             ndL_error(state, "Expected prefix");
-            return false;
-        }
-
-        if (rule->prefix < 0 || rule->prefix > 128)
-        {
-            ndL_error(&tmp, "Invalid prefix (%d)", rule->prefix);
             return false;
         }
     }
@@ -402,6 +398,27 @@ static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
 #endif
 
     return ndL_parse_block(state, NDL_RULE, rule);
+}
+
+static bool ndL_parse_rewrite(ndL_state_t *state, nd_rule_t *rule)
+{
+    if (!ndL_accept_addr(state, &rule->rewrite_tgt))
+        return false;
+
+    if (ndL_accept(state, "/", 0))
+    {
+        if (!ndL_accept_int(state, &rule->rewrite_pflen, 0, 128))
+        {
+            ndL_error(state, "Expected prefix");
+            return false;
+        }
+    }
+    else
+    {
+        rule->rewrite_pflen = 128;
+    }
+
+    return true;
 }
 
 static bool ndL_parse_proxy(ndL_state_t *state, __attribute__((unused)) void *unused)
@@ -481,14 +498,9 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
                 break;
 
             case NDL_INT:
-                if (!ndL_accept_int(state, (int *)(ptr + t->offset)))
+                if (!ndL_accept_int(state, (int *)(ptr + t->offset), t->min, t->max))
                 {
                     ndL_error(&saved_state, "Expected an integer");
-                    return false;
-                }
-                if (*(int *)(ptr + t->offset) < t->min || *(int *)(ptr + t->offset) > t->max)
-                {
-                    ndL_error(&saved_state, "Invalid range; must be between %d and %d", t->min, t->max);
                     return false;
                 }
                 break;
