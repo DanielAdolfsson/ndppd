@@ -171,7 +171,7 @@ ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, con
 
     struct msghdr mhdr = {
         .msg_name = (caddr_t)addr,
-        mhdr.msg_namelen = addrlen,
+        .msg_namelen = addrlen,
         .msg_iov = &iov,
         .msg_iovlen = 1,
     };
