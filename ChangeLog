@@ -2,17 +2,19 @@
 
     * Version 1.0.0
 
-        * ndppd has been rewritten from scratch, and is now pure C. This should
-          be mostly compatible with the latest release 0.2.5, but several
-          contributions have been backported from master.
+        * ndppd has been rewritten from scratch, and is written in C (C99).
+          Some features has been ported over from the master branch.
 
         * Support for epoll has been added for better scaling. It's still
           possible to revert to using poll by defining NDPPD_NO_USE_EPOLL.
 
         * Managing routes and keeping track of local addresses are now done
-          through the use of Netlink. As such, /proc/* support is now gone.
+          through the use of Netlink on Linux and AF_ROUTE for BSD/MacOS.
+          Autowire is implemented using this.
 
+        * Support for /proc has been removed.
 
+        * Man pages are now written in .adoc format.
 
 2017-01-07  Johnathan Sharratt <johnathan.sharratt@gmail.com>
 
