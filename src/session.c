@@ -35,7 +35,7 @@ static nd_session_t *ndL_free_sessions;
 
 static void ndL_up(nd_session_t *session)
 {
-    if (session->iface && !session->autowired && !session->rule->is_auto && session->rule->autowire)
+    if (session->iface && !session->autowired && session->rule->autowire)
     {
         nd_rt_add_route(&session->tgt, 128, session->iface->index, session->rule->table);
         session->autowired = true;
@@ -92,7 +92,7 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
 
     nd_addr_combine(&rule->rewrite_tgt, tgt, rule->rewrite_pflen, &session->real_tgt);
 
-    if (rule->is_auto)
+    if (rule->mode == ND_MODE_AUTO)
     {
         nd_rt_route_t *route = nd_rt_find_route(tgt, rule->table);
 
@@ -116,7 +116,7 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
         session->ons_time = nd_current_time;
         nd_iface_write_ns(session->iface, &session->real_tgt);
     }
-    else
+    else if (rule->mode == ND_MODE_STATIC)
     {
         session->state = ND_STATE_VALID;
     }

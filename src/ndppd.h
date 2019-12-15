@@ -36,6 +36,9 @@ extern bool nd_daemonized;
 extern bool nd_opt_syslog;
 extern bool nd_opt_daemonize;
 
+#define ND_UNUSED __attribute__((unused))
+#define ND_ALIGNED(x) __attribute((aligned(x)))
+
 #define ND_LL_PREPEND(head, el, next)                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \

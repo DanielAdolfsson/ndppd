@@ -21,6 +21,14 @@
 
 #include "ndppd.h"
 
+typedef enum
+{
+    ND_MODE_UNKNOWN,
+    ND_MODE_STATIC,
+    ND_MODE_IFACE, // Use a specific interface
+    ND_MODE_AUTO,
+} nd_mode_t;
+
 struct nd_rule
 {
     nd_rule_t *next;
@@ -35,9 +43,9 @@ struct nd_rule
     int rewrite_pflen;
 
     nd_iface_t *iface;
-    bool is_auto;
     bool autowire;
     int table;
+    nd_mode_t mode;
 };
 
 nd_rule_t *nd_rule_create(nd_proxy_t *proxy);

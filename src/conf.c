@@ -24,14 +24,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#ifndef INT_MAX
-#    define INT_MAX __INT_MAX__
-#endif
-
-#ifndef INT_MIN
-#    define INT_MIN (-INT_MAX - 1)
-#endif
-
 #include "ndppd.h"
 #include "proxy.h"
 #include "rule.h"
@@ -53,9 +45,11 @@ typedef struct
     int column;
 } ndL_state_t;
 
-typedef bool (*ndL_cfcb_t)(ndL_state_t *state, void *ptr);
+typedef struct ndL_cfinfo ndL_cfinfo_t;
 
-typedef struct
+typedef bool (*ndL_cfcb_t)(ndL_state_t *, const ndL_cfinfo_t *, void *);
+
+struct ndL_cfinfo
 {
     const char *key;
     int scope;
@@ -64,7 +58,7 @@ typedef struct
     int min;
     int max;
     ndL_cfcb_t cb;
-} ndL_cfinfo_t;
+};
 
 //! Scopes.
 enum
@@ -97,30 +91,36 @@ enum
     NDL_IPV6X,       // [A-Fa-f0-9:]
 };
 
-static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy);
-static bool ndL_parse_rewrite(ndL_state_t *state, nd_rule_t *rule);
-static bool ndL_parse_proxy(ndL_state_t *state, void *unused);
+static bool ndL_parse_rule(ndL_state_t *state, ndL_cfinfo_t *info, nd_proxy_t *proxy);
+static bool ndL_parse_rewrite(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule);
+static bool ndL_parse_proxy(ndL_state_t *state, ndL_cfinfo_t *info, void *unused);
+static bool ndL_parse_mode(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+#pragma GCC diagnostic ignored "-Wint-conversion"
 static const ndL_cfinfo_t ndL_cfinfo_table[] = {
-    { "proxy", NDL_DEFAULT, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_proxy },
-    { "rule", NDL_PROXY, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_rule },
-    { "rewrite", NDL_RULE, NDL_NONE, 0, 0, 0, (ndL_cfcb_t)ndL_parse_rewrite },
-    { "invalid-ttl", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_invalid_ttl, 1000, 3600000, NULL },
-    { "valid-ttl", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_valid_ttl, 10000, 3600000, NULL },
-    { "renew", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_renew, 0, 0, NULL },
-    { "retrans-limit", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_retrans_limit, 0, 10, NULL },
-    { "retrans-time", NDL_DEFAULT, NDL_INT, (uintptr_t)&nd_conf_retrans_time, 0, 60000, NULL },
-    { "keepalive", NDL_DEFAULT, NDL_BOOL, (uintptr_t)&nd_conf_keepalive, 0, 0, NULL },
+    { "proxy", NDL_DEFAULT, NDL_NONE, 0, 0, 0, ndL_parse_proxy },
+    { "rule", NDL_PROXY, NDL_NONE, 0, 0, 0, ndL_parse_rule },
+    { "rewrite", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_rewrite },
+    { "invalid-ttl", NDL_DEFAULT, NDL_INT, &nd_conf_invalid_ttl, 1000, 3600000, NULL },
+    { "valid-ttl", NDL_DEFAULT, NDL_INT, &nd_conf_valid_ttl, 10000, 3600000, NULL },
+    { "renew", NDL_DEFAULT, NDL_INT, &nd_conf_renew, 0, 0, NULL },
+    { "retrans-limit", NDL_DEFAULT, NDL_INT, &nd_conf_retrans_limit, 0, 10, NULL },
+    { "retrans-time", NDL_DEFAULT, NDL_INT, &nd_conf_retrans_time, 0, 60000, NULL },
+    { "keepalive", NDL_DEFAULT, NDL_BOOL, &nd_conf_keepalive, 0, 0, NULL },
     { "router", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, router), 0, 0, NULL },
-    { "auto", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, is_auto), 0, 0, NULL },
+    { "auto", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
+    { "static", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
     { "autowire", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, autowire), 0, 0, NULL },
     { "promisc", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, promisc), 0, 0, NULL },
-    { "iface", NDL_RULE, NDL_IDENT, offsetof(nd_rule_t, ifname), 0, IF_NAMESIZE, NULL },
+    { "iface", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
 #ifndef __FreeBSD__
     { "table", NDL_RULE, NDL_INT, offsetof(nd_rule_t, table), 0, 255, NULL },
 #endif
-    { NULL, 0, 0, 0, 0, 0, NULL },
+    { 0 },
 };
+#pragma GCC diagnostic pop
 
 static void ndL_error(const ndL_state_t *state, const char *fmt, ...)
 {
@@ -131,7 +131,7 @@ static void ndL_error(const ndL_state_t *state, const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, va);
     va_end(va);
 
-    nd_log_error("%s at line %d column %d", buf, state->line, state->column);
+    nd_log_error("(at line %d column %d) %s", state->line, state->column, buf);
 }
 
 static char ndL_accept_one(ndL_state_t *state, int cl)
@@ -368,7 +368,7 @@ static bool ndL_accept_ident(ndL_state_t *state, char *str, size_t size)
 
 static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr);
 
-static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
+static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_proxy_t *proxy)
 {
     nd_rule_t *rule = nd_rule_create(proxy);
 
@@ -397,10 +397,25 @@ static bool ndL_parse_rule(ndL_state_t *state, nd_proxy_t *proxy)
     rule->table = 0;
 #endif
 
-    return ndL_parse_block(state, NDL_RULE, rule);
+    if (!ndL_parse_block(state, NDL_RULE, rule))
+        return false;
+
+    if (rule->mode == ND_MODE_UNKNOWN)
+    {
+        ndL_error(state, "\"static\", \"auto\", or \"iface\" need to be specified");
+        return false;
+    }
+
+    if (rule->autowire && rule->mode != ND_MODE_IFACE)
+    {
+        ndL_error(state, "\"autowire\" may only be used in combination with \"iface\"");
+        return false;
+    }
+
+    return true;
 }
 
-static bool ndL_parse_rewrite(ndL_state_t *state, nd_rule_t *rule)
+static bool ndL_parse_rewrite(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_rule_t *rule)
 {
     if (!ndL_accept_addr(state, &rule->rewrite_tgt))
         return false;
@@ -421,7 +436,7 @@ static bool ndL_parse_rewrite(ndL_state_t *state, nd_rule_t *rule)
     return true;
 }
 
-static bool ndL_parse_proxy(ndL_state_t *state, __attribute__((unused)) void *unused)
+static bool ndL_parse_proxy(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *u1, ND_UNUSED void *u2)
 {
     char ifname[IF_NAMESIZE];
 
@@ -439,6 +454,32 @@ static bool ndL_parse_proxy(ndL_state_t *state, __attribute__((unused)) void *un
     return ndL_parse_block(state, NDL_PROXY, proxy);
 }
 
+static bool ndL_parse_mode(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule)
+{
+    if (rule->mode != ND_MODE_UNKNOWN)
+    {
+        ndL_error(state, "\"static\", \"auto\" and \"iface\" are mutually exclusive");
+        return false;
+    }
+
+    if (!strcmp(info->key, "auto"))
+        rule->mode = ND_MODE_AUTO;
+    else if (!strcmp(info->key, "static"))
+        rule->mode = ND_MODE_STATIC;
+    else
+    {
+        if (!ndL_accept_ident(state, rule->ifname, sizeof(rule->ifname)))
+        {
+            ndL_error(state, "Expected interface name");
+            return false;
+        }
+
+        rule->mode = ND_MODE_IFACE;
+    }
+
+    return true;
+}
+
 static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
 {
     ndL_skip(state, false);
@@ -448,6 +489,8 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
         ndL_error(state, "Expected start-of-block '{'");
         return false;
     }
+
+    uint32_t bits = 0;
 
     for (;;)
     {
@@ -469,20 +512,36 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
 
         bool found = false;
 
+        char key[32];
+
+        const ndL_state_t state_before_key = *state;
+        if (!ndL_accept_ident(state, key, sizeof(key)))
+        {
+            nd_log_error("Expected key");
+            return false;
+        }
+
+        ndL_skip(state, false);
+
         for (int i = 0; !found && ndL_cfinfo_table[i].key; i++)
         {
             if (ndL_cfinfo_table[i].scope != scope)
                 continue;
 
-            if (!ndL_accept(state, ndL_cfinfo_table[i].key, NDL_EALNM))
+            if (strcmp(key, ndL_cfinfo_table[i].key) != 0)
                 continue;
 
-            ndL_skip(state, false);
+            if (strcmp(key, "rule") != 0 && strcmp(key, "proxy") != 0 && bits & (1 << i))
+            {
+                ndL_error(&state_before_key, "\"%s\" has already been configured earlier in this scope", key);
+                return false;
+            }
 
+            bits |= 1 << i;
             found = true;
 
             const ndL_cfinfo_t *t = &ndL_cfinfo_table[i];
-            const ndL_state_t saved_state = *state;
+            const ndL_state_t state_before_value = *state;
 
             switch (t->type)
             {
@@ -492,7 +551,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             case NDL_BOOL:
                 if (!ndL_accept_bool(state, (bool *)(ptr + t->offset)))
                 {
-                    ndL_error(&saved_state, "Expected boolean value");
+                    ndL_error(&state_before_value, "Expected boolean value");
                     return false;
                 }
                 break;
@@ -500,7 +559,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             case NDL_INT:
                 if (!ndL_accept_int(state, (int *)(ptr + t->offset), t->min, t->max))
                 {
-                    ndL_error(&saved_state, "Expected an integer");
+                    ndL_error(&state_before_value, "Expected an integer");
                     return false;
                 }
                 break;
@@ -508,7 +567,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             case NDL_ADDR:
                 if (!ndL_accept_addr(state, (nd_addr_t *)(ptr + t->offset)))
                 {
-                    ndL_error(&saved_state, "Expected an IPv6 address");
+                    ndL_error(&state_before_value, "Expected an IPv6 address");
                     return false;
                 }
                 break;
@@ -516,7 +575,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             case NDL_IDENT:
                 if (!ndL_accept_ident(state, (char *)(ptr + t->offset), t->max))
                 {
-                    ndL_error(&saved_state, "Expected identifier");
+                    ndL_error(&state_before_value, "Expected identifier");
                     return false;
                 }
                 break;
@@ -526,7 +585,7 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             {
                 ndL_skip(state, false);
 
-                if (!t->cb(state, ptr))
+                if (!t->cb(state, &ndL_cfinfo_table[i], ptr))
                     return false;
             }
 
@@ -585,7 +644,7 @@ bool nd_conf_load(const char *path)
     {
         ndL_state_t state = { .data = buf, .offset = 0, .length = stat.st_size, .column = 0, .line = 1 };
 
-        /* TODO: Validate configuration. */
+        // FIXME: Validate configuration
 
         result = ndL_parse_block(&state, NDL_DEFAULT, NULL);
     }
