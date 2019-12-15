@@ -22,8 +22,7 @@
 typedef struct nd_rt_route nd_rt_route_t;
 typedef struct nd_rt_addr nd_rt_addr_t;
 
-struct nd_rt_route
-{
+struct nd_rt_route {
     nd_rt_route_t *next;
     nd_addr_t dst;
     unsigned oif;
@@ -32,8 +31,7 @@ struct nd_rt_route
     bool owned; // If this route is owned by ndppd.
 };
 
-struct nd_rt_addr
-{
+struct nd_rt_addr {
     nd_rt_addr_t *next;
     unsigned iif;
     nd_addr_t addr;

@@ -39,8 +39,7 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
 
     ND_LL_SEARCH(ndL_proxies, proxy, next, !strcmp(proxy->ifname, ifname));
 
-    if (proxy)
-    {
+    if (proxy) {
         nd_log_error("Proxy already exists for interface \"%s\"", ifname);
         return NULL;
     }
@@ -66,10 +65,8 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_ad
 
     nd_session_t *session;
 
-    ND_LL_FOREACH_NODEF(proxy->sessions, session, next_in_proxy)
-    {
-        if (nd_addr_eq(&session->tgt, tgt))
-        {
+    ND_LL_FOREACH_NODEF (proxy->sessions, session, next_in_proxy) {
+        if (nd_addr_eq(&session->tgt, tgt)) {
             nd_session_handle_ns(session, src, src_ll);
             return;
         }
@@ -81,18 +78,17 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_ad
     nd_rule_t *rule;
     ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
 
-    if (!rule)
+    if (!rule) {
         return;
+    }
 
     nd_session_handle_ns(nd_session_create(rule, tgt), src, src_ll);
 }
 
 void nd_proxy_update_all()
 {
-    ND_LL_FOREACH(ndL_proxies, proxy, next)
-    {
-        ND_LL_FOREACH_S(proxy->sessions, session, tmp, next_in_proxy)
-        {
+    ND_LL_FOREACH (ndL_proxies, proxy, next) {
+        ND_LL_FOREACH_S (proxy->sessions, session, tmp, next_in_proxy) {
             nd_session_update(session);
         }
     }
@@ -100,10 +96,10 @@ void nd_proxy_update_all()
 
 bool nd_proxy_startup()
 {
-    ND_LL_FOREACH(ndL_proxies, proxy, next)
-    {
-        if (!(proxy->iface = nd_iface_open(proxy->ifname, 0)))
+    ND_LL_FOREACH (ndL_proxies, proxy, next) {
+        if (!(proxy->iface = nd_iface_open(proxy->ifname, 0))) {
             return false;
+        }
 
         proxy->iface->proxy = proxy;
 
@@ -114,10 +110,10 @@ bool nd_proxy_startup()
             nd_iface_set_allmulti(proxy->iface, true);
 #endif
 
-        ND_LL_FOREACH(proxy->rules, rule, next)
-        {
-            if (rule->ifname[0] && !(rule->iface = nd_iface_open(rule->ifname, 0)))
+        ND_LL_FOREACH (proxy->rules, rule, next) {
+            if (rule->ifname[0] && !(rule->iface = nd_iface_open(rule->ifname, 0))) {
                 return false;
+            }
         }
     }
 

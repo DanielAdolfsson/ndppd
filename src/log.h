@@ -19,13 +19,7 @@
 
 #include <stdbool.h>
 
-typedef enum
-{
-    ND_LOG_ERROR,
-    ND_LOG_INFO,
-    ND_LOG_DEBUG,
-    ND_LOG_TRACE
-} nd_loglevel_t;
+typedef enum { ND_LOG_ERROR, ND_LOG_INFO, ND_LOG_DEBUG, ND_LOG_TRACE } nd_loglevel_t;
 
 extern nd_loglevel_t nd_opt_verbosity;
 extern bool nd_opt_syslog;

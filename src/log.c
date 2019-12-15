@@ -31,8 +31,9 @@ bool nd_opt_syslog;
 
 static void ndL_open_syslog()
 {
-    if (ndL_syslog_opened)
+    if (ndL_syslog_opened) {
         return;
+    }
 
     setlogmask(LOG_UPTO(LOG_DEBUG));
     openlog("ndppd", LOG_CONS | LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_DAEMON);
@@ -43,29 +44,29 @@ void nd_log_printf(nd_loglevel_t level, const char *fmt, ...)
 {
     assert(level >= 0 && level <= ND_LOG_TRACE);
 
-    if (level > nd_opt_verbosity)
+    if (level > nd_opt_verbosity) {
         return;
+    }
 
-    if (nd_daemonized || nd_opt_syslog)
+    if (nd_daemonized || nd_opt_syslog) {
         ndL_open_syslog();
+    }
 
     char buf[512];
 
     va_list va;
     va_start(va, fmt);
 
-    if (vsnprintf(buf, sizeof(buf), fmt, va) < 0)
+    if (vsnprintf(buf, sizeof(buf), fmt, va) < 0) {
         abort();
+    }
 
     va_end(va);
 
-    if (ndL_syslog_opened)
-    {
+    if (ndL_syslog_opened) {
         const int pris[] = { LOG_ERR, LOG_INFO, LOG_DEBUG, LOG_DEBUG };
         syslog(pris[level], "%s", buf);
-    }
-    else
-    {
+    } else {
         const char *names[] = { "error", "info", "debug", "trace" };
 
         time_t time = nd_current_time / 1000;

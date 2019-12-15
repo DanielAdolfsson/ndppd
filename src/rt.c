@@ -60,17 +60,18 @@ static void ndL_new_route(nd_rt_route_t *route)
 {
     nd_rt_route_t *new_route;
 
-    ND_LL_FOREACH_NODEF(ndL_routes, new_route, next)
-    {
+    ND_LL_FOREACH_NODEF (ndL_routes, new_route, next) {
         if ((nd_addr_eq(&new_route->dst, &route->dst) && new_route->pflen == route->pflen &&
-             new_route->table == route->table))
+             new_route->table == route->table)) {
             return;
+        }
     }
 
-    if ((new_route = ndL_free_routes))
+    if ((new_route = ndL_free_routes)) {
         ND_LL_DELETE(ndL_free_routes, new_route, next);
-    else
+    } else {
         new_route = ND_ALLOC(nd_rt_route_t);
+    }
 
     *new_route = *route;
 
@@ -78,21 +79,18 @@ static void ndL_new_route(nd_rt_route_t *route)
 
     nd_rt_route_t *prev = NULL;
 
-    ND_LL_FOREACH(ndL_routes, cur, next)
-    {
-        if (new_route->pflen >= cur->pflen)
+    ND_LL_FOREACH (ndL_routes, cur, next) {
+        if (new_route->pflen >= cur->pflen) {
             break;
+        }
 
         prev = cur;
     }
 
-    if (prev)
-    {
+    if (prev) {
         new_route->next = prev->next;
         prev->next = new_route;
-    }
-    else
-    {
+    } else {
         ND_LL_PREPEND(ndL_routes, new_route, next);
     }
 
@@ -104,22 +102,24 @@ static void ndL_delete_route(nd_rt_route_t *route)
 {
     nd_rt_route_t *prev = NULL, *cur;
 
-    ND_LL_FOREACH_NODEF(ndL_routes, cur, next)
-    {
+    ND_LL_FOREACH_NODEF (ndL_routes, cur, next) {
         if ((nd_addr_eq(&cur->dst, &route->dst) && cur->oif == route->oif && cur->pflen == route->pflen &&
-             cur->table == route->table))
+             cur->table == route->table)) {
             break;
+        }
 
         prev = cur;
     }
 
-    if (!cur)
+    if (!cur) {
         return;
+    }
 
-    if (prev)
+    if (prev) {
         prev->next = cur->next;
-    else
+    } else {
         ndL_routes = cur->next;
+    }
 
     nd_log_debug("rt: (event) delete route %s/%d dev %d table %d", //
                  nd_aton(&cur->dst), cur->pflen, cur->oif, cur->table);
@@ -131,16 +131,17 @@ static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
 {
     nd_rt_addr_t *rt_addr;
 
-    ND_LL_FOREACH_NODEF(ndL_addrs, rt_addr, next)
-    {
-        if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen)
+    ND_LL_FOREACH_NODEF (ndL_addrs, rt_addr, next) {
+        if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen) {
             return;
+        }
     }
 
-    if ((rt_addr = ndL_free_addrs))
+    if ((rt_addr = ndL_free_addrs)) {
         ND_LL_DELETE(ndL_free_addrs, rt_addr, next);
-    else
+    } else {
         rt_addr = ND_ALLOC(nd_rt_addr_t);
+    }
 
     ND_LL_PREPEND(ndL_addrs, rt_addr, next);
 
@@ -155,16 +156,15 @@ static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
 {
     nd_rt_addr_t *prev = NULL, *rt_addr;
 
-    ND_LL_FOREACH_NODEF(ndL_addrs, rt_addr, next)
-    {
-        if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen)
-        {
+    ND_LL_FOREACH_NODEF (ndL_addrs, rt_addr, next) {
+        if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen) {
             nd_log_debug("rt: (event) delete address %s/%d if %d", nd_aton(addr), pflen, index);
 
-            if (prev)
+            if (prev) {
                 prev->next = rt_addr->next;
-            else
+            } else {
                 ndL_addrs = rt_addr->next;
+            }
 
             ND_LL_PREPEND(ndL_free_addrs, rt_addr, next);
             return;
@@ -179,8 +179,7 @@ static void ndL_handle_newaddr(struct ifaddrmsg *msg, int length)
 {
     nd_addr_t *addr = NULL;
 
-    for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length))
-    {
+    for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
         if (rta->rta_type == IFA_ADDRESS)
             addr = (nd_addr_t *)RTA_DATA(rta);
     }
@@ -195,8 +194,7 @@ static void ndL_handle_deladdr(struct ifaddrmsg *msg, int length)
 {
     nd_addr_t *addr = NULL;
 
-    for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length))
-    {
+    for (struct rtattr *rta = IFA_RTA(msg); RTA_OK(rta, length); rta = RTA_NEXT(rta, length)) {
         if (rta->rta_type == IFA_ADDRESS)
             addr = (nd_addr_t *)RTA_DATA(rta);
     }
@@ -212,8 +210,7 @@ static void ndL_handle_newroute(struct rtmsg *msg, int rtl)
     nd_addr_t *dst = NULL;
     int oif = 0;
 
-    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl))
-    {
+    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl)) {
         if (rta->rta_type == RTA_OIF)
             oif = *(int *)RTA_DATA(rta);
         else if (rta->rta_type == RTA_DST)
@@ -239,8 +236,7 @@ static void ndL_handle_delroute(struct rtmsg *msg, int rtl)
     nd_addr_t *dst = NULL;
     int oif = 0;
 
-    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl))
-    {
+    for (struct rtattr *rta = RTM_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl)) {
         if (rta->rta_type == RTA_OIF)
             oif = *(int *)RTA_DATA(rta);
         else if (rta->rta_type == RTA_DST)
@@ -264,23 +260,19 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
 {
     uint8_t buf[4096];
 
-    for (;;)
-    {
+    for (;;) {
         ssize_t len = nd_io_recv(ndL_io, NULL, 0, buf, sizeof(buf));
 
         if (len < 0)
             return;
 
-        for (struct nlmsghdr *hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len))
-        {
-            if (hdr->nlmsg_type == NLMSG_DONE)
-            {
+        for (struct nlmsghdr *hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
+            if (hdr->nlmsg_type == NLMSG_DONE) {
                 nd_rt_dump_timeout = 0;
                 break;
             }
 
-            if (hdr->nlmsg_type == NLMSG_ERROR)
-            {
+            if (hdr->nlmsg_type == NLMSG_ERROR) {
                 struct nlmsgerr *e = (struct nlmsgerr *)NLMSG_DATA(hdr);
                 nd_log_error("rt: Netlink: %s (%d)", strerror(-e->error), e->msg.nlmsg_type);
                 continue;
@@ -300,15 +292,11 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
 #else
 static void ndL_get_rtas(int addrs, struct sockaddr *sa, struct sockaddr **rtas)
 {
-    for (int i = 0; i < RTAX_MAX; i++)
-    {
-        if (addrs & (1 << i))
-        {
+    for (int i = 0; i < RTAX_MAX; i++) {
+        if (addrs & (1 << i)) {
             rtas[i] = sa;
             sa = (void *)sa + ((sa->sa_len + sizeof(u_long) - 1) & ~(sizeof(u_long) - 1));
-        }
-        else
-        {
+        } else {
             rtas[i] = NULL;
         }
     }
@@ -319,8 +307,9 @@ static void ndL_handle_rt(struct rt_msghdr *hdr)
     struct sockaddr *rtas[RTAX_MAX];
     ndL_get_rtas(hdr->rtm_addrs, (struct sockaddr *)(hdr + 1), rtas);
 
-    if (!rtas[RTAX_DST] || rtas[RTAX_DST]->sa_family != AF_INET6)
+    if (!rtas[RTAX_DST] || rtas[RTAX_DST]->sa_family != AF_INET6) {
         return;
+    }
 
     int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
 
@@ -338,10 +327,11 @@ static void ndL_handle_rt(struct rt_msghdr *hdr)
         .owned = (hdr->rtm_flags & RTF_PROTO3) != 0,
     };
 
-    if (hdr->rtm_type == RTM_GET || hdr->rtm_type == RTM_ADD)
+    if (hdr->rtm_type == RTM_GET || hdr->rtm_type == RTM_ADD) {
         ndL_new_route(&route);
-    else if (hdr->rtm_type == RTM_DELETE)
+    } else if (hdr->rtm_type == RTM_DELETE) {
         ndL_delete_route(&route);
+    }
 }
 
 static void ndL_handle_ifa(struct ifa_msghdr *hdr)
@@ -349,21 +339,22 @@ static void ndL_handle_ifa(struct ifa_msghdr *hdr)
     struct sockaddr *rtas[RTAX_MAX];
     ndL_get_rtas(hdr->ifam_addrs, (struct sockaddr *)(hdr + 1), rtas);
 
-    if (!rtas[RTAX_IFA] || rtas[RTAX_IFA]->sa_family != AF_INET6)
+    if (!rtas[RTAX_IFA] || rtas[RTAX_IFA]->sa_family != AF_INET6) {
         return;
+    }
 
     int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
 
     nd_addr_t *ifa = &((struct sockaddr_in6 *)rtas[RTAX_IFA])->sin6_addr;
 
-    if (hdr->ifam_type == RTM_NEWADDR)
+    if (hdr->ifam_type == RTM_NEWADDR) {
         ndL_new_addr(hdr->ifam_index, ifa, pflen);
-    else if (hdr->ifam_type == RTM_DELADDR)
+    } else if (hdr->ifam_type == RTM_DELADDR) {
         ndL_delete_addr(hdr->ifam_index, ifa, pflen);
+    }
 }
 
-typedef struct
-{
+typedef struct {
     u_short msglen;
     u_char version;
     u_char type;
@@ -371,16 +362,15 @@ typedef struct
 
 static void ndL_handle(void *buf, size_t buflen)
 {
-    for (size_t i = 0; i < buflen;)
-    {
+    for (size_t i = 0; i < buflen;) {
         ndL_msghdr_t *hdr = (ndL_msghdr_t *)(buf + i);
         i += hdr->msglen;
 
-        if (i > buflen)
+        if (i > buflen) {
             break;
+        }
 
-        switch (hdr->type)
-        {
+        switch (hdr->type) {
         case RTM_ADD:
         case RTM_GET:
         case RTM_DELETE:
@@ -400,8 +390,7 @@ static bool ndL_dump(int type)
     int mib[] = { CTL_NET, PF_ROUTE, 0, 0, type, 0 };
 
     size_t size;
-    if (sysctl(mib, 6, NULL, &size, NULL, 0) < 0)
-    {
+    if (sysctl(mib, 6, NULL, &size, NULL, 0) < 0) {
         nd_log_error("sysctl(): %s", strerror(errno));
         return false;
     }
@@ -409,8 +398,7 @@ static bool ndL_dump(int type)
     void *buf = malloc(size);
 
     // FIXME: Potential race condition as the number of routes might have increased since the previous syscall().
-    if (sysctl(mib, 6, buf, &size, NULL, 0) < 0)
-    {
+    if (sysctl(mib, 6, buf, &size, NULL, 0) < 0) {
         free(buf);
         nd_log_error("sysctl(): %s", strerror(errno));
         return false;
@@ -426,12 +414,12 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
 {
     uint8_t buf[4096];
 
-    for (;;)
-    {
+    for (;;) {
         ssize_t len = nd_io_recv(ndL_io, NULL, 0, buf, sizeof(buf));
 
-        if (len < 0)
+        if (len < 0) {
             return;
+        }
 
         ndL_handle(buf, len);
     }
@@ -441,12 +429,12 @@ static void ndL_io_handler(__attribute__((unused)) nd_io_t *unused1, __attribute
 
 bool nd_rt_open()
 {
-    if (ndL_io != NULL)
+    if (ndL_io != NULL) {
         return true;
+    }
 
 #ifdef __linux__
-    if (!(ndL_io = nd_io_socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)))
-    {
+    if (!(ndL_io = nd_io_socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE))) {
         nd_log_error("Failed to open netlink socket: %s", strerror(errno));
         return false;
     }
@@ -456,16 +444,14 @@ bool nd_rt_open()
     addr.nl_family = AF_NETLINK;
     addr.nl_groups = (1 << (RTNLGRP_IPV6_IFADDR - 1)) | (1 << (RTNLGRP_IPV6_ROUTE - 1));
 
-    if (!nd_io_bind(ndL_io, (struct sockaddr *)&addr, sizeof(addr)))
-    {
+    if (!nd_io_bind(ndL_io, (struct sockaddr *)&addr, sizeof(addr))) {
         nd_log_error("Failed to bind netlink socket: %s", strerror(errno));
         nd_io_close(ndL_io);
         ndL_io = NULL;
         return false;
     }
 #else
-    if (!(ndL_io = nd_io_socket(AF_ROUTE, SOCK_RAW, AF_INET6)))
-    {
+    if (!(ndL_io = nd_io_socket(AF_ROUTE, SOCK_RAW, AF_INET6))) {
         nd_log_error("Failed to open routing socket: %s", strerror(errno));
         return false;
     }
@@ -478,8 +464,9 @@ bool nd_rt_open()
 
 void nd_rt_cleanup()
 {
-    if (ndL_io)
+    if (ndL_io) {
         nd_io_close(ndL_io);
+    }
 }
 
 bool nd_rt_query_routes()
@@ -488,8 +475,7 @@ bool nd_rt_query_routes()
     if (nd_rt_dump_timeout)
         return false;
 
-    struct
-    {
+    struct {
         struct nlmsghdr hdr;
         struct rtmsg msg;
     } req;
@@ -523,8 +509,7 @@ bool nd_rt_query_addresses()
     if (nd_rt_dump_timeout)
         return false;
 
-    struct
-    {
+    struct {
         struct nlmsghdr hdr;
         struct ifaddrmsg msg;
     } req;
@@ -553,10 +538,10 @@ bool nd_rt_query_addresses()
 
 nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, unsigned table)
 {
-    ND_LL_FOREACH(ndL_routes, route, next)
-    {
-        if (nd_addr_match(&route->dst, addr, route->pflen) && route->table == table)
+    ND_LL_FOREACH (ndL_routes, route, next) {
+        if (nd_addr_match(&route->dst, addr, route->pflen) && route->table == table) {
             return route;
+        }
     }
 
     return NULL;
@@ -565,16 +550,15 @@ nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, unsigned table)
 bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned table)
 {
 #ifdef __linux__
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
         struct nlmsghdr hdr;
         struct rtmsg msg;
         struct rtattr oif_attr __attribute__((aligned(NLMSG_ALIGNTO)));
         uint32_t oif;
         struct rtattr dst_attr __attribute__((aligned(RTA_ALIGNTO)));
         nd_addr_t dst;
-        //struct rtattr exp_attr __attribute__((aligned(RTA_ALIGNTO)));
-        //uint32_t exp;
+        // struct rtattr exp_attr __attribute__((aligned(RTA_ALIGNTO)));
+        // uint32_t exp;
     } req;
 
     memset(&req, 0, sizeof(req));
@@ -593,9 +577,9 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
     req.dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst));
     req.dst = *dst;
 
-    //req.exp_attr.rta_type = RTA_EXPIRES;
-    //req.exp_attr.rta_len = RTA_LENGTH(sizeof(req.exp));
-    //req.exp = 60;
+    // req.exp_attr.rta_type = RTA_EXPIRES;
+    // req.exp_attr.rta_len = RTA_LENGTH(sizeof(req.exp));
+    // req.exp = 60;
 
     req.hdr.nlmsg_type = RTM_NEWROUTE;
     req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE;
@@ -607,8 +591,7 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
 
     return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 #else
-    struct
-    {
+    struct {
         struct rt_msghdr hdr;
         struct sockaddr_in6 dst;
         struct sockaddr_dl dl __aligned(sizeof(u_long));
@@ -652,8 +635,7 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
 bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 {
 #ifdef __linux__
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
         struct nlmsghdr hdr;
         struct rtmsg msg;
         struct rtattr dst_attr __attribute__((aligned(NLMSG_ALIGNTO)));
@@ -682,8 +664,7 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 
     return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 #else
-    struct __attribute__((packed))
-    {
+    struct __attribute__((packed)) {
         struct rt_msghdr hdr;
         struct sockaddr_in6 dst;
         struct sockaddr_in6 mask __aligned(sizeof(u_long));
@@ -718,9 +699,9 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 
 void nl_rt_remove_owned_routes()
 {
-    ND_LL_FOREACH_S(ndL_routes, route, tmp, next)
-    {
-        if (route->owned)
+    ND_LL_FOREACH_S (ndL_routes, route, tmp, next) {
+        if (route->owned) {
             nd_rt_remove_route(&route->dst, route->pflen, route->table);
+        }
     }
 }

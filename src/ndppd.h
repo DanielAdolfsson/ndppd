@@ -40,15 +40,13 @@ extern bool nd_opt_daemonize;
 #define ND_ALIGNED(x) __attribute((aligned(x)))
 
 #define ND_LL_PREPEND(head, el, next)                                                                                  \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         (el)->next = (head);                                                                                           \
         (head) = (el);                                                                                                 \
     } while (0)
 
 #define ND_LL_DELETE(head, el, next)                                                                                   \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         __typeof(el) _last = (head);                                                                                   \
         while (_last != NULL && _last->next != (el))                                                                   \
             _last = _last->next;                                                                                       \
@@ -59,8 +57,7 @@ extern bool nd_opt_daemonize;
     } while (0)
 
 #define ND_LL_COUNT(head, count, next)                                                                                 \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         (count) = 0;                                                                                                   \
         for (__typeof(head) _el = (head); _el; _el = _el->next)                                                        \
             (count)++;                                                                                                 \
@@ -78,8 +75,7 @@ extern bool nd_opt_daemonize;
 #define ND_LL_FOREACH_NODEF(head, el, next) for ((el) = (head); (el); (el) = (el)->next)
 
 #define ND_LL_SEARCH(head, el, next, pred)                                                                             \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         for (el = (head); el && !(pred); el = el->next)                                                                \
             ;                                                                                                          \
     } while (0)

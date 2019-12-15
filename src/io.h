@@ -21,8 +21,7 @@
 
 typedef void(nd_io_handler_t)(nd_io_t *io, int events);
 
-struct nd_io
-{
+struct nd_io {
     nd_io_t *next;
     int fd;
     uintptr_t data;

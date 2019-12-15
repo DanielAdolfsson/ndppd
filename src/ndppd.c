@@ -51,10 +51,10 @@ static bool ndL_check_pidfile()
 {
     int fd = open(nd_opt_pidfile_path, O_RDWR);
 
-    if (fd == -1)
-    {
-        if (errno == ENOENT)
+    if (fd == -1) {
+        if (errno == ENOENT) {
             return true;
+        }
 
         return false;
     }
@@ -68,32 +68,31 @@ static bool ndL_daemonize()
 {
     int fd = open(nd_opt_pidfile_path, O_WRONLY | O_CREAT, 0644);
 
-    if (fd == -1)
+    if (fd == -1) {
         return false;
+    }
 
-    if (flock(fd, LOCK_EX | LOCK_NB) < 0)
-    {
+    if (flock(fd, LOCK_EX | LOCK_NB) < 0) {
         close(fd);
         return false;
     }
 
     pid_t pid = fork();
 
-    if (pid < 0)
-    {
+    if (pid < 0) {
         // logger::error() << "Failed to fork during daemonize: " << logger::err();
         return false;
     }
 
-    if (pid > 0)
-    {
+    if (pid > 0) {
         char buf[21];
         int len = snprintf(buf, sizeof(buf), "%d", pid);
 
-        if (ftruncate(fd, 0) == -1)
+        if (ftruncate(fd, 0) == -1) {
             nd_log_error("Failed to write PID file: ftruncate(): %s", strerror(errno));
-        else if (write(fd, buf, len) != 0)
+        } else if (write(fd, buf, len) != 0) {
             nd_log_error("Failed to write PID file: write(): %s", strerror(errno));
+        }
 
         nd_iface_no_restore_flags = true;
         exit(0);
@@ -102,14 +101,12 @@ static bool ndL_daemonize()
     umask(0);
 
     pid_t sid = setsid();
-    if (sid < 0)
-    {
+    if (sid < 0) {
         // logger::error() << "Failed to setsid during daemonize: " << logger::err();
         return false;
     }
 
-    if (chdir("/") < 0)
-    {
+    if (chdir("/") < 0) {
         // logger::error() << "Failed to change path during daemonize: " << logger::err();
         return false;
     }
@@ -144,10 +141,8 @@ int main(int argc, char *argv[])
         { "syslog", 0, 0, 1 },   { "pidfile", 1, 0, 'p' }, { NULL, 0, 0, 0 },
     };
 
-    for (int ch; (ch = getopt_long(argc, argv, "c:dp:v", long_options, NULL)) != -1;)
-    {
-        switch (ch)
-        {
+    for (int ch; (ch = getopt_long(argc, argv, "c:dp:v", long_options, NULL)) != -1;) {
+        switch (ch) {
         case 'c':
             nd_opt_config_path = nd_strdup(optarg);
             break;
@@ -157,8 +152,9 @@ int main(int argc, char *argv[])
             break;
 
         case 'v':
-            if (nd_opt_verbosity < ND_LOG_ERROR)
+            if (nd_opt_verbosity < ND_LOG_ERROR) {
                 nd_opt_verbosity++;
+            }
             break;
 
         case 'p':
@@ -180,49 +176,52 @@ int main(int argc, char *argv[])
 
     nd_log_info("ndppd " NDPPD_VERSION);
 
-    if (nd_opt_pidfile_path && !ndL_check_pidfile())
-    {
+    if (nd_opt_pidfile_path && !ndL_check_pidfile()) {
         nd_log_error("Failed to lock pidfile. Is ndppd already running?");
         return -1;
     }
 
-    if (nd_opt_config_path == NULL)
+    if (nd_opt_config_path == NULL) {
         nd_opt_config_path = NDPPD_CONFIG_PATH;
+    }
 
     nd_log_info("Loading configuration \"%s\"...", nd_opt_config_path);
 
-    if (!nd_conf_load(nd_opt_config_path))
+    if (!nd_conf_load(nd_opt_config_path)) {
         return -1;
+    }
 
-    if (!nd_iface_startup())
+    if (!nd_iface_startup()) {
         return -1;
+    }
 
-    if (!nd_proxy_startup())
+    if (!nd_proxy_startup()) {
         return -1;
+    }
 
-    if (!nd_rt_open())
+    if (!nd_rt_open()) {
         return -1;
+    }
 
-    if (nd_opt_daemonize && !ndL_daemonize())
+    if (nd_opt_daemonize && !ndL_daemonize()) {
         return -1;
+    }
 
     nd_rt_query_routes();
     bool querying_routes = true;
 
-    while (1)
-    {
-        if (nd_current_time >= nd_rt_dump_timeout)
+    while (1) {
+        if (nd_current_time >= nd_rt_dump_timeout) {
             nd_rt_dump_timeout = 0;
+        }
 
-        if (querying_routes && !nd_rt_dump_timeout)
-        {
+        if (querying_routes && !nd_rt_dump_timeout) {
             querying_routes = false;
             nl_rt_remove_owned_routes();
             nd_rt_query_addresses();
         }
 
-        if (!nd_io_poll())
-        {
+        if (!nd_io_poll()) {
             /* TODO: Error */
             break;
         }

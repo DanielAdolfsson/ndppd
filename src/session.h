@@ -20,8 +20,7 @@
 #include "ndppd.h"
 #include "rt.h"
 
-typedef enum
-{
+typedef enum {
     //! Address resolution is in progress.
     ND_STATE_INCOMPLETE,
 
@@ -35,8 +34,7 @@ typedef enum
 
 } nd_state_t;
 
-struct nd_session
-{
+struct nd_session {
     nd_session_t *next_in_proxy;
     nd_session_t *next_in_iface;
     nd_rule_t *rule;

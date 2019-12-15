@@ -21,16 +21,14 @@
 
 #include "ndppd.h"
 
-typedef enum
-{
+typedef enum {
     ND_MODE_UNKNOWN,
     ND_MODE_STATIC,
     ND_MODE_IFACE, // Use a specific interface
     ND_MODE_AUTO,
 } nd_mode_t;
 
-struct nd_rule
-{
+struct nd_rule {
     nd_rule_t *next;
     nd_proxy_t *proxy;
 

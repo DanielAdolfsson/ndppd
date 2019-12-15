@@ -36,8 +36,7 @@ int nd_conf_retrans_limit = 3;
 int nd_conf_retrans_time = 1000;
 bool nd_conf_keepalive = false;
 
-typedef struct
-{
+typedef struct {
     const char *data;
     size_t offset;
     size_t length;
@@ -49,8 +48,7 @@ typedef struct ndL_cfinfo ndL_cfinfo_t;
 
 typedef bool (*ndL_cfcb_t)(ndL_state_t *, const ndL_cfinfo_t *, void *);
 
-struct ndL_cfinfo
-{
+struct ndL_cfinfo {
     const char *key;
     int scope;
     int type;
@@ -61,26 +59,13 @@ struct ndL_cfinfo
 };
 
 //! Scopes.
-enum
-{
-    NDL_DEFAULT,
-    NDL_PROXY,
-    NDL_RULE
-};
+enum { NDL_DEFAULT, NDL_PROXY, NDL_RULE };
 
 //! Configuration types.
-enum
-{
-    NDL_NONE,
-    NDL_INT,
-    NDL_BOOL,
-    NDL_ADDR,
-    NDL_IDENT
-};
+enum { NDL_NONE, NDL_INT, NDL_BOOL, NDL_ADDR, NDL_IDENT };
 
 //! Character classes.
-enum
-{
+enum {
     NDL_ALPHA = 256, // [a-zA-Z]
     NDL_ALNUM,       // [a-zA-Z0-9]
     NDL_DIGIT,       // [0-9]
@@ -93,7 +78,7 @@ enum
 
 static bool ndL_parse_rule(ndL_state_t *state, ndL_cfinfo_t *info, nd_proxy_t *proxy);
 static bool ndL_parse_rewrite(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule);
-static bool ndL_parse_proxy(ndL_state_t *state, ndL_cfinfo_t *info, void *unused);
+static bool ndL_parse_proxy(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *u1, ND_UNUSED void *u2);
 static bool ndL_parse_mode(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule);
 
 #pragma GCC diagnostic push
@@ -136,15 +121,15 @@ static void ndL_error(const ndL_state_t *state, const char *fmt, ...)
 
 static char ndL_accept_one(ndL_state_t *state, int cl)
 {
-    if (state->offset >= state->length)
+    if (state->offset >= state->length) {
         return 0;
+    }
 
     char ch = state->data[state->offset];
 
     bool result;
 
-    switch (cl)
-    {
+    switch (cl) {
     case 0:
         result = true;
         break;
@@ -186,16 +171,14 @@ static char ndL_accept_one(ndL_state_t *state, int cl)
         break;
     }
 
-    if (!result)
+    if (!result) {
         return false;
+    }
 
-    if (ch == '\n')
-    {
+    if (ch == '\n') {
         state->line++;
         state->column = 1;
-    }
-    else
-    {
+    } else {
         state->column++;
     }
 
@@ -208,17 +191,15 @@ static bool ndL_accept_all(ndL_state_t *state, int cl, char *buf, size_t buflen)
 {
     ndL_state_t tmp = *state;
 
-    for (size_t i = 0; !buf || i < buflen; i++)
-    {
+    for (size_t i = 0; !buf || i < buflen; i++) {
         char ch = ndL_accept_one(&tmp, cl);
 
-        if (buf)
+        if (buf) {
             buf[i] = ch;
+        }
 
-        if (!ch)
-        {
-            if (i > 0)
-            {
+        if (!ch) {
+            if (i > 0) {
                 *state = tmp;
                 return true;
             }
@@ -234,14 +215,17 @@ static bool ndL_accept(ndL_state_t *state, const char *str, int except_cl)
 {
     ndL_state_t tmp = *state;
 
-    while (*str && ndL_accept_one(&tmp, *str))
+    while (*str && ndL_accept_one(&tmp, *str)) {
         str++;
+    }
 
-    if (*str)
+    if (*str) {
         return false;
+    }
 
-    if (except_cl && ndL_accept_one(&tmp, except_cl))
+    if (except_cl && ndL_accept_one(&tmp, except_cl)) {
         return false;
+    }
 
     *state = tmp;
     return true;
@@ -249,16 +233,16 @@ static bool ndL_accept(ndL_state_t *state, const char *str, int except_cl)
 
 static bool ndL_accept_bool(ndL_state_t *state, bool *value)
 {
-    if (ndL_accept(state, "yes", NDL_EALNM) || ndL_accept(state, "true", NDL_EALNM))
+    if (ndL_accept(state, "yes", NDL_EALNM) || ndL_accept(state, "true", NDL_EALNM)) {
         *value = true;
-    else if (ndL_accept(state, "no", NDL_EALNM) || ndL_accept(state, "false", NDL_EALNM))
+    } else if (ndL_accept(state, "no", NDL_EALNM) || ndL_accept(state, "false", NDL_EALNM)) {
         *value = false;
-    else
-    {
+    } else {
         // For accurate reporting of location.
         ndL_state_t tmp = *state;
-        if (ndL_accept_one(&tmp, NDL_XNONL) != 0)
+        if (ndL_accept_one(&tmp, NDL_XNONL) != 0) {
             return false;
+        }
 
         *value = true;
     }
@@ -274,17 +258,18 @@ static bool ndL_accept_int(ndL_state_t *state, int *value, int min, int max)
 
     char buf[32];
 
-    if (!ndL_accept_all(&tmp, NDL_DIGIT, buf, sizeof(buf)))
+    if (!ndL_accept_all(&tmp, NDL_DIGIT, buf, sizeof(buf))) {
         return false;
+    }
 
     // Trailing [A-Za-z0-9_-] are invalid.
-    if (ndL_accept_one(&tmp, NDL_EALNM))
+    if (ndL_accept_one(&tmp, NDL_EALNM)) {
         return false;
+    }
 
     long longval = strtoll(buf, NULL, 10) * n;
 
-    if (longval < min || longval > max)
-    {
+    if (longval < min || longval > max) {
         ndL_error(state, "Expected a number between %d and %d", min, max);
         return false;
     }
@@ -301,32 +286,25 @@ static bool ndL_eof(ndL_state_t *state)
 
 static void ndL_skip(ndL_state_t *state, bool skip_newline)
 {
-    for (;;)
-    {
+    for (;;) {
         ndL_accept_all(state, skip_newline ? NDL_SPACE : NDL_SNONL, NULL, 0);
 
-        if (ndL_accept(state, "#", 0))
-        {
+        if (ndL_accept(state, "#", 0)) {
             ndL_accept_all(state, NDL_XNONL, NULL, 0);
-        }
-        else if (ndL_accept(state, "/*", 0))
-        {
-            for (;;)
-            {
-                if (ndL_eof(state))
-                {
+        } else if (ndL_accept(state, "/*", 0)) {
+            for (;;) {
+                if (ndL_eof(state)) {
                     ndL_error(state, "Expected end-of-comment before end-of-file");
                     break;
                 }
 
-                if (ndL_accept(state, "*/", 0))
+                if (ndL_accept(state, "*/", 0)) {
                     break;
+                }
 
                 ndL_accept_one(state, 0);
             }
-        }
-        else
-        {
+        } else {
             break;
         }
     }
@@ -338,15 +316,16 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
 
     char buf[64];
 
-    if (!ndL_accept_all(&tmp, NDL_IPV6X, buf, sizeof(buf)))
+    if (!ndL_accept_all(&tmp, NDL_IPV6X, buf, sizeof(buf))) {
         return false;
+    }
 
     // Make sure we don't have a trailing [A-Za-z0-9-_]
-    if (ndL_accept_one(&tmp, NDL_EALNM))
+    if (ndL_accept_one(&tmp, NDL_EALNM)) {
         return false;
+    }
 
-    if (inet_pton(AF_INET6, buf, addr) != 1)
-    {
+    if (inet_pton(AF_INET6, buf, addr) != 1) {
         ndL_error(state, "Invalid IPv6 address \"%s\"", buf);
         return false;
     }
@@ -359,8 +338,9 @@ static bool ndL_accept_ident(ndL_state_t *state, char *str, size_t size)
 {
     ndL_state_t tmp = *state;
 
-    if (!ndL_accept_all(&tmp, NDL_EALNM, str, size))
+    if (!ndL_accept_all(&tmp, NDL_EALNM, str, size)) {
         return false;
+    }
 
     *state = tmp;
     return true;
@@ -372,22 +352,17 @@ static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_
 {
     nd_rule_t *rule = nd_rule_create(proxy);
 
-    if (!ndL_accept_addr(state, &rule->addr))
-    {
+    if (!ndL_accept_addr(state, &rule->addr)) {
         ndL_error(state, "Expected IPv6 address");
         return false;
     }
 
-    if (ndL_accept(state, "/", 0))
-    {
-        if (!ndL_accept_int(state, &rule->prefix, 0, 128))
-        {
+    if (ndL_accept(state, "/", 0)) {
+        if (!ndL_accept_int(state, &rule->prefix, 0, 128)) {
             ndL_error(state, "Expected prefix");
             return false;
         }
-    }
-    else
-    {
+    } else {
         rule->prefix = 128;
     }
 
@@ -397,17 +372,16 @@ static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_
     rule->table = 0;
 #endif
 
-    if (!ndL_parse_block(state, NDL_RULE, rule))
+    if (!ndL_parse_block(state, NDL_RULE, rule)) {
         return false;
+    }
 
-    if (rule->mode == ND_MODE_UNKNOWN)
-    {
+    if (rule->mode == ND_MODE_UNKNOWN) {
         ndL_error(state, "\"static\", \"auto\", or \"iface\" need to be specified");
         return false;
     }
 
-    if (rule->autowire && rule->mode != ND_MODE_IFACE)
-    {
+    if (rule->autowire && rule->mode != ND_MODE_IFACE) {
         ndL_error(state, "\"autowire\" may only be used in combination with \"iface\"");
         return false;
     }
@@ -417,19 +391,16 @@ static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_
 
 static bool ndL_parse_rewrite(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_rule_t *rule)
 {
-    if (!ndL_accept_addr(state, &rule->rewrite_tgt))
+    if (!ndL_accept_addr(state, &rule->rewrite_tgt)) {
         return false;
+    }
 
-    if (ndL_accept(state, "/", 0))
-    {
-        if (!ndL_accept_int(state, &rule->rewrite_pflen, 0, 128))
-        {
+    if (ndL_accept(state, "/", 0)) {
+        if (!ndL_accept_int(state, &rule->rewrite_pflen, 0, 128)) {
             ndL_error(state, "Expected prefix");
             return false;
         }
-    }
-    else
-    {
+    } else {
         rule->rewrite_pflen = 128;
     }
 
@@ -440,36 +411,33 @@ static bool ndL_parse_proxy(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *u1, ND_U
 {
     char ifname[IF_NAMESIZE];
 
-    if (!ndL_accept_all(state, NDL_EALNM, ifname, sizeof(ifname)))
-    {
+    if (!ndL_accept_all(state, NDL_EALNM, ifname, sizeof(ifname))) {
         ndL_error(state, "Expected interface name");
         return false;
     }
 
     nd_proxy_t *proxy = nd_proxy_create(ifname);
 
-    if (proxy == NULL)
+    if (proxy == NULL) {
         return false;
+    }
 
     return ndL_parse_block(state, NDL_PROXY, proxy);
 }
 
 static bool ndL_parse_mode(ndL_state_t *state, ndL_cfinfo_t *info, nd_rule_t *rule)
 {
-    if (rule->mode != ND_MODE_UNKNOWN)
-    {
+    if (rule->mode != ND_MODE_UNKNOWN) {
         ndL_error(state, "\"static\", \"auto\" and \"iface\" are mutually exclusive");
         return false;
     }
 
-    if (!strcmp(info->key, "auto"))
+    if (!strcmp(info->key, "auto")) {
         rule->mode = ND_MODE_AUTO;
-    else if (!strcmp(info->key, "static"))
+    } else if (!strcmp(info->key, "static")) {
         rule->mode = ND_MODE_STATIC;
-    else
-    {
-        if (!ndL_accept_ident(state, rule->ifname, sizeof(rule->ifname)))
-        {
+    } else {
+        if (!ndL_accept_ident(state, rule->ifname, sizeof(rule->ifname))) {
             ndL_error(state, "Expected interface name");
             return false;
         }
@@ -484,25 +452,22 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
 {
     ndL_skip(state, false);
 
-    if (scope != NDL_DEFAULT && !ndL_accept_one(state, '{'))
-    {
+    if (scope != NDL_DEFAULT && !ndL_accept_one(state, '{')) {
         ndL_error(state, "Expected start-of-block '{'");
         return false;
     }
 
     uint32_t bits = 0;
 
-    for (;;)
-    {
+    for (;;) {
         ndL_skip(state, true);
 
-        if (scope != NDL_DEFAULT && ndL_accept_one(state, '}'))
+        if (scope != NDL_DEFAULT && ndL_accept_one(state, '}')) {
             return true;
+        }
 
-        if (ndL_eof(state))
-        {
-            if (scope != NDL_DEFAULT)
-            {
+        if (ndL_eof(state)) {
+            if (scope != NDL_DEFAULT) {
                 ndL_error(state, "Expected end-of-block '}'");
                 return false;
             }
@@ -515,24 +480,23 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
         char key[32];
 
         const ndL_state_t state_before_key = *state;
-        if (!ndL_accept_ident(state, key, sizeof(key)))
-        {
+        if (!ndL_accept_ident(state, key, sizeof(key))) {
             nd_log_error("Expected key");
             return false;
         }
 
         ndL_skip(state, false);
 
-        for (int i = 0; !found && ndL_cfinfo_table[i].key; i++)
-        {
-            if (ndL_cfinfo_table[i].scope != scope)
+        for (int i = 0; !found && ndL_cfinfo_table[i].key; i++) {
+            if (ndL_cfinfo_table[i].scope != scope) {
                 continue;
+            }
 
-            if (strcmp(key, ndL_cfinfo_table[i].key) != 0)
+            if (strcmp(key, ndL_cfinfo_table[i].key) != 0) {
                 continue;
+            }
 
-            if (strcmp(key, "rule") != 0 && strcmp(key, "proxy") != 0 && bits & (1 << i))
-            {
+            if (strcmp(key, "rule") != 0 && strcmp(key, "proxy") != 0 && bits & (1 << i)) {
                 ndL_error(&state_before_key, "\"%s\" has already been configured earlier in this scope", key);
                 return false;
             }
@@ -543,63 +507,56 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             const ndL_cfinfo_t *t = &ndL_cfinfo_table[i];
             const ndL_state_t state_before_value = *state;
 
-            switch (t->type)
-            {
+            switch (t->type) {
             case NDL_NONE:
                 break;
 
             case NDL_BOOL:
-                if (!ndL_accept_bool(state, (bool *)(ptr + t->offset)))
-                {
+                if (!ndL_accept_bool(state, (bool *)(ptr + t->offset))) {
                     ndL_error(&state_before_value, "Expected boolean value");
                     return false;
                 }
                 break;
 
             case NDL_INT:
-                if (!ndL_accept_int(state, (int *)(ptr + t->offset), t->min, t->max))
-                {
+                if (!ndL_accept_int(state, (int *)(ptr + t->offset), t->min, t->max)) {
                     ndL_error(&state_before_value, "Expected an integer");
                     return false;
                 }
                 break;
 
             case NDL_ADDR:
-                if (!ndL_accept_addr(state, (nd_addr_t *)(ptr + t->offset)))
-                {
+                if (!ndL_accept_addr(state, (nd_addr_t *)(ptr + t->offset))) {
                     ndL_error(&state_before_value, "Expected an IPv6 address");
                     return false;
                 }
                 break;
 
             case NDL_IDENT:
-                if (!ndL_accept_ident(state, (char *)(ptr + t->offset), t->max))
-                {
+                if (!ndL_accept_ident(state, (char *)(ptr + t->offset), t->max)) {
                     ndL_error(&state_before_value, "Expected identifier");
                     return false;
                 }
                 break;
             }
 
-            if (t->cb)
-            {
+            if (t->cb) {
                 ndL_skip(state, false);
 
-                if (!t->cb(state, &ndL_cfinfo_table[i], ptr))
+                if (!t->cb(state, &ndL_cfinfo_table[i], ptr)) {
                     return false;
+                }
             }
 
             ndL_skip(state, false);
 
-            if (!ndL_eof(state) && !ndL_accept_one(state, '\n'))
-            {
+            if (!ndL_eof(state) && !ndL_accept_one(state, '\n')) {
                 ndL_error(state, "Expected newline");
                 return false;
             }
         }
 
-        if (!found)
-        {
+        if (!found) {
             ndL_error(state, "Invalid configuration");
             return false;
         }
@@ -610,16 +567,14 @@ bool nd_conf_load(const char *path)
 {
     FILE *fp = fopen(path, "r");
 
-    if (fp == NULL)
-    {
+    if (fp == NULL) {
         nd_log_error("Failed to load configuration: %s", strerror(errno));
         return NULL;
     }
 
     struct stat stat;
 
-    if (fstat(fileno(fp), &stat) < 0)
-    {
+    if (fstat(fileno(fp), &stat) < 0) {
         nd_log_error("Failed to determine size: %s", strerror(errno));
         fclose(fp);
         return NULL;
@@ -627,8 +582,7 @@ bool nd_conf_load(const char *path)
 
     char *buf = (char *)malloc(stat.st_size);
 
-    if (buf == NULL)
-    {
+    if (buf == NULL) {
         nd_log_error("Failed to allocate buffer: %s", strerror(errno));
         fclose(fp);
         return NULL;
@@ -636,12 +590,9 @@ bool nd_conf_load(const char *path)
 
     bool result = false;
 
-    if (fread(buf, stat.st_size, 1, fp) != 1)
-    {
+    if (fread(buf, stat.st_size, 1, fp) != 1) {
         nd_log_error("Failed to read config: %s", strerror(errno));
-    }
-    else
-    {
+    } else {
         ndL_state_t state = { .data = buf, .offset = 0, .length = stat.st_size, .column = 0, .line = 1 };
 
         // FIXME: Validate configuration

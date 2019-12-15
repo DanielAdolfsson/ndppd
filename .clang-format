@@ -1,7 +1,13 @@
-BreakBeforeBraces: Allman
+BreakBeforeBraces: Linux
 IndentWidth: 4
 ColumnLimit: 120
 AllowShortFunctionsOnASingleLine: None
 Cpp11BracedListStyle: false
 IndentPPDirectives: AfterHash
 MaxEmptyLinesToKeep: 1
+ForEachMacros:
+  - ND_LL_FOREACH
+  - ND_LL_FOREACH_S
+  - ND_LL_FOREACH_NODEF
+  - ND_LL_FOREACH_S_NODEF
+

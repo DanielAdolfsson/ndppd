@@ -21,8 +21,7 @@
 
 #include "ndppd.h"
 
-struct nd_proxy
-{
+struct nd_proxy {
     nd_proxy_t *next;
     char ifname[IF_NAMESIZE];
 

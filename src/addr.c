@@ -33,8 +33,9 @@ const char *nd_aton(nd_addr_t *addr)
     static int index;
     static char buf[3][64];
 
-    if (addr == NULL)
+    if (addr == NULL) {
         return "(null)";
+    }
 
     int n = index++ % 3;
 
@@ -80,19 +81,20 @@ bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
 //! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>.
 bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, unsigned pflen)
 {
-    if (pflen > 128)
+    if (pflen > 128) {
         return false;
-    else if (pflen == 0)
+    } else if (pflen == 0) {
         return true;
-    else if (pflen == 128)
+    } else if (pflen == 128) {
         return nd_addr_eq(first, second);
+    }
 
-    for (unsigned i = 0, top = (pflen - 1) >> 5; i <= top; i++)
-    {
+    for (unsigned i = 0, top = (pflen - 1) >> 5; i <= top; i++) {
         uint32_t mask = i < top ? 0xffffffff : ndL_masks[(pflen - 1) & 31];
 
-        if ((first->s6_addr32[i] ^ second->s6_addr32[i]) & mask)
+        if ((first->s6_addr32[i] ^ second->s6_addr32[i]) & mask) {
             return false;
+        }
     }
 
     return true;
@@ -100,29 +102,25 @@ bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, unsigned pflen)
 
 void nd_addr_combine(const nd_addr_t *first, const nd_addr_t *second, unsigned pflen, nd_addr_t *result)
 {
-    if (pflen == 0)
-    {
+    if (pflen == 0) {
         *result = *second;
         return;
     }
 
-    if (pflen >= 128)
-    {
+    if (pflen >= 128) {
         *result = *first;
         return;
     }
 
-    for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++)
-    {
-        if (i == top)
-        {
+    for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++) {
+        if (i == top) {
             uint32_t mask = ndL_masks[(pflen - 1) & 31];
             result->s6_addr32[i] = (first->s6_addr32[i] & mask) | (second->s6_addr32[i] & ~mask);
-        }
-        else if (i < top)
+        } else if (i < top) {
             result->s6_addr32[i] = first->s6_addr32[i];
-        else
+        } else {
             result->s6_addr32[i] = second->s6_addr32[i];
+        }
     }
 }
 
@@ -144,8 +142,7 @@ int nd_mask_to_pflen(nd_addr_t *netmask)
 
 void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
 {
-    if (pflen == 0)
-    {
+    if (pflen == 0) {
         netmask->s6_addr32[0] = 0;
         netmask->s6_addr32[1] = 0;
         netmask->s6_addr32[2] = 0;
@@ -153,8 +150,7 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
         return;
     }
 
-    if (pflen >= 128)
-    {
+    if (pflen >= 128) {
         netmask->s6_addr32[0] = 0xffffffff;
         netmask->s6_addr32[1] = 0xffffffff;
         netmask->s6_addr32[2] = 0xffffffff;
@@ -162,13 +158,13 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
         return;
     }
 
-    for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++)
-    {
-        if (i == top)
+    for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++) {
+        if (i == top) {
             netmask->s6_addr32[i] = ndL_masks[(pflen - 1) & 31];
-        else if (i < top)
+        } else if (i < top) {
             netmask->s6_addr32[i] = 0xffffffff;
-        else
+        } else {
             netmask->s6_addr32[i] = 0;
+        }
     }
 }

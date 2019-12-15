@@ -21,8 +21,7 @@
 
 #include <net/if.h>
 
-struct nd_iface
-{
+struct nd_iface {
     nd_iface_t *next;
     int refcount;
 

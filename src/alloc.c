@@ -27,8 +27,7 @@
 
 typedef struct ndL_chunk ndL_chunk_t;
 
-struct ndL_chunk
-{
+struct ndL_chunk {
     ndL_chunk_t *next;
     size_t free;
     size_t size;
@@ -52,10 +51,8 @@ void *nd_alloc(size_t size)
     // To keep everything properly aligned, we'll make sure it's multiple of 8.
     size = (size + 7U) & ~7U;
 
-    for (ndL_chunk_t *chunk = ndL_chunks; chunk; chunk = chunk->next)
-    {
-        if (chunk->free >= size)
-        {
+    for (ndL_chunk_t *chunk = ndL_chunks; chunk; chunk = chunk->next) {
+        if (chunk->free >= size) {
             void *ptr = (void *)chunk + chunk->size - chunk->free;
             chunk->free -= size;
             return ptr;
@@ -65,8 +62,9 @@ void *nd_alloc(size_t size)
     ndL_chunk_t *chunk = (ndL_chunk_t *)calloc(1, ndL_alloc_size);
 
     // This should never happen.
-    if (chunk == NULL)
+    if (chunk == NULL) {
         abort();
+    }
 
     chunk->next = ndL_chunks;
     chunk->size = ndL_alloc_size;
@@ -83,8 +81,7 @@ void *nd_alloc(size_t size)
 
 void nd_alloc_cleanup()
 {
-    ND_LL_FOREACH_S(ndL_chunks, chunk, tmp, next)
-    {
+    ND_LL_FOREACH_S (ndL_chunks, chunk, tmp, next) {
         free(chunk);
     }
 }
