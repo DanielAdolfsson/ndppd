@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
+#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -27,6 +28,10 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#ifdef __linux__
+#    include <sched.h>
+#endif
 
 #include "addr.h"
 #include "conf.h"
@@ -130,15 +135,50 @@ static void ndL_sig_exit(__attribute__((unused)) int sig)
     exit(0);
 }
 
+#ifdef __linux__
+__attribute__((unused)) static bool ndL_netns(const char *name)
+{
+    char net_path[128];
+    snprintf(net_path, sizeof(net_path), "/var/run/netns/%s", name);
+
+    int fd = open(net_path, O_RDONLY | O_CLOEXEC);
+
+    if (fd < 0) {
+        nd_log_error("Cannot open network namespace \"%s\": %s\n", name, strerror(errno));
+        return false;
+    }
+
+    if (setns(fd, CLONE_NEWNET) < 0) {
+        nd_log_error("Could not set network namespace \"%s\": %s\n", name, strerror(errno));
+        close(fd);
+        return false;
+    }
+
+    close(fd);
+    return true;
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     atexit(ndL_exit);
     signal(SIGINT, ndL_sig_exit);
     signal(SIGTERM, ndL_sig_exit);
 
+#ifdef __linux__
+    char *netns = NULL;
+#endif
+
     static struct option long_options[] = {
-        { "config", 1, 0, 'c' }, { "daemon", 0, 0, 'd' },  { "verbose", 0, 0, 'v' },
-        { "syslog", 0, 0, 1 },   { "pidfile", 1, 0, 'p' }, { NULL, 0, 0, 0 },
+        { "config", 1, 0, 'c' },  //
+        { "daemon", 0, 0, 'd' },  //
+        { "verbose", 0, 0, 'v' }, //
+        { "syslog", 0, 0, 1 },    //
+        { "pidfile", 1, 0, 'p' }, //
+#ifdef __linux__
+        { "netns", 1, 0, 2 },
+#endif
+        { NULL, 0, 0, 0 },
     };
 
     for (int ch; (ch = getopt_long(argc, argv, "c:dp:v", long_options, NULL)) != -1;) {
@@ -165,6 +205,16 @@ int main(int argc, char *argv[])
             nd_opt_syslog = true;
             break;
 
+#ifdef __linux__
+        case 2:
+            if (netns) {
+                fprintf(stderr, "--netns can only be specified once");
+                return -1;
+            }
+            netns = nd_strdup(optarg);
+            break;
+#endif
+
         default:
             break;
         }
@@ -190,6 +240,12 @@ int main(int argc, char *argv[])
     if (!nd_conf_load(nd_opt_config_path)) {
         return -1;
     }
+
+#ifdef __linux__
+    if (netns && !ndL_netns(netns)) {
+        return -1;
+    }
+#endif
 
     if (!nd_iface_startup()) {
         return -1;
