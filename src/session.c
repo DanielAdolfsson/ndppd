@@ -59,7 +59,7 @@ void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *
 
     if (nd_addr_is_unspecified(src)) {
         static const uint8_t allnodes_ll[] = { 0x33, 0x33, [5] = 1 };
-        static const uint8_t allnodes[] = { 0xff, 0x01, [15] = 1 };
+        static const uint8_t allnodes[] = { 0xff, 0x02, [15] = 1 };
         nd_iface_write_na(session->rule->proxy->iface, (nd_addr_t *)allnodes, allnodes_ll, //
                           &session->tgt, session->rule->proxy->router);
     } else {
