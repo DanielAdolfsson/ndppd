@@ -19,10 +19,10 @@ OBJS = $(patsubst %.c,%.o,$(wildcard src/*.c))
 all: ndppd ndppd.8.gz ndppd.conf.5.gz
 
 install: all
-	mkdir -p ${SBINDIR} ${MANDIR} ${MANDIR}/man1 ${MANDIR}/man5
+	mkdir -p ${SBINDIR} ${MANDIR} ${MANDIR}/man8 ${MANDIR}/man5
 	cp ndppd ${SBINDIR}
 	chmod +x ${SBINDIR}/ndppd
-	cp ndppd.8.gz ${MANDIR}/man1
+	cp ndppd.8.gz ${MANDIR}/man8
 	cp ndppd.conf.5.gz ${MANDIR}/man5
 
 %.gz: %.adoc
