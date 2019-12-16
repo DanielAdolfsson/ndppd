@@ -162,3 +162,8 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
         }
     }
 }
+
+bool nd_addr_is_unspecified(nd_addr_t *addr)
+{
+    return addr->s6_addr32[0] == 0 && addr->s6_addr32[1] == 0 && addr->s6_addr32[2] == 0 && addr->s6_addr32[3] == 0;
+}

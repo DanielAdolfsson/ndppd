@@ -46,7 +46,7 @@ extern bool nd_iface_no_restore_flags;
 nd_iface_t *nd_iface_open(const char *if_name, unsigned int if_index);
 void nd_iface_close(nd_iface_t *iface);
 ssize_t nd_iface_write_ns(nd_iface_t *iface, nd_addr_t *tgt);
-ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd_addr_t *tgt, bool router);
+ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_ll, nd_addr_t *tgt, bool router);
 void nd_iface_get_local_addr(nd_iface_t *iface, nd_addr_t *addr);
 bool nd_iface_set_allmulti(nd_iface_t *iface, bool on);
 bool nd_iface_set_promisc(nd_iface_t *iface, bool on);

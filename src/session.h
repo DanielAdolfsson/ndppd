@@ -51,7 +51,7 @@ struct nd_session {
 
 nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt);
 void nd_session_update(nd_session_t *session);
-void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, uint8_t *src_ll);
+void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *src_ll);
 void nd_session_handle_na(nd_session_t *session);
 
 #endif // NDPPD_SESSION_H

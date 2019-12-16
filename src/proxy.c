@@ -54,13 +54,17 @@ nd_proxy_t *nd_proxy_create(const char *ifname)
     return proxy;
 }
 
-void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_addr_t *tgt, uint8_t *src_ll)
+void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_addr_t *tgt, const uint8_t *src_ll)
 {
     (void)dst;
 
-    nd_log_trace("Handle NS src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s",                         //
-                 nd_aton(src), src_ll[0], src_ll[1], src_ll[2], src_ll[3], src_ll[4], src_ll[5], //
-                 nd_aton(dst), nd_aton(tgt));
+    if (nd_addr_is_unspecified(src)) {
+        nd_log_trace("Handle NS src=(unspecified), dst=%s, tgt=%s", nd_aton(dst), nd_aton(tgt));
+    } else {
+        nd_log_trace("Handle NS src=%s [%x:%x:%x:%x:%x:%x], dst=%s, tgt=%s",                         //
+                     nd_aton(src), src_ll[0], src_ll[1], src_ll[2], src_ll[3], src_ll[4], src_ll[5], //
+                     nd_aton(dst), nd_aton(tgt));
+    }
 
     nd_session_t *session;
 

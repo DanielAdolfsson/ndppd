@@ -73,29 +73,34 @@ typedef struct {
 
 static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
 {
+    if (!iface->proxy)
+        return;
+
     struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)&msg->icmp6_hdr;
 
     if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_solicit)) {
         return;
     }
 
-    // We're not doing "proper" parsing of options here.
+    uint8_t *src_ll = NULL;
 
-    if (ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit) < 8) {
-        return;
+    if (!nd_addr_is_unspecified(&msg->ip6_hdr.ip6_src)) {
+        // FIXME: Source link-layer address MUST be included in multicast solicitations and SHOULD be included in
+        //        unicast solicitations. [https://tools.ietf.org/html/rfc4861#section-4.3].
+
+        if (ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit) < 8) {
+            return;
+        }
+
+        struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
+
+        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR)
+            return;
+
+        src_ll = (uint8_t *)((void *)opt + 2);
     }
 
-    struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
-
-    if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR) {
-        return;
-    }
-
-    uint8_t *src_ll = (uint8_t *)((void *)opt + 2);
-
-    if (iface->proxy) {
-        nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, src_ll);
-    }
+    nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, src_ll);
 }
 
 static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
@@ -519,7 +524,7 @@ static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_icmp6_msg_t *msg, size_t si
 #endif
 }
 
-ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, uint8_t *dst_ll, nd_addr_t *tgt, bool router)
+ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_ll, nd_addr_t *tgt, bool router)
 {
     struct __attribute__((packed)) {
         struct ip6_hdr ip;
