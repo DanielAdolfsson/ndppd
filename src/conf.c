@@ -69,7 +69,7 @@ enum {
     NDL_ALPHA = 256, // [a-zA-Z]
     NDL_ALNUM,       // [a-zA-Z0-9]
     NDL_DIGIT,       // [0-9]
-    NDL_EALNM,       // [a-zA-Z0-9_-]
+    NDL_EALNM,       // [a-zA-Z0-9_.-]
     NDL_SPACE,       // [\s]
     NDL_SNONL,       // [^\S\n]
     NDL_XNONL,       // [^\n]
@@ -147,7 +147,7 @@ static char ndL_accept_one(ndL_state_t *state, int cl)
         break;
 
     case NDL_EALNM:
-        result = isalnum(ch) || ch == '_' || ch == '-';
+        result = isalnum(ch) || ch == '.' || ch == '_' || ch == '-';
         break;
 
     case NDL_SPACE:
