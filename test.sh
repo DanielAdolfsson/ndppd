@@ -33,10 +33,13 @@ case "$1" in
   ip link set ndppd.rt1b master ndppd.br1
   ip link set ndppd.1b master ndppd.br1
 
-  #ip link set ndppd.ext.b type bridge_slave mcast_flood off
-  #ip link set ndppd.rtext.b type bridge_slave mcast_flood off
-  #ip link set ndppd.rtint.b type bridge_slave mcast_flood off
-  #ip link set ndppd.int.b type bridge_slave mcast_flood off
+  ip link set ndppd.0b type bridge_slave mcast_flood off
+  ip link set ndppd.rt0b type bridge_slave mcast_flood off
+  ip link set ndppd.rt1b type bridge_slave mcast_flood off
+  ip link set ndppd.1b type bridge_slave mcast_flood off
+
+  ip link set dev ndppd.br0 type bridge mcast_querier 1
+  ip link set dev ndppd.br1 type bridge mcast_querier 1
 
   ip link set ndppd.0b up
   ip link set ndppd.rt0b up
