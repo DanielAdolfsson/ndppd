@@ -30,11 +30,6 @@
 
 #include "ndppd.h"
 
-/*! Returns the string representation of <tt>addr</tt>.
- *
- * @note This function returns a pointer to static data. It uses three different static arrays
- *       to allow the function to be chained.
- */
 const char *nd_ntoa(const nd_addr_t *addr)
 {
     static int index;
@@ -47,15 +42,9 @@ const char *nd_ntoa(const nd_addr_t *addr)
     return inet_ntop(AF_INET6, addr, buf[index++ % 3], 64);
 }
 
-/*! Returns true if <tt>addr</tt> is a multicast address. */
 bool nd_addr_is_multicast(const nd_addr_t *addr)
 {
     return addr->u8[0] == 0xff;
-}
-
-bool nd_addr_is_unicast(const nd_addr_t *addr)
-{
-    return !(addr->u32[2] == 0 && addr->u32[3] == 0) && addr->u8[0] != 0xff;
 }
 
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -76,14 +65,12 @@ static const uint32_t ndL_masks[] = {
 #    error __BYTE_ORDER__ is not defined
 #endif
 
-/*! Returns true if <tt>first</tt> and <tt>second</tt> are the same. */
 bool nd_addr_eq(const nd_addr_t *first, const nd_addr_t *second)
 {
     return first->u32[0] == second->u32[0] && first->u32[1] == second->u32[1] && first->u32[2] == second->u32[2] &&
            first->u32[3] == second->u32[3];
 }
 
-/*! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>. */
 bool nd_addr_match(const nd_addr_t *first, const nd_addr_t *second, unsigned pflen)
 {
     if (pflen > 128) {
@@ -168,16 +155,11 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
     }
 }
 
-bool nd_addr_is_unspecified(nd_addr_t *addr)
+bool nd_addr_is_unspecified(const nd_addr_t *addr)
 {
     return addr->u32[0] == 0 && addr->u32[1] == 0 && addr->u32[2] == 0 && addr->u32[3] == 0;
 }
 
-/*! Returns the string representation of link-layer address <tt>addr</tt>.
- *
- * @note This function returns a pointer to static data. It uses three different static arrays
- *       to allow the function to be chained.
- */
 const char *nd_ll_ntoa(const nd_lladdr_t *addr)
 {
     static int index;

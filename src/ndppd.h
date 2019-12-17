@@ -93,4 +93,4 @@ extern bool nd_opt_daemonize;
 #include "alloc.h"
 #include "log.h"
 
-#endif // NDPPD_H
+#endif /* NDPPD_H */

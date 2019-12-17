@@ -124,6 +124,18 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
     nd_session_handle_na(session);
 }
 
+static void ndL_handle_mlq(nd_iface_t *iface)
+{
+    (void)iface;
+    nd_log_error("(mlq) in");
+}
+
+static void ndL_handle_mlr(nd_iface_t *iface)
+{
+    (void)iface;
+    nd_log_error("(mlr) in");
+}
+
 static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t length)
 {
     uint8_t *p = (uint8_t *)data;
@@ -176,21 +188,17 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
     size_t i = 0;
 
     if (msg->ip6h.ip6_nxt == IPPROTO_HOPOPTS) {
-        /* We're gonna skip through hop-by-hop options. */
-        for (;;) {
-            struct ip6_hbh *hbh = (void *)(msg + 1) + i;
+        /* We're gonna skip through hop-by-hop option. */
+        struct ip6_hbh *hbh = (void *)(msg + 1) + i;
 
-            if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U)) {
-                return;
-            }
+        if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U)) {
+            return;
+        }
 
-            i += 8 + 8 * hbh->ip6h_len;
+        i += 8 + 8 * hbh->ip6h_len;
 
-            if (hbh->ip6h_nxt == IPPROTO_ICMPV6) {
-                break;
-            } else if (hbh->ip6h_nxt != IPPROTO_HOPOPTS) {
-                return;
-            }
+        if (hbh->ip6h_nxt != IPPROTO_ICMPV6) {
+            return;
         }
     } else if (msg->ip6h.ip6_nxt != IPPROTO_ICMPV6) {
         return;
@@ -200,7 +208,7 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
         return;
     }
 
-    struct icmp6_hdr *ih = (struct icmp6_hdr *)(msg + 1) + i;
+    struct icmp6_hdr *ih = (struct icmp6_hdr *)((void *)(msg + 1) + i);
     uint16_t ilen = plen - i;
 
     if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum) {
@@ -211,6 +219,10 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
         ndL_handle_ns(iface, &msg->ip6h, ih, ilen);
     } else if (ih->icmp6_type == ND_NEIGHBOR_ADVERT) {
         ndL_handle_na(iface, ih, ilen);
+    } else if (ih->icmp6_type == MLD_LISTENER_QUERY) {
+        ndL_handle_mlq(iface);
+    } else if (ih->icmp6_type == MLD_LISTENER_REPORT) {
+        ndL_handle_mlr(iface);
     }
 }
 
@@ -236,6 +248,14 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             return;
         }
 
+        nd_iface_t *iface;
+
+        ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
+
+        if (!iface) {
+            continue;
+        }
+
         if ((size_t)len < sizeof(ndL_ip6_msg_t)) {
             continue;
         }
@@ -250,13 +270,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             continue;
         }
 
-        nd_iface_t *iface;
-
-        ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
-
-        if (iface) {
-            ndL_handle_msg(iface, msg);
-        }
+        ndL_handle_msg(iface, msg);
     }
 }
 #else
@@ -302,40 +316,75 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 
 static bool ndL_configure_filter(nd_io_t *io)
 {
-#ifdef __linux__
-    static struct sock_filter filter[] = {
-#else
-    static struct bpf_insn filter[] = {
+#ifndef __linux__
+#    define sock_filter bpf_insn
 #endif
-        /* Load ether_type. */
-        BPF_STMT(BPF_LD | BPF_H | BPF_ABS, offsetof(struct ether_header, ether_type)),
-        /* Drop packet if not ETHERTYPE_IPV6. */
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ETHERTYPE_IPV6, 0, 5),
-        /* Load ip6_nxt. */
-        BPF_STMT(BPF_LD | BPF_B | BPF_ABS, sizeof(struct ether_header) + offsetof(struct ip6_hdr, ip6_nxt)),
-        /* Bail if it's not IPPROTO_ICMPV6. */
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, IPPROTO_ICMPV6, 0, 3),
-        /* Load icmp6_type. */
-        BPF_STMT(BPF_LD | BPF_B | BPF_ABS,
-                 sizeof(struct ether_header) + sizeof(struct ip6_hdr) + offsetof(struct icmp6_hdr, icmp6_type)),
-        /* Keep if ND_NEIGHBOR_SOLICIT. */
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ND_NEIGHBOR_SOLICIT, 2, 0),
-        /* Keep if ND_NEIGHBOR_SOLICIT. */
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ND_NEIGHBOR_ADVERT, 1, 0),
+
+    static struct sock_filter filter[] = {
+        /* Load P->ether_type into A. */
+        BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_header, ether_type)),
+        /* Drop packet if A != ETHERTYPE_IPV6. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_IPV6, 0, 17),
+        /* Load next header offset into X. */
+        BPF_STMT(BPF_LDX + BPF_W + BPF_IMM, sizeof(struct ether_header) + sizeof(struct ip6_hdr)),
+        /* Load P->ip6_nxt. */
+        BPF_STMT(BPF_LD + BPF_B + BPF_ABS, sizeof(struct ether_header) + offsetof(struct ip6_hdr, ip6_nxt)),
+
+        /* Hop-by-hop */
+
+        /* Skip if A != IPPROTO_HOPOPTS. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_HOPOPTS, 0, 8),
+        /* Load X->ip6h_nxt into A. */
+        BPF_STMT(BPF_LD + BPF_B + BPF_IND, 0),
+        /* Save A into [0(nxt)]. */
+        BPF_STMT(BPF_ST, 0),
+        /* Load ip6h_len into A. */
+        BPF_STMT(BPF_LD + BPF_B + BPF_IND, 1),
+        /* Multiply by 8. */
+        BPF_STMT(BPF_ALU + BPF_MUL + BPF_K, 8),
+        /* Add 6. */
+        BPF_STMT(BPF_ALU + BPF_ADD + BPF_K, 8),
+        /* Add X. */
+        BPF_STMT(BPF_ALU + BPF_ADD + BPF_X, 0),
+        /* Copy A to X. */
+        BPF_STMT(BPF_MISC + BPF_TAX, 0),
+        /* Load [0(nxt)] into A. */
+        BPF_STMT(BPF_LD + BPF_MEM, 0),
+
+        /* ICMPv6 */
+
+        /* Fail if A != IPPROTO_ICMPV6. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_ICMPV6, 0, 5),
+        /* Load X->icmp6_type into A. */
+        BPF_STMT(BPF_LD + BPF_B + BPF_IND, offsetof(struct icmp6_hdr, icmp6_type)),
+        /* Succeed if A == ND_NEIGHBOR_SOLICIT. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ND_NEIGHBOR_SOLICIT, 4, 0),
+        /* Succeed if A == ND_NEIGHBOR_SOLICIT. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ND_NEIGHBOR_ADVERT, 3, 0),
+        /* Succeed if A == MLD_LISTENER_QUERY. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, MLD_LISTENER_QUERY, 2, 0),
+        /* Succeed if A == MLD_LISTENER_REPORT. */
+        BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, MLD_LISTENER_REPORT, 1, 0),
         /* Drop packet. */
-        BPF_STMT(BPF_RET | BPF_K, 0),
+        BPF_STMT(BPF_RET + BPF_K, 0),
         /* Keep packet. */
-        BPF_STMT(BPF_RET | BPF_K, (u_int32_t)-1),
+        BPF_STMT(BPF_RET + BPF_K, (u_int32_t)-1),
     };
 
 #ifdef __linux__
-    static struct sock_fprog fprog = { .len = 9, .filter = filter };
+    static struct sock_fprog fprog = {
+        .len = sizeof(filter) / sizeof(filter[0]),
+        .filter = filter,
+    };
 
     if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1) {
         return false;
     }
 #else
-    static struct bpf_program fprog = { .bf_len = 9, .bf_insns = filter };
+    static struct bpf_program fprog = {
+        .bf_len = sizeof(filter) / sizeof(filter[0]),
+        .bf_insns = filter,
+    };
 
     if (ioctl(io->fd, BIOCSETF, &fprog) == -1) {
         return false;
@@ -503,9 +552,7 @@ static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
 {
     uint8_t *p = iface->lladdr.u8;
 
-    *addr = (nd_addr_t) { .u8 = {
-        0xfe, 0x80, [8] = p[0] ^ 0x02U, p[1], p[2], 0xff, 0xfe, p[3], p[4], p[5]
-    }};
+    *addr = (nd_addr_t){ .u8 = { 0xfe, 0x80, [8] = p[0] ^ 0x02U, p[1], p[2], 0xff, 0xfe, p[3], p[4], p[5] } };
 }
 
 static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size, const nd_lladdr_t *lladdr)

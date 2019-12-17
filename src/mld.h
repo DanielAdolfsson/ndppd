@@ -19,4 +19,15 @@
 #ifndef NDPPD_MLD_H
 #define NDPPD_MLD_H
 
+#include "ndppd.h"
+
+typedef struct nd_ml nd_ml_t;
+
+struct nd_ml {
+    nd_ml_t *next;
+    nd_iface_t *iface;
+    nd_addr_t mcast;
+    long last_seen;
+};
+
 #endif /* NDPPD_MLD_H */
