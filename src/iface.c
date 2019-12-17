@@ -70,28 +70,28 @@ bool nd_iface_no_restore_flags;
 
 typedef struct __attribute__((packed)) {
     struct ether_header eh;
-    struct ip6_hdr ip6_hdr;
+    struct ip6_hdr ip6h;
 } ndL_ip6_msg_t;
 
-static void ndL_handle_ns(nd_iface_t *iface, ndL_ip6_msg_t *msg)
+static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_hdr *ih, size_t len)
 {
     if (!iface->proxy) {
         return;
     }
 
-    struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)(msg + 1);
-
-    if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_solicit)) {
+    if (len < sizeof(struct nd_neighbor_solicit)) {
         return;
     }
 
+    struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)ih;
+
     uint8_t *src_ll = NULL;
 
-    if (!nd_addr_is_unspecified(&msg->ip6_hdr.ip6_src)) {
+    if (!nd_addr_is_unspecified(&ip6h->ip6_src)) {
         // FIXME: Source link-layer address MUST be included in multicast solicitations and SHOULD be included in
         //        unicast solicitations. [https://tools.ietf.org/html/rfc4861#section-4.3].
 
-        if (ntohs(msg->ip6_hdr.ip6_plen) - sizeof(struct nd_neighbor_solicit) < 8) {
+        if (len - sizeof(struct nd_neighbor_solicit) < 8) {
             return;
         }
 
@@ -104,16 +104,16 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_ip6_msg_t *msg)
         src_ll = (uint8_t *)((void *)opt + 2);
     }
 
-    nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, src_ll);
+    nd_proxy_handle_ns(iface->proxy, &ip6h->ip6_src, &ip6h->ip6_dst, &ns->nd_ns_target, src_ll);
 }
 
-static void ndL_handle_na(nd_iface_t *iface, ndL_ip6_msg_t *msg)
+static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
 {
-    if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_advert)) {
+    if (len < sizeof(struct nd_neighbor_advert)) {
         return;
     }
 
-    struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)(msg + 1);
+    struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)ih;
 
     nd_session_t *session;
     ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->real_tgt, &na->nd_na_target));
@@ -159,7 +159,7 @@ static uint16_t ndL_calculate_icmp6_checksum(struct ip6_hdr *ip6_hdr, struct icm
         .dst = ip6_hdr->ip6_dst,
         .len = htonl(size),
         .type = IPPROTO_ICMPV6,
-        .icmp6_hdr = *icmp6_hdr
+        .icmp6_hdr = *icmp6_hdr,
     };
 
     hdr.icmp6_hdr.icmp6_cksum = 0;
@@ -173,21 +173,45 @@ static uint16_t ndL_calculate_icmp6_checksum(struct ip6_hdr *ip6_hdr, struct icm
 
 static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
 {
-    if (msg->ip6_hdr.ip6_nxt != IPPROTO_ICMPV6) {
+    size_t plen = ntohs(msg->ip6h.ip6_plen);
+    size_t i = 0;
+
+    if (msg->ip6h.ip6_nxt == IPPROTO_HOPOPTS) {
+        /* We're gonna skip through hop-by-hop options. */
+        for (;;) {
+            struct ip6_hbh *hbh = (void *)(msg + 1) + i;
+
+            if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U)) {
+                return;
+            }
+
+            i += 8 + 8 * hbh->ip6h_len;
+
+            if (hbh->ip6h_nxt == IPPROTO_ICMPV6) {
+                break;
+            } else if (hbh->ip6h_nxt != IPPROTO_HOPOPTS) {
+                return;
+            }
+        }
+    } else if (msg->ip6h.ip6_nxt != IPPROTO_ICMPV6) {
         return;
     }
 
-    struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)(msg + 1);
-    uint16_t icmp6_len = ntohs(msg->ip6_hdr.ip6_plen);
-
-    if (ndL_calculate_icmp6_checksum(&msg->ip6_hdr, icmp6_hdr, icmp6_len) != icmp6_hdr->icmp6_cksum) {
+    if (plen - i < sizeof(struct icmp6_hdr)) {
         return;
     }
 
-    if (icmp6_hdr->icmp6_type == ND_NEIGHBOR_SOLICIT) {
-        ndL_handle_ns(iface, msg);
-    } else if (icmp6_hdr->icmp6_type == ND_NEIGHBOR_ADVERT) {
-        ndL_handle_na(iface, msg);
+    struct icmp6_hdr *ih = (struct icmp6_hdr *)(msg + 1) + i;
+    uint16_t ilen = plen - i;
+
+    if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum) {
+        return;
+    }
+
+    if (ih->icmp6_type == ND_NEIGHBOR_SOLICIT) {
+        ndL_handle_ns(iface, &msg->ip6h, ih, ilen);
+    } else if (ih->icmp6_type == ND_NEIGHBOR_ADVERT) {
+        ndL_handle_na(iface, ih, ilen);
     }
 }
 
@@ -223,7 +247,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             continue;
         }
 
-        if (ntohs(msg->ip6_hdr.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+        if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
             continue;
         }
 
@@ -267,7 +291,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
                 continue;
             }
 
-            if (ntohs(msg->ip6_hdr.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+            if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
                 continue;
             }
 
@@ -497,14 +521,14 @@ static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size
     memcpy(msg->eh.ether_shost, iface->lladdr, ETHER_ADDR_LEN);
     memcpy(msg->eh.ether_dhost, hwaddr, ETHER_ADDR_LEN);
 
-    msg->ip6_hdr.ip6_flow = htonl((6U << 28U) | (0U << 20U) | 0U);
-    msg->ip6_hdr.ip6_plen = htons(size - sizeof(ndL_ip6_msg_t));
-    msg->ip6_hdr.ip6_hops = 255;
-    msg->ip6_hdr.ip6_nxt = IPPROTO_ICMPV6;
+    msg->ip6h.ip6_flow = htonl((6U << 28U) | (0U << 20U) | 0U);
+    msg->ip6h.ip6_plen = htons(size - sizeof(ndL_ip6_msg_t));
+    msg->ip6h.ip6_hops = 255;
+    msg->ip6h.ip6_nxt = IPPROTO_ICMPV6;
 
     struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)(msg + 1);
     uint16_t icmp6_len = size - sizeof(ndL_ip6_msg_t);
-    icmp6_hdr->icmp6_cksum = ndL_calculate_icmp6_checksum(&msg->ip6_hdr, icmp6_hdr, icmp6_len);
+    icmp6_hdr->icmp6_cksum = ndL_calculate_icmp6_checksum(&msg->ip6h, icmp6_hdr, icmp6_len);
 
 #ifdef __linux__
     struct sockaddr_ll ll = {
