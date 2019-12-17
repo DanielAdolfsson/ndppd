@@ -51,7 +51,7 @@ static void ndL_down(nd_session_t *session)
     }
 }
 
-void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *src_ll)
+void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_lladdr_t *src_ll)
 {
     session->ins_time = nd_current_time;
 
@@ -60,10 +60,10 @@ void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *
     }
 
     if (nd_addr_is_unspecified(src)) {
-        static const uint8_t allnodes_ll[] = { 0x33, 0x33, [5] = 1 };
-        static const uint8_t allnodes[] = { 0xff, 0x02, [15] = 1 };
-        nd_iface_send_na(session->rule->proxy->iface, (nd_addr_t *)allnodes, allnodes_ll, //
-                         &session->tgt, session->rule->proxy->router);
+        static const nd_lladdr_t allnodes_ll = { .u8 = { 0x33, 0x33, [5] = 1 } };
+        static const nd_addr_t allnodes = { .u8 = { 0xff, 0x02, [15] = 1 } };
+        nd_iface_send_na(session->rule->proxy->iface, &allnodes, &allnodes_ll, //
+            &session->tgt, session->rule->proxy->router);
     } else {
         nd_iface_send_na(session->rule->proxy->iface, src, src_ll, &session->tgt, session->rule->proxy->router);
     }
@@ -72,7 +72,7 @@ void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *
 void nd_session_handle_na(nd_session_t *session)
 {
     if (session->state != ND_STATE_VALID) {
-        nd_log_debug("session [%s] %s -> VALID", session->rule->proxy->ifname, nd_aton(&session->tgt));
+        nd_log_debug("session [%s] %s -> VALID", session->rule->proxy->ifname, nd_ntoa(&session->tgt));
 
         ndL_up(session);
         session->state = ND_STATE_VALID;
@@ -80,7 +80,7 @@ void nd_session_handle_na(nd_session_t *session)
     }
 }
 
-nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
+nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt)
 {
     nd_session_t *session = ndL_free_sessions;
 
@@ -137,7 +137,7 @@ void nd_session_update(nd_session_t *session)
             session->state = ND_STATE_INVALID;
             session->state_time = nd_current_time;
             nd_log_debug("session [%s] %s INCOMPLETE -> INVALID", //
-                         session->rule->proxy->ifname, nd_aton(&session->tgt));
+                         session->rule->proxy->ifname, nd_ntoa(&session->tgt));
             break;
         }
 
@@ -160,7 +160,7 @@ void nd_session_update(nd_session_t *session)
         ND_LL_PREPEND(ndL_free_sessions, session, next_in_proxy);
 
         nd_log_debug("session [%s] %s INVALID -> (deleted)", //
-                     session->rule->proxy->ifname, nd_aton(&session->tgt));
+                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
         break;
 
     case ND_STATE_VALID:
@@ -173,7 +173,7 @@ void nd_session_update(nd_session_t *session)
         session->ons_time = nd_current_time;
 
         nd_log_debug("session [%s] %s VALID -> STALE", //
-                     session->rule->proxy->ifname, nd_aton(&session->tgt));
+                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
 
         if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl) {
             session->ons_count = 1;
@@ -190,7 +190,7 @@ void nd_session_update(nd_session_t *session)
             session->state_time = nd_current_time;
 
             nd_log_debug("session [%s] %s STALE -> INVALID", //
-                         session->rule->proxy->ifname, nd_aton(&session->tgt));
+                         session->rule->proxy->ifname, nd_ntoa(&session->tgt));
         } else {
             // We will only retransmit if nd_conf_keepalive is true, or if the last incoming NS
             // request was made less than nd_conf_valid_ttl milliseconds ago.

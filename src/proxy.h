@@ -35,7 +35,7 @@ struct nd_proxy {
 };
 
 nd_proxy_t *nd_proxy_create(const char *ifname);
-void nd_proxy_handle_ns(nd_proxy_t *proxy, nd_addr_t *src, nd_addr_t *dst, nd_addr_t *tgt, const uint8_t *src_ll);
+void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t *dst, const nd_addr_t *tgt, const nd_lladdr_t *src_ll);
 bool nd_proxy_startup();
 void nd_proxy_update_all();
 

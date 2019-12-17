@@ -27,6 +27,7 @@
 #    include <net/if.h>
 #    include <net/if_dl.h>
 #    include <net/route.h>
+#    include <netinet/in.h>
 #    include <stdlib.h>
 #    include <sys/sysctl.h>
 #    include <unistd.h>
@@ -97,7 +98,7 @@ static void ndL_new_route(nd_rt_route_t *route)
     }
 
     nd_log_debug("rt: (event) new route %s/%d dev %d table %d %s", //
-                 nd_aton(&route->dst), route->pflen, route->oif, route->table, route->owned ? "owned" : "");
+                 nd_ntoa(&route->dst), route->pflen, route->oif, route->table, route->owned ? "owned" : "");
 }
 
 static void ndL_delete_route(nd_rt_route_t *route)
@@ -124,7 +125,7 @@ static void ndL_delete_route(nd_rt_route_t *route)
     }
 
     nd_log_debug("rt: (event) delete route %s/%d dev %d table %d", //
-                 nd_aton(&cur->dst), cur->pflen, cur->oif, cur->table);
+                 nd_ntoa(&cur->dst), cur->pflen, cur->oif, cur->table);
 
     ND_LL_PREPEND(ndL_free_routes, cur, next);
 }
@@ -151,7 +152,7 @@ static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
     rt_addr->iif = index;
     rt_addr->addr = *addr;
 
-    nd_log_debug("rt: (event) new address %s/%d if %d", nd_aton(addr), pflen, index);
+    nd_log_debug("rt: (event) new address %s/%d if %d", nd_ntoa(addr), pflen, index);
 }
 
 static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
@@ -160,7 +161,7 @@ static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
 
     ND_LL_FOREACH_NODEF (ndL_addrs, rt_addr, next) {
         if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen) {
-            nd_log_debug("rt: (event) delete address %s/%d if %d", nd_aton(addr), pflen, index);
+            nd_log_debug("rt: (event) delete address %s/%d if %d", nd_ntoa(addr), pflen, index);
 
             if (prev) {
                 prev->next = rt_addr->next;
@@ -323,12 +324,18 @@ static void ndL_handle_rt(struct rt_msghdr *hdr)
         return;
     }
 
-    int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
+    nd_addr_t *dst = (nd_addr_t *)&((struct sockaddr_in6 *)rtas[RTAX_DST])->sin6_addr;
+    unsigned pflen = 0;
+
+    if (rtas[RTAX_NETMASK]) {
+        nd_addr_t *netmask = (nd_addr_t *)&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr;
+        pflen = nd_mask_to_pflen(netmask);
+    }
 
     // FIXME: Should we use RTAX_GATEWAY to get the interface index?
 
     nd_rt_route_t route = {
-        .dst = ((struct sockaddr_in6 *)rtas[RTAX_DST])->sin6_addr,
+        .dst = *dst,
         .oif = hdr->rtm_index,
         .pflen = pflen,
 #    ifdef __FreeBSD__
@@ -355,9 +362,13 @@ static void ndL_handle_ifa(struct ifa_msghdr *hdr)
         return;
     }
 
-    int pflen = rtas[RTAX_NETMASK] ? nd_mask_to_pflen(&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr) : 128;
+    nd_addr_t *ifa = (nd_addr_t *)&((struct sockaddr_in6 *)rtas[RTAX_IFA])->sin6_addr;
+    unsigned pflen = 0;
 
-    nd_addr_t *ifa = &((struct sockaddr_in6 *)rtas[RTAX_IFA])->sin6_addr;
+    if (rtas[RTAX_NETMASK]) {
+        nd_addr_t *netmask = (nd_addr_t *)&((struct sockaddr_in6 *)rtas[RTAX_NETMASK])->sin6_addr;
+        pflen = nd_mask_to_pflen(netmask);
+    }
 
     if (hdr->ifam_type == RTM_NEWADDR) {
         ndL_new_addr(hdr->ifam_index, ifa, pflen);
@@ -540,7 +551,7 @@ bool nd_rt_query_addresses()
 #endif
 }
 
-nd_rt_route_t *nd_rt_find_route(nd_addr_t *addr, unsigned table)
+nd_rt_route_t *nd_rt_find_route(const nd_addr_t *addr, unsigned table)
 {
     ND_LL_FOREACH (ndL_routes, route, next) {
         if (nd_addr_match(&route->dst, addr, route->pflen) && route->table == table) {
@@ -605,7 +616,7 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
 #    endif
         .dst.sin6_family = AF_INET6,
         .dst.sin6_len = sizeof(msg.dst),
-        .dst.sin6_addr = *dst,
+        .dst.sin6_addr = *(struct in6_addr *)dst,
         .dl.sdl_family = AF_LINK,
         .dl.sdl_index = oif,
         .dl.sdl_len = sizeof(msg.dl),
@@ -613,9 +624,9 @@ bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned tabl
         .mask.sin6_len = sizeof(msg.mask),
     };
 
-    nd_mask_from_pflen(pflen, &msg.mask.sin6_addr);
+    nd_mask_from_pflen(pflen, (nd_addr_t *)&msg.mask.sin6_addr);
 
-    nd_log_info("rt: Adding route %s/%d table %d", nd_aton(dst), pflen, table);
+    nd_log_info("rt: Adding route %s/%d table %d", nd_ntoa(dst), pflen, table);
 
     return nd_io_write(ndL_io, &msg, sizeof(msg)) >= 0;
 #endif
@@ -662,14 +673,14 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 #    endif
         .dst.sin6_family = AF_INET6,
         .dst.sin6_len = sizeof(req.dst),
-        .dst.sin6_addr = *dst,
+        .dst.sin6_addr = *(struct in6_addr *)dst,
         .mask.sin6_family = AF_INET6,
         .mask.sin6_len = sizeof(req.mask),
     };
 
-    nd_mask_from_pflen(pflen, &req.mask.sin6_addr);
+    nd_mask_from_pflen(pflen, (nd_addr_t *)&req.mask.sin6_addr);
 
-    nd_log_info("rt: Removing route %s/%d table %d", nd_aton(dst), pflen, table);
+    nd_log_info("rt: Removing route %s/%d table %d", nd_ntoa(dst), pflen, table);
 
     return nd_io_write(ndL_io, &req, sizeof(req)) >= 0;
 #endif

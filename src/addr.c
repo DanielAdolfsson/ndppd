@@ -19,10 +19,13 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#ifndef __linux__
-#    include <netinet/in.h>
+#ifdef __linux__
+#    include <netinet/ether.h>
+#else
+#    include <sys/types.h>
+/**/
+#    include <net/ethernet.h>
 #    include <sys/socket.h>
-#    define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
 #include "ndppd.h"
@@ -32,7 +35,7 @@
  * @note This function returns a pointer to static data. It uses three different static arrays
  *       to allow the function to be chained.
  */
-const char *nd_aton(nd_addr_t *addr)
+const char *nd_ntoa(const nd_addr_t *addr)
 {
     static int index;
     static char buf[3][64];
@@ -41,20 +44,18 @@ const char *nd_aton(nd_addr_t *addr)
         return "(null)";
     }
 
-    int n = index++ % 3;
-
-    return inet_ntop(AF_INET6, addr, buf[n], sizeof(buf[n]));
+    return inet_ntop(AF_INET6, addr, buf[index++ % 3], 64);
 }
 
 /*! Returns true if <tt>addr</tt> is a multicast address. */
-bool nd_addr_is_multicast(nd_addr_t *addr)
+bool nd_addr_is_multicast(const nd_addr_t *addr)
 {
-    return addr->s6_addr[0] == 0xff;
+    return addr->u8[0] == 0xff;
 }
 
-bool nd_addr_is_unicast(nd_addr_t *addr)
+bool nd_addr_is_unicast(const nd_addr_t *addr)
 {
-    return !(addr->s6_addr32[2] == 0 && addr->s6_addr32[3] == 0) && addr->s6_addr[0] != 0xff;
+    return !(addr->u32[2] == 0 && addr->u32[3] == 0) && addr->u8[0] != 0xff;
 }
 
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -76,14 +77,14 @@ static const uint32_t ndL_masks[] = {
 #endif
 
 /*! Returns true if <tt>first</tt> and <tt>second</tt> are the same. */
-bool nd_addr_eq(nd_addr_t *first, nd_addr_t *second)
+bool nd_addr_eq(const nd_addr_t *first, const nd_addr_t *second)
 {
-    return first->s6_addr32[0] == second->s6_addr32[0] && first->s6_addr32[1] == second->s6_addr32[1] &&
-           first->s6_addr32[2] == second->s6_addr32[2] && first->s6_addr32[3] == second->s6_addr32[3];
+    return first->u32[0] == second->u32[0] && first->u32[1] == second->u32[1] && first->u32[2] == second->u32[2] &&
+           first->u32[3] == second->u32[3];
 }
 
 /*! Returns true if the first <tt>pflen</tt> bits are the same in <tt>first</tt> and <tt>second</tt>. */
-bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, unsigned pflen)
+bool nd_addr_match(const nd_addr_t *first, const nd_addr_t *second, unsigned pflen)
 {
     if (pflen > 128) {
         return false;
@@ -96,7 +97,7 @@ bool nd_addr_match(nd_addr_t *first, nd_addr_t *second, unsigned pflen)
     for (unsigned i = 0, top = (pflen - 1) >> 5; i <= top; i++) {
         uint32_t mask = i < top ? 0xffffffff : ndL_masks[(pflen - 1) & 31];
 
-        if ((first->s6_addr32[i] ^ second->s6_addr32[i]) & mask) {
+        if ((first->u32[i] ^ second->u32[i]) & mask) {
             return false;
         }
     }
@@ -119,11 +120,11 @@ void nd_addr_combine(const nd_addr_t *first, const nd_addr_t *second, unsigned p
     for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++) {
         if (i == top) {
             uint32_t mask = ndL_masks[(pflen - 1) & 31];
-            result->s6_addr32[i] = (first->s6_addr32[i] & mask) | (second->s6_addr32[i] & ~mask);
+            result->u32[i] = (first->u32[i] & mask) | (second->u32[i] & ~mask);
         } else if (i < top) {
-            result->s6_addr32[i] = first->s6_addr32[i];
+            result->u32[i] = first->u32[i];
         } else {
-            result->s6_addr32[i] = second->s6_addr32[i];
+            result->u32[i] = second->u32[i];
         }
     }
 }
@@ -140,8 +141,8 @@ static int ndL_count_bits(uint32_t n)
 
 int nd_mask_to_pflen(nd_addr_t *netmask)
 {
-    return ndL_count_bits(netmask->s6_addr32[0]) + ndL_count_bits(netmask->s6_addr32[1]) +
-           ndL_count_bits(netmask->s6_addr32[2]) + ndL_count_bits(netmask->s6_addr32[3]);
+    return ndL_count_bits(netmask->u32[0]) + ndL_count_bits(netmask->u32[1]) + ndL_count_bits(netmask->u32[2]) +
+           ndL_count_bits(netmask->u32[3]);
 }
 
 void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
@@ -158,16 +159,33 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
 
     for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++) {
         if (i == top) {
-            netmask->s6_addr32[i] = ndL_masks[(pflen - 1) & 31];
+            netmask->u32[i] = ndL_masks[(pflen - 1) & 31];
         } else if (i < top) {
-            netmask->s6_addr32[i] = 0xffffffff;
+            netmask->u32[i] = 0xffffffff;
         } else {
-            netmask->s6_addr32[i] = 0;
+            netmask->u32[i] = 0;
         }
     }
 }
 
 bool nd_addr_is_unspecified(nd_addr_t *addr)
 {
-    return addr->s6_addr32[0] == 0 && addr->s6_addr32[1] == 0 && addr->s6_addr32[2] == 0 && addr->s6_addr32[3] == 0;
+    return addr->u32[0] == 0 && addr->u32[1] == 0 && addr->u32[2] == 0 && addr->u32[3] == 0;
+}
+
+/*! Returns the string representation of link-layer address <tt>addr</tt>.
+ *
+ * @note This function returns a pointer to static data. It uses three different static arrays
+ *       to allow the function to be chained.
+ */
+const char *nd_ll_ntoa(const nd_lladdr_t *addr)
+{
+    static int index;
+    static char buf[3][64];
+
+    if (addr == NULL) {
+        return "(null)";
+    }
+
+    return ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]);
 }

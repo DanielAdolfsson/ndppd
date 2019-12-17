@@ -19,7 +19,6 @@
 #ifndef NDPPD_H
 #define NDPPD_H
 
-#include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -29,9 +28,18 @@
 typedef struct nd_iface nd_iface_t;
 typedef struct nd_io nd_io_t;
 typedef struct nd_proxy nd_proxy_t;
-typedef struct in6_addr nd_addr_t;
 typedef struct nd_rule nd_rule_t;
 typedef struct nd_session nd_session_t;
+
+typedef union {
+    uint32_t u32[4];
+    uint16_t u16[8];
+    uint8_t u8[16];
+} __attribute__((packed)) nd_addr_t;
+
+typedef struct {
+    uint8_t u8[6];
+} __attribute__((packed)) nd_lladdr_t;
 
 extern long nd_current_time;
 extern bool nd_daemonized;

@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <assert.h>
 #include <errno.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -26,7 +25,6 @@
 #include <netinet/ip6.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 
@@ -41,7 +39,6 @@
 #    include <net/ethernet.h>
 #    include <net/if_dl.h>
 #    include <sys/sysctl.h>
-#    define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
 #include "addr.h"
@@ -85,9 +82,9 @@ static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_
 
     struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)ih;
 
-    uint8_t *src_ll = NULL;
+    nd_lladdr_t *src_ll = NULL;
 
-    if (!nd_addr_is_unspecified(&ip6h->ip6_src)) {
+    if (!nd_addr_is_unspecified((nd_addr_t *)&ip6h->ip6_src)) {
         // FIXME: Source link-layer address MUST be included in multicast solicitations and SHOULD be included in
         //        unicast solicitations. [https://tools.ietf.org/html/rfc4861#section-4.3].
 
@@ -101,10 +98,11 @@ static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_
             return;
         }
 
-        src_ll = (uint8_t *)((void *)opt + 2);
+        src_ll = (nd_lladdr_t *)((void *)opt + 2);
     }
 
-    nd_proxy_handle_ns(iface->proxy, &ip6h->ip6_src, &ip6h->ip6_dst, &ns->nd_ns_target, src_ll);
+    nd_proxy_handle_ns(iface->proxy, (nd_addr_t *)&ip6h->ip6_src, (nd_addr_t *)&ip6h->ip6_dst,
+                       (nd_addr_t *)&ns->nd_ns_target, src_ll);
 }
 
 static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
@@ -116,7 +114,8 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
     struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)ih;
 
     nd_session_t *session;
-    ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->real_tgt, &na->nd_na_target));
+    ND_LL_SEARCH(iface->sessions, session, next_in_iface,
+                 nd_addr_eq(&session->real_tgt, (nd_addr_t *)&na->nd_na_target));
 
     if (!session) {
         return;
@@ -386,7 +385,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
         return NULL;
     }
 
-    uint8_t *lladdr = (uint8_t *)ifr.ifr_hwaddr.sa_data;
+    nd_lladdr_t *lladdr = (nd_lladdr_t *)ifr.ifr_hwaddr.sa_data;
 #else
     nd_io_t *io = NULL;
 
@@ -444,7 +443,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
         return NULL;
     }
 
-    uint8_t *lladdr = (uint8_t *)LLADDR((struct sockaddr_dl *)(sysctl_buf + sizeof(struct if_msghdr)));
+    nd_lladdr_t *lladdr = (nd_lladdr_t *)LLADDR((struct sockaddr_dl *)(sysctl_buf + sizeof(struct if_msghdr)));
 #endif
 
     iface = ndL_first_free_iface;
@@ -460,10 +459,10 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
         .refcount = 1,
         .old_allmulti = -1,
         .old_promisc = -1,
+        .lladdr = *lladdr,
     };
 
     strcpy(iface->name, name);
-    memcpy(iface->lladdr, lladdr, 6);
 
     ND_LL_PREPEND(ndL_first_iface, iface, next);
 
@@ -472,8 +471,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     iface->bpf_io = io;
 #endif
 
-    nd_log_info("New interface %s [%02x:%02x:%02x:%02x:%02x:%02x]", //
-                iface->name, lladdr[0], lladdr[1], lladdr[2], lladdr[3], lladdr[4], lladdr[5]);
+    nd_log_info("New interface %s [%s]", iface->name, nd_ll_ntoa(lladdr));
 
     return iface;
 }
@@ -503,23 +501,18 @@ void nd_iface_close(nd_iface_t *iface)
 
 static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
 {
-    addr->s6_addr[0] = 0xfe;
-    addr->s6_addr[1] = 0x80;
-    addr->s6_addr[8] = iface->lladdr[0] ^ 0x02U;
-    addr->s6_addr[9] = iface->lladdr[1];
-    addr->s6_addr[10] = iface->lladdr[2];
-    addr->s6_addr[11] = 0xff;
-    addr->s6_addr[12] = 0xfe;
-    addr->s6_addr[13] = iface->lladdr[3];
-    addr->s6_addr[14] = iface->lladdr[4];
-    addr->s6_addr[15] = iface->lladdr[5];
+    uint8_t *p = iface->lladdr.u8;
+
+    *addr = (nd_addr_t) { .u8 = {
+        0xfe, 0x80, [8] = p[0] ^ 0x02U, p[1], p[2], 0xff, 0xfe, p[3], p[4], p[5]
+    }};
 }
 
-static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size, const uint8_t *hwaddr)
+static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size, const nd_lladdr_t *lladdr)
 {
     msg->eh.ether_type = htons(ETHERTYPE_IPV6);
-    memcpy(msg->eh.ether_shost, iface->lladdr, ETHER_ADDR_LEN);
-    memcpy(msg->eh.ether_dhost, hwaddr, ETHER_ADDR_LEN);
+    memcpy(msg->eh.ether_shost, &iface->lladdr, ETHER_ADDR_LEN);
+    memcpy(msg->eh.ether_dhost, lladdr, ETHER_ADDR_LEN);
 
     msg->ip6h.ip6_flow = htonl((6U << 28U) | (0U << 20U) | 0U);
     msg->ip6h.ip6_plen = htons(size - sizeof(ndL_ip6_msg_t));
@@ -542,21 +535,23 @@ static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size
 #endif
 }
 
-ssize_t nd_iface_send_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_ll, nd_addr_t *tgt, bool router)
+ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladdr_t *dst_ll, const nd_addr_t *tgt,
+                         bool router)
 {
     struct __attribute__((packed)) {
         struct ether_header eh;
         struct ip6_hdr ip;
         struct nd_neighbor_advert na;
         struct nd_opt_hdr opt;
-        uint8_t lladdr[6];
+        struct ether_addr lladdr;
     } msg = {
-        .ip.ip6_src = *tgt,
-        .ip.ip6_dst = *dst,
+        .ip.ip6_src = *(struct in6_addr *)tgt,
+        .ip.ip6_dst = *(struct in6_addr *)dst,
         .na.nd_na_type = ND_NEIGHBOR_ADVERT,
-        .na.nd_na_target = *tgt,
+        .na.nd_na_target = *(struct in6_addr *)tgt,
         .opt.nd_opt_type = ND_OPT_TARGET_LINKADDR,
         .opt.nd_opt_len = 1,
+        .lladdr = *(struct ether_addr *)&iface->lladdr,
     };
 
     if (nd_addr_is_multicast(dst)) {
@@ -567,47 +562,43 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_l
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_ROUTER;
     }
 
-    memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
-
-    nd_log_info("Write NA tgt=%s, dst=%s [%x:%x:%x:%x:%x:%x dev %s]",             //
-                nd_aton(tgt), nd_aton(dst),                                       //
-                dst_ll[0], dst_ll[1], dst_ll[2], dst_ll[3], dst_ll[4], dst_ll[5], //
-                iface->name);
+    nd_log_info("Write NA tgt=%s, dst=%s [%s dev %s]", //
+                nd_ntoa(tgt), nd_ntoa(dst), nd_ll_ntoa(dst_ll), iface->name);
 
     return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), dst_ll);
 }
 
-ssize_t nd_iface_send_ns(nd_iface_t *iface, nd_addr_t *tgt)
+ssize_t nd_iface_send_ns(nd_iface_t *iface, const nd_addr_t *tgt)
 {
     struct __attribute__((packed)) {
         struct ether_header eh;
         struct ip6_hdr ip;
         struct nd_neighbor_solicit ns;
         struct nd_opt_hdr opt;
-        uint8_t lladdr[6];
+        struct ether_addr lladdr;
     } msg = {
         .ns.nd_ns_type = ND_NEIGHBOR_SOLICIT,
-        .ns.nd_ns_target = *tgt,
+        .ns.nd_ns_target = *(struct in6_addr *)tgt,
         .opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
         .opt.nd_opt_len = 1,
+        .lladdr = *(struct ether_addr *)&iface->lladdr,
     };
 
-    ndL_get_local_addr(iface, &msg.ip.ip6_src);
+    ndL_get_local_addr(iface, (nd_addr_t *)&msg.ip.ip6_src);
+    nd_log_trace("Write NS iface=%s, tgt=%s, src=%s", iface->name, nd_ntoa(tgt), nd_ntoa((nd_addr_t *)&msg.ip.ip6_src));
 
-    const uint8_t multicast[] = { 0xff, 0x02, [11] = 0x01, 0xff, 0, 0, 0 };
-    memcpy(&msg.ip.ip6_dst, multicast, sizeof(struct in6_addr));
-    msg.ip.ip6_dst.s6_addr[13] = tgt->s6_addr[13];
-    msg.ip.ip6_dst.s6_addr[14] = tgt->s6_addr[14];
-    msg.ip.ip6_dst.s6_addr[15] = tgt->s6_addr[15];
+    static const nd_addr_t multicast = { .u8 = { 0xff, 0x02, [11] = 0x01, 0xff, 0, 0, 0 } };
+    *(nd_addr_t *)&msg.ip.ip6_dst = multicast;
+    (*(nd_addr_t *)&msg.ip.ip6_dst).u8[13] = tgt->u8[13];
+    (*(nd_addr_t *)&msg.ip.ip6_dst).u8[14] = tgt->u8[14];
+    (*(nd_addr_t *)&msg.ip.ip6_dst).u8[15] = tgt->u8[15];
 
-    memcpy(msg.lladdr, iface->lladdr, sizeof(msg.lladdr));
+    nd_lladdr_t ll_mcast = { 0x33, 0x33 };
+    *(uint32_t *)&ll_mcast.u8[2] = tgt->u32[3];
 
-    uint8_t ll_mcast[6] = { 0x33, 0x33 };
-    *(uint32_t *)&ll_mcast[2] = tgt->s6_addr32[3];
+    nd_log_trace("Write NS iface=%s, tgt=%s, src=%s", iface->name, nd_ntoa(tgt), nd_ntoa((nd_addr_t *)&msg.ip.ip6_src));
 
-    nd_log_trace("Write NS iface=%s, tgt=%s", iface->name, nd_aton(tgt));
-
-    return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), ll_mcast);
+    return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), &ll_mcast);
 }
 
 bool nd_iface_startup()
