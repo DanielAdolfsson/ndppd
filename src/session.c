@@ -1,19 +1,21 @@
-// This file is part of ndppd.
-//
-// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
-//
-// ndppd is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// ndppd is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
+/*
+ * This file is part of ndppd.
+ *
+ * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+ *
+ * ndppd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ndppd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <string.h>
 
 #include "addr.h"
@@ -60,10 +62,10 @@ void nd_session_handle_ns(nd_session_t *session, nd_addr_t *src, const uint8_t *
     if (nd_addr_is_unspecified(src)) {
         static const uint8_t allnodes_ll[] = { 0x33, 0x33, [5] = 1 };
         static const uint8_t allnodes[] = { 0xff, 0x02, [15] = 1 };
-        nd_iface_write_na(session->rule->proxy->iface, (nd_addr_t *)allnodes, allnodes_ll, //
-                          &session->tgt, session->rule->proxy->router);
+        nd_iface_send_na(session->rule->proxy->iface, (nd_addr_t *)allnodes, allnodes_ll, //
+                         &session->tgt, session->rule->proxy->router);
     } else {
-        nd_iface_write_na(session->rule->proxy->iface, src, src_ll, &session->tgt, session->rule->proxy->router);
+        nd_iface_send_na(session->rule->proxy->iface, src, src_ll, &session->tgt, session->rule->proxy->router);
     }
 }
 
@@ -115,7 +117,7 @@ nd_session_t *nd_session_create(nd_rule_t *rule, nd_addr_t *tgt)
         session->state = ND_STATE_INCOMPLETE;
         session->ons_count = 1;
         session->ons_time = nd_current_time;
-        nd_iface_write_ns(session->iface, &session->real_tgt);
+        nd_iface_send_ns(session->iface, &session->real_tgt);
     } else if (rule->mode == ND_MODE_STATIC) {
         session->state = ND_STATE_VALID;
     }
@@ -139,7 +141,7 @@ void nd_session_update(nd_session_t *session)
             break;
         }
 
-        nd_iface_write_ns(session->iface, &session->real_tgt);
+        nd_iface_send_ns(session->iface, &session->real_tgt);
         break;
 
     case ND_STATE_INVALID:
@@ -175,7 +177,7 @@ void nd_session_update(nd_session_t *session)
 
         if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl) {
             session->ons_count = 1;
-            nd_iface_write_ns(session->iface, &session->real_tgt);
+            nd_iface_send_ns(session->iface, &session->real_tgt);
         } else {
             session->ons_count = 0;
         }
@@ -207,7 +209,7 @@ void nd_session_update(nd_session_t *session)
 
             session->ons_count++;
             session->ons_time = nd_current_time;
-            nd_iface_write_ns(session->iface, &session->real_tgt);
+            nd_iface_send_ns(session->iface, &session->real_tgt);
         }
         break;
     }

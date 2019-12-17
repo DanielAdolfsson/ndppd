@@ -1,19 +1,21 @@
-// This file is part of ndppd.
-//
-// Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
-//
-// ndppd is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// ndppd is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
+/*
+ * This file is part of ndppd.
+ *
+ * Copyright (C) 2011-2019  Daniel Adolfsson <daniel@ashen.se>
+ *
+ * ndppd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ndppd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <assert.h>
 #include <errno.h>
 #include <net/if.h>
@@ -66,17 +68,18 @@ static nd_io_t *ndL_io;
 //! Used when daemonizing to make sure the parent process does not restore these flags upon exit.
 bool nd_iface_no_restore_flags;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
+    struct ether_header eh;
     struct ip6_hdr ip6_hdr;
-    struct icmp6_hdr icmp6_hdr;
-} ndL_icmp6_msg_t;
+} ndL_ip6_msg_t;
 
-static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
+static void ndL_handle_ns(nd_iface_t *iface, ndL_ip6_msg_t *msg)
 {
-    if (!iface->proxy)
+    if (!iface->proxy) {
         return;
+    }
 
-    struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)&msg->icmp6_hdr;
+    struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)(msg + 1);
 
     if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_solicit)) {
         return;
@@ -94,8 +97,9 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
 
         struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
 
-        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR)
+        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR) {
             return;
+        }
 
         src_ll = (uint8_t *)((void *)opt + 2);
     }
@@ -103,13 +107,13 @@ static void ndL_handle_ns(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
     nd_proxy_handle_ns(iface->proxy, &msg->ip6_hdr.ip6_src, &msg->ip6_hdr.ip6_dst, &ns->nd_ns_target, src_ll);
 }
 
-static void ndL_handle_na(nd_iface_t *iface, ndL_icmp6_msg_t *msg)
+static void ndL_handle_na(nd_iface_t *iface, ndL_ip6_msg_t *msg)
 {
     if (msg->ip6_hdr.ip6_plen < sizeof(struct nd_neighbor_advert)) {
         return;
     }
 
-    struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)&msg->icmp6_hdr;
+    struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)(msg + 1);
 
     nd_session_t *session;
     ND_LL_SEARCH(iface->sessions, session, next_in_iface, nd_addr_eq(&session->real_tgt, &na->nd_na_target));
@@ -141,7 +145,7 @@ static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t le
     return sum;
 }
 
-static uint16_t ndL_calculate_icmp6_checksum(ndL_icmp6_msg_t *msg, size_t size)
+static uint16_t ndL_calculate_icmp6_checksum(struct ip6_hdr *ip6_hdr, struct icmp6_hdr *icmp6_hdr, size_t size)
 {
     struct __attribute__((packed)) {
         struct in6_addr src;
@@ -151,45 +155,38 @@ static uint16_t ndL_calculate_icmp6_checksum(ndL_icmp6_msg_t *msg, size_t size)
         uint8_t type;
         struct icmp6_hdr icmp6_hdr;
     } hdr = {
-        .src = msg->ip6_hdr.ip6_src,
-        .dst = msg->ip6_hdr.ip6_dst,
-        .len = htonl(size - sizeof(struct ip6_hdr)),
+        .src = ip6_hdr->ip6_src,
+        .dst = ip6_hdr->ip6_dst,
+        .len = htonl(size),
         .type = IPPROTO_ICMPV6,
-        .icmp6_hdr = msg->icmp6_hdr,
+        .icmp6_hdr = *icmp6_hdr
     };
 
     hdr.icmp6_hdr.icmp6_cksum = 0;
 
     uint16_t sum;
     sum = ndL_calculate_checksum(0xffff, &hdr, sizeof(hdr));
-    sum = ndL_calculate_checksum(sum, (void *)msg + sizeof(ndL_icmp6_msg_t), size - sizeof(ndL_icmp6_msg_t));
+    sum = ndL_calculate_checksum(sum, icmp6_hdr + 1, size - sizeof(struct icmp6_hdr));
 
     return htons(~sum);
 }
 
-static void ndL_handle_packet(nd_iface_t *iface, uint8_t *buf, size_t buflen)
+static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
 {
-    ndL_icmp6_msg_t *msg = (ndL_icmp6_msg_t *)buf;
-
-    if ((size_t)buflen < sizeof(ndL_icmp6_msg_t)) {
-        return;
-    }
-
-    if ((size_t)buflen != sizeof(struct ip6_hdr) + ntohs(msg->ip6_hdr.ip6_plen)) {
-        return;
-    }
-
     if (msg->ip6_hdr.ip6_nxt != IPPROTO_ICMPV6) {
         return;
     }
 
-    if (ndL_calculate_icmp6_checksum(msg, buflen) != msg->icmp6_hdr.icmp6_cksum) {
+    struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)(msg + 1);
+    uint16_t icmp6_len = ntohs(msg->ip6_hdr.ip6_plen);
+
+    if (ndL_calculate_icmp6_checksum(&msg->ip6_hdr, icmp6_hdr, icmp6_len) != icmp6_hdr->icmp6_cksum) {
         return;
     }
 
-    if (msg->icmp6_hdr.icmp6_type == ND_NEIGHBOR_SOLICIT) {
+    if (icmp6_hdr->icmp6_type == ND_NEIGHBOR_SOLICIT) {
         ndL_handle_ns(iface, msg);
-    } else if (msg->icmp6_hdr.icmp6_type == ND_NEIGHBOR_ADVERT) {
+    } else if (icmp6_hdr->icmp6_type == ND_NEIGHBOR_ADVERT) {
         ndL_handle_na(iface, msg);
     }
 }
@@ -216,24 +213,26 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             return;
         }
 
-        if ((size_t)len < sizeof(struct ether_header) + sizeof(struct ip6_hdr)) {
+        if ((size_t)len < sizeof(ndL_ip6_msg_t)) {
             continue;
         }
 
-        struct ether_header *eh = (struct ether_header *)(buf);
+        ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)buf;
 
-        if (eh->ether_type != ntohs(ETHERTYPE_IPV6)) {
+        if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6)) {
             continue;
         }
 
-        struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(eh + 1);
+        if (ntohs(msg->ip6_hdr.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+            continue;
+        }
 
         nd_iface_t *iface;
 
         ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
 
         if (iface) {
-            ndL_handle_packet(iface, (uint8_t *)ip6_hdr, len - sizeof(struct ether_header));
+            ndL_handle_msg(iface, msg);
         }
     }
 }
@@ -258,20 +257,21 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             struct bpf_hdr *bpf_hdr = (struct bpf_hdr *)(buf + i);
             i += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_caplen);
 
-            if (bpf_hdr->bh_caplen < sizeof(struct ether_header) + sizeof(struct ip6_hdr)) {
+            if (bpf_hdr->bh_caplen < sizeof(ndL_ip6_msg_t)) {
                 continue;
             }
 
-            struct ether_header *eh = (struct ether_header *)((void *)bpf_hdr + bpf_hdr->bh_hdrlen);
+            ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)buf;
 
-            if (eh->ether_type != ntohs(ETHERTYPE_IPV6)) {
+            if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6)) {
                 continue;
             }
 
-            struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(eh + 1);
+            if (ntohs(msg->ip6_hdr.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+                continue;
+            }
 
-            ndL_handle_packet((nd_iface_t *)io->data, (uint8_t *)ip6_hdr,
-                              bpf_hdr->bh_caplen - sizeof(struct ether_header));
+            ndL_handle_msg((nd_iface_t *)io->data, msg);
         }
     }
 }
@@ -491,26 +491,20 @@ static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
     addr->s6_addr[15] = iface->lladdr[5];
 }
 
-static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_icmp6_msg_t *msg, size_t size, const uint8_t *hwaddr)
+static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size, const uint8_t *hwaddr)
 {
-    assert(size >= sizeof(ndL_icmp6_msg_t));
+    msg->eh.ether_type = htons(ETHERTYPE_IPV6);
+    memcpy(msg->eh.ether_shost, iface->lladdr, ETHER_ADDR_LEN);
+    memcpy(msg->eh.ether_dhost, hwaddr, ETHER_ADDR_LEN);
 
     msg->ip6_hdr.ip6_flow = htonl((6U << 28U) | (0U << 20U) | 0U);
-    msg->ip6_hdr.ip6_plen = htons(size - sizeof(struct ip6_hdr));
+    msg->ip6_hdr.ip6_plen = htons(size - sizeof(ndL_ip6_msg_t));
     msg->ip6_hdr.ip6_hops = 255;
     msg->ip6_hdr.ip6_nxt = IPPROTO_ICMPV6;
 
-    msg->icmp6_hdr.icmp6_cksum = ndL_calculate_icmp6_checksum(msg, size);
-
-    uint8_t buf[512];
-
-    struct ether_header *eh = (struct ether_header *)buf;
-
-    eh->ether_type = htons(ETHERTYPE_IPV6);
-    memcpy(eh->ether_shost, iface->lladdr, ETHER_ADDR_LEN);
-    memcpy(eh->ether_dhost, hwaddr, ETHER_ADDR_LEN);
-
-    memcpy(eh + 1, msg, size);
+    struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr *)(msg + 1);
+    uint16_t icmp6_len = size - sizeof(ndL_ip6_msg_t);
+    icmp6_hdr->icmp6_cksum = ndL_calculate_icmp6_checksum(&msg->ip6_hdr, icmp6_hdr, icmp6_len);
 
 #ifdef __linux__
     struct sockaddr_ll ll = {
@@ -518,15 +512,16 @@ static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_icmp6_msg_t *msg, size_t si
         .sll_ifindex = (int)iface->index,
     };
 
-    return nd_io_send(ndL_io, (struct sockaddr *)&ll, sizeof(ll), buf, sizeof(struct ether_header) + size);
+    return nd_io_send(ndL_io, (struct sockaddr *)&ll, sizeof(ll), msg, size);
 #else
-    return nd_io_write(iface->bpf_io, buf, sizeof(struct ether_header) + size);
+    return nd_io_write(iface->bpf_io, msg, size);
 #endif
 }
 
-ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_ll, nd_addr_t *tgt, bool router)
+ssize_t nd_iface_send_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_ll, nd_addr_t *tgt, bool router)
 {
     struct __attribute__((packed)) {
+        struct ether_header eh;
         struct ip6_hdr ip;
         struct nd_neighbor_advert na;
         struct nd_opt_hdr opt;
@@ -555,12 +550,13 @@ ssize_t nd_iface_write_na(nd_iface_t *iface, nd_addr_t *dst, const uint8_t *dst_
                 dst_ll[0], dst_ll[1], dst_ll[2], dst_ll[3], dst_ll[4], dst_ll[5], //
                 iface->name);
 
-    return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), dst_ll);
+    return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), dst_ll);
 }
 
-ssize_t nd_iface_write_ns(nd_iface_t *iface, nd_addr_t *tgt)
+ssize_t nd_iface_send_ns(nd_iface_t *iface, nd_addr_t *tgt)
 {
     struct __attribute__((packed)) {
+        struct ether_header eh;
         struct ip6_hdr ip;
         struct nd_neighbor_solicit ns;
         struct nd_opt_hdr opt;
@@ -574,7 +570,7 @@ ssize_t nd_iface_write_ns(nd_iface_t *iface, nd_addr_t *tgt)
 
     ndL_get_local_addr(iface, &msg.ip.ip6_src);
 
-    const uint8_t multicast[] = { 255, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 255, 0, 0, 0 };
+    const uint8_t multicast[] = { 0xff, 0x02, [11] = 0x01, 0xff, 0, 0, 0 };
     memcpy(&msg.ip.ip6_dst, multicast, sizeof(struct in6_addr));
     msg.ip.ip6_dst.s6_addr[13] = tgt->s6_addr[13];
     msg.ip.ip6_dst.s6_addr[14] = tgt->s6_addr[14];
@@ -587,7 +583,7 @@ ssize_t nd_iface_write_ns(nd_iface_t *iface, nd_addr_t *tgt)
 
     nd_log_trace("Write NS iface=%s, tgt=%s", iface->name, nd_aton(tgt));
 
-    return ndL_send_icmp6(iface, (ndL_icmp6_msg_t *)&msg, sizeof(msg), ll_mcast);
+    return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), ll_mcast);
 }
 
 bool nd_iface_startup()
