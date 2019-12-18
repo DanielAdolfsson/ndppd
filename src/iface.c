@@ -227,7 +227,6 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
 }
 
 #ifdef __linux__
-// Called from nd_io_poll() when there are pending events on the nd_io_t.
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
     struct sockaddr_ll lladdr = {
@@ -274,7 +273,6 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
     }
 }
 #else
-// Called from nd_io_poll() when there are pending events on the nd_io_t.
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
     __attribute__((aligned(BPF_ALIGNMENT))) uint8_t buf[4096]; /* Depends on BIOCGBLEN */
@@ -413,7 +411,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
         return NULL;
     }
 
-    // If the specified interface is already opened, just increase the reference counter.
+    /* If the specified interface is already opened, just increase the reference count. */
 
     nd_iface_t *iface;
     ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == index);
@@ -424,7 +422,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     }
 
 #ifdef __linux__
-    // Determine link-layer address.
+    /* Determine link-layer address. */
 
     struct ifreq ifr = { 0 };
     strcpy(ifr.ifr_name, name);
@@ -435,6 +433,16 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     }
 
     nd_lladdr_t *lladdr = (nd_lladdr_t *)ifr.ifr_hwaddr.sa_data;
+
+    /* Enable ALLMULTI. */
+
+    struct packet_mreq mreq = { .mr_ifindex = (int) index, .mr_type = PACKET_MR_ALLMULTI };
+
+    if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
+        nd_log_error("Could not configure ALLMULTI: %s", strerror(errno));
+        return NULL;
+    }
+
 #else
     nd_io_t *io = NULL;
 
@@ -461,6 +469,14 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     strcpy(ifr.ifr_name, name);
     if (ioctl(io->fd, BIOCSETIF, &ifr) < 0) {
         nd_log_error("Failed to bind to interface: %s", strerror(errno));
+        nd_io_close(io);
+        return NULL;
+    }
+
+    /* Promisc. */
+
+    if (ioctl(io->fd, BIOCPROMISC, NULL) < 0) {
+        nd_log_error("Failed to enable promiscuous mode: %s", strerror(errno));
         nd_io_close(io);
         return NULL;
     }
@@ -531,16 +547,15 @@ void nd_iface_close(nd_iface_t *iface)
         return;
     }
 
-    if (!nd_iface_no_restore_flags) {
-        if (iface->old_promisc >= 0) {
-            nd_iface_set_promisc(iface, iface->old_promisc);
-        }
-        if (iface->old_allmulti >= 0) {
-            nd_iface_set_allmulti(iface, iface->old_allmulti);
-        }
-    }
+#ifdef __linux__
+    /* Disable ALLMULTI. */
 
-#ifndef __linux__
+    struct packet_mreq mreq = { .mr_ifindex = (int) iface->index, .mr_type = PACKET_MR_ALLMULTI };
+
+    if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
+        nd_log_error("Could not disable ALLMULTI: %s", strerror(errno));
+    }
+#else
     nd_io_close(iface->bpf_io);
 #endif
 
@@ -551,7 +566,6 @@ void nd_iface_close(nd_iface_t *iface)
 static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)
 {
     uint8_t *p = iface->lladdr.u8;
-
     *addr = (nd_addr_t){ .u8 = { 0xfe, 0x80, [8] = p[0] ^ 0x02U, p[1], p[2], 0xff, 0xfe, p[3], p[4], p[5] } };
 }
 
@@ -656,82 +670,14 @@ bool nd_iface_startup()
     }
 
     if (!ndL_configure_filter(ndL_io)) {
+        nd_log_error("Failed to configure BPF: %s", strerror(errno));
         nd_io_close(ndL_io);
         ndL_io = NULL;
-        nd_log_error("Failed to configure BPF: %s", strerror(errno));
         return NULL;
     }
 
     ndL_io->handler = ndL_io_handler;
 #endif
-
-    return true;
-}
-
-bool nd_iface_set_allmulti(nd_iface_t *iface, bool on)
-{
-    nd_log_debug("%s all multicast mode for interface %s", on ? "Enabling" : "Disabling", iface->name);
-
-    struct ifreq ifr = { 0 };
-    memcpy(ifr.ifr_name, iface->name, IFNAMSIZ);
-
-    if (ioctl(ndL_io->fd, SIOCGIFFLAGS, &ifr) < 0) {
-        nd_log_error("Failed to get interface flags: %s", strerror(errno));
-        return false;
-    }
-
-    if (iface->old_allmulti < 0) {
-        iface->old_allmulti = (ifr.ifr_flags & IFF_ALLMULTI) != 0;
-    }
-
-    if (on == ((ifr.ifr_flags & IFF_ALLMULTI) != 0)) {
-        return true;
-    }
-
-    if (on) {
-        ifr.ifr_flags |= IFF_ALLMULTI;
-    } else {
-        ifr.ifr_flags &= ~IFF_ALLMULTI;
-    }
-
-    if (ioctl(ndL_io->fd, SIOCSIFFLAGS, &ifr) < 0) {
-        nd_log_error("Failed to set interface flags: %s", strerror(errno));
-        return false;
-    }
-
-    return true;
-}
-
-bool nd_iface_set_promisc(nd_iface_t *iface, bool on)
-{
-    nd_log_debug("%s promiscuous mode for interface %s", on ? "Enabling" : "Disabling", iface->name);
-
-    struct ifreq ifr = { 0 };
-    memcpy(ifr.ifr_name, iface->name, IFNAMSIZ);
-
-    if (ioctl(ndL_io->fd, SIOCGIFFLAGS, &ifr) < 0) {
-        nd_log_error("Failed to get interface flags: %s", strerror(errno));
-        return false;
-    }
-
-    if (iface->old_promisc < 0) {
-        iface->old_promisc = (ifr.ifr_flags & IFF_PROMISC) != 0;
-    }
-
-    if (on == ((ifr.ifr_flags & IFF_PROMISC) != 0)) {
-        return true;
-    }
-
-    if (on) {
-        ifr.ifr_flags |= IFF_PROMISC;
-    } else {
-        ifr.ifr_flags &= ~IFF_PROMISC;
-    }
-
-    if (ioctl(ndL_io->fd, SIOCSIFFLAGS, &ifr) < 0) {
-        nd_log_error("Failed to set interface flags: %s", strerror(errno));
-        return false;
-    }
 
     return true;
 }

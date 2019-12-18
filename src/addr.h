@@ -48,7 +48,7 @@ bool nd_addr_is_unspecified(const nd_addr_t *addr);
 /*! Returns the string representation of link-layer address <tt>addr</tt>.
  *
  * @note This function returns a pointer to static data. It uses three different static arrays
- * to allow the function to be chained.
+ *       to allow the function to be chained.
  */
 const char *nd_ll_ntoa(const nd_lladdr_t *addr);
 

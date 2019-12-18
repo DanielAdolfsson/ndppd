@@ -31,7 +31,6 @@ struct nd_proxy {
     nd_rule_t *rules;
     nd_session_t *sessions;
     bool router;
-    bool promisc;
 };
 
 nd_proxy_t *nd_proxy_create(const char *ifname);
@@ -39,4 +38,4 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
 bool nd_proxy_startup();
 void nd_proxy_update_all();
 
-#endif // NDPPD_PROXY_H
+#endif /* NDPPD_PROXY_H */

@@ -23,4 +23,4 @@
 
 bool nd_conf_load(const char *path);
 
-#endif // NDPPD_CONF_H
+#endif /* NDPPD_CONF_H */

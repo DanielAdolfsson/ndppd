@@ -23,7 +23,7 @@
 #    include <netinet/ether.h>
 #else
 #    include <sys/types.h>
-/**/
+
 #    include <net/ethernet.h>
 #    include <sys/socket.h>
 #endif

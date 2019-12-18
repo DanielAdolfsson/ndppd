@@ -100,7 +100,6 @@ static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "auto", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
     { "static", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
     { "autowire", NDL_RULE, NDL_BOOL, offsetof(nd_rule_t, autowire), 0, 0, NULL },
-    { "promisc", NDL_PROXY, NDL_BOOL, offsetof(nd_proxy_t, promisc), 0, 0, NULL },
     { "iface", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
 #ifndef __FreeBSD__
     { "table", NDL_RULE, NDL_INT, offsetof(nd_rule_t, table), 0, 255, NULL },
