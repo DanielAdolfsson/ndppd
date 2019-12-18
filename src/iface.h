@@ -48,13 +48,10 @@ extern bool nd_iface_no_restore_flags;
 nd_iface_t *nd_iface_open(const char *if_name, unsigned int if_index);
 void nd_iface_close(nd_iface_t *iface);
 ssize_t nd_iface_send_ns(nd_iface_t *iface, const nd_addr_t *tgt);
-ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladdr_t *dst_ll, const nd_addr_t *tgt,
-                         bool router);
+ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladdr_t *dst_ll, //
+                         const nd_addr_t *tgt, const nd_lladdr_t *tgt_ll, bool router);
 void nd_iface_get_local_addr(nd_iface_t *iface, nd_addr_t *addr);
 bool nd_iface_startup();
 void nd_iface_cleanup();
-
-
-
 
 #endif // NDPPD_IFACE_H

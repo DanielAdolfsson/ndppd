@@ -52,4 +52,6 @@ bool nd_addr_is_unspecified(const nd_addr_t *addr);
  */
 const char *nd_ll_ntoa(const nd_lladdr_t *addr);
 
+bool nd_ll_addr_is_unspecified(const nd_lladdr_t *lladdr);
+
 #endif /* NDPPD_ADDR_H */

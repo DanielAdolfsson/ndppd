@@ -27,6 +27,8 @@ struct nd_proxy {
     nd_proxy_t *next;
     char ifname[IF_NAMESIZE];
 
+    nd_lladdr_t target;
+
     nd_iface_t *iface;
     nd_rule_t *rules;
     nd_session_t *sessions;

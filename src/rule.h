@@ -36,6 +36,7 @@ struct nd_rule {
 
     char ifname[IF_NAMESIZE];
 
+    nd_lladdr_t target;
     nd_addr_t addr;
     int prefix;
 

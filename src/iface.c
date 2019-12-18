@@ -436,7 +436,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 
     /* Enable ALLMULTI. */
 
-    struct packet_mreq mreq = { .mr_ifindex = (int) index, .mr_type = PACKET_MR_ALLMULTI };
+    struct packet_mreq mreq = { .mr_ifindex = (int)index, .mr_type = PACKET_MR_ALLMULTI };
 
     if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
         nd_log_error("Could not configure ALLMULTI: %s", strerror(errno));
@@ -550,7 +550,7 @@ void nd_iface_close(nd_iface_t *iface)
 #ifdef __linux__
     /* Disable ALLMULTI. */
 
-    struct packet_mreq mreq = { .mr_ifindex = (int) iface->index, .mr_type = PACKET_MR_ALLMULTI };
+    struct packet_mreq mreq = { .mr_ifindex = (int)iface->index, .mr_type = PACKET_MR_ALLMULTI };
 
     if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
         nd_log_error("Could not disable ALLMULTI: %s", strerror(errno));
@@ -596,9 +596,13 @@ static ssize_t ndL_send_icmp6(nd_iface_t *iface, ndL_ip6_msg_t *msg, size_t size
 #endif
 }
 
-ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladdr_t *dst_ll, const nd_addr_t *tgt,
-                         bool router)
+ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladdr_t *dst_ll, //
+                         const nd_addr_t *tgt, const nd_lladdr_t *tgt_ll, bool router)
 {
+    if (tgt_ll == NULL) {
+        tgt_ll = &iface->lladdr;
+    }
+
     struct __attribute__((packed)) {
         struct ether_header eh;
         struct ip6_hdr ip;
@@ -612,7 +616,7 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladd
         .na.nd_na_target = *(struct in6_addr *)tgt,
         .opt.nd_opt_type = ND_OPT_TARGET_LINKADDR,
         .opt.nd_opt_len = 1,
-        .lladdr = *(struct ether_addr *)&iface->lladdr,
+        .lladdr = *(struct ether_addr *)tgt_ll,
     };
 
     if (nd_addr_is_multicast(dst)) {
@@ -623,8 +627,8 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladd
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_ROUTER;
     }
 
-    nd_log_info("Write NA tgt=%s, dst=%s [%s dev %s]", //
-                nd_ntoa(tgt), nd_ntoa(dst), nd_ll_ntoa(dst_ll), iface->name);
+    nd_log_info("Write NA tgt=%s [%s], dst=%s [%s(%s)]", //
+                nd_ntoa(tgt), nd_ll_ntoa(tgt_ll), nd_ntoa(dst), nd_ll_ntoa(dst_ll), iface->name);
 
     return ndL_send_icmp6(iface, (ndL_ip6_msg_t *)&msg, sizeof(msg), dst_ll);
 }
