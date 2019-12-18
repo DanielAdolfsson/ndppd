@@ -18,12 +18,7 @@
  */
 #include <string.h>
 
-#include "addr.h"
-#include "iface.h"
 #include "ndppd.h"
-#include "proxy.h"
-#include "rule.h"
-#include "session.h"
 
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;

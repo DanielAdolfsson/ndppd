@@ -41,12 +41,7 @@
 #    include <sys/sysctl.h>
 #endif
 
-#include "addr.h"
-#include "iface.h"
-#include "io.h"
 #include "ndppd.h"
-#include "proxy.h"
-#include "session.h"
 
 #ifdef __clang__
 #    pragma clang diagnostic ignored "-Waddress-of-packed-member"

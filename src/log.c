@@ -23,7 +23,6 @@
 #include <syslog.h>
 #include <time.h>
 
-#include "log.h"
 #include "ndppd.h"
 
 bool ndL_syslog_opened;

@@ -16,9 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "rule.h"
 #include "ndppd.h"
-#include "proxy.h"
 
 nd_rule_t *nd_rule_create(nd_proxy_t *proxy)
 {

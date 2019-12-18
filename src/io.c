@@ -38,7 +38,6 @@
 #    define EPOLLIN POLLIN
 #endif
 
-#include "io.h"
 #include "ndppd.h"
 
 static nd_io_t *ndL_first_io, *ndL_first_free_io;

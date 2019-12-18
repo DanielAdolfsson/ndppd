@@ -126,7 +126,7 @@ static int ndL_count_bits(uint32_t n)
     return n;
 }
 
-int nd_mask_to_pflen(nd_addr_t *netmask)
+int nd_mask_to_pflen(const nd_addr_t *netmask)
 {
     return ndL_count_bits(netmask->u32[0]) + ndL_count_bits(netmask->u32[1]) + ndL_count_bits(netmask->u32[2]) +
            ndL_count_bits(netmask->u32[3]);

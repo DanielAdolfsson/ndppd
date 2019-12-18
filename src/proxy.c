@@ -18,12 +18,7 @@
  */
 #include <string.h>
 
-#include "addr.h"
-#include "iface.h"
 #include "ndppd.h"
-#include "proxy.h"
-#include "rule.h"
-#include "session.h"
 
 static nd_proxy_t *ndL_proxies;
 

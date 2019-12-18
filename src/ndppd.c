@@ -35,13 +35,7 @@
 #    include <sched.h>
 #endif
 
-#include "addr.h"
-#include "conf.h"
-#include "iface.h"
-#include "io.h"
 #include "ndppd.h"
-#include "proxy.h"
-#include "rt.h"
 
 #ifndef NDPPD_CONFIG_PATH
 #    define NDPPD_CONFIG_PATH "../ndppd.conf"
@@ -101,7 +95,6 @@ static bool ndL_daemonize()
             nd_log_error("Failed to write PID file: write(): %s", strerror(errno));
         }
 
-        nd_iface_no_restore_flags = true;
         exit(0);
     }
 

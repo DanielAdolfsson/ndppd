@@ -16,8 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "mld.h"
-#include "iface.h"
 #include "ndppd.h"
 
 static nd_ml_t *ndL_first_ml, *ndL_first_free_ml;

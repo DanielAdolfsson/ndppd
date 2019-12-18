@@ -24,7 +24,6 @@
 #    define NDPPD_ALLOC_SIZE 16384
 #endif
 
-#include "alloc.h"
 #include "ndppd.h"
 
 typedef struct ndL_chunk ndL_chunk_t;

@@ -33,10 +33,7 @@
 #    include <unistd.h>
 #endif
 
-#include "addr.h"
-#include "io.h"
 #include "ndppd.h"
-#include "rt.h"
 
 #ifdef __clang__
 #    pragma clang diagnostic ignored "-Waddress-of-packed-member"
@@ -97,7 +94,7 @@ static void ndL_new_route(nd_rt_route_t *route)
         ND_LL_PREPEND(ndL_routes, new_route, next);
     }
 
-    nd_log_debug("rt: (event) new route %s/%d dev %d table %d %s", //
+    nd_log_debug("rt(event): New route %s/%d dev %d table %d %s", //
                  nd_ntoa(&route->dst), route->pflen, route->oif, route->table, route->owned ? "owned" : "");
 }
 
@@ -124,7 +121,7 @@ static void ndL_delete_route(nd_rt_route_t *route)
         ndL_routes = cur->next;
     }
 
-    nd_log_debug("rt: (event) delete route %s/%d dev %d table %d", //
+    nd_log_debug("rt(event): Delete route %s/%d dev %d table %d", //
                  nd_ntoa(&cur->dst), cur->pflen, cur->oif, cur->table);
 
     ND_LL_PREPEND(ndL_free_routes, cur, next);
@@ -152,7 +149,7 @@ static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
     rt_addr->iif = index;
     rt_addr->addr = *addr;
 
-    nd_log_debug("rt: (event) new address %s/%d if %d", nd_ntoa(addr), pflen, index);
+    nd_log_debug("rt(event): New address %s/%d if %d", nd_ntoa(addr), pflen, index);
 }
 
 static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
@@ -161,7 +158,7 @@ static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
 
     ND_LL_FOREACH_NODEF (ndL_addrs, rt_addr, next) {
         if (rt_addr->iif == index && nd_addr_eq(&rt_addr->addr, addr) && rt_addr->pflen == pflen) {
-            nd_log_debug("rt: (event) delete address %s/%d if %d", nd_ntoa(addr), pflen, index);
+            nd_log_debug("rt(event): Delete address %s/%d if %d", nd_ntoa(addr), pflen, index);
 
             if (prev) {
                 prev->next = rt_addr->next;

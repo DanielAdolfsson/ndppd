@@ -19,7 +19,12 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
-#include <netinet/ether.h>
+#ifdef __linux__
+#    include <netinet/ether.h>
+#else
+#    include <sys/types.h>
+#    include <net/ethernet.h>
+#endif
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -28,8 +33,6 @@
 #include <sys/stat.h>
 
 #include "ndppd.h"
-#include "proxy.h"
-#include "rule.h"
 
 int nd_conf_invalid_ttl = 10000;
 int nd_conf_valid_ttl = 30000;
@@ -167,7 +170,7 @@ static bool ndL_accept_int(ndL_state_t *state, int *ptr, int min, int max)
     char buf[64];
     int i = 0;
 
-    while(i < 64 && tmp.offset < tmp.length) {
+    while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
         if (!isdigit(c) && c != '-') {
@@ -206,7 +209,7 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
     char buf[64];
     int i = 0;
 
-    while(i < 64 && tmp.offset < tmp.length) {
+    while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
         if (!isxdigit(c) && c != '.' && c != ':') {
@@ -240,7 +243,7 @@ static bool ndL_accept_lladdr(ndL_state_t *state, nd_lladdr_t *out)
     char buf[64];
     int i = 0;
 
-    while(i < 64 && tmp.offset < tmp.length) {
+    while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
         if (!isxdigit(c) && c != ':') {
