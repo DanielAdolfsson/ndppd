@@ -174,6 +174,11 @@ const char *nd_ll_ntoa(const nd_lladdr_t *addr)
     return addr ? ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]) : "(null)";
 }
 
+bool nd_ll_addr_eq(const nd_lladdr_t *first, const nd_lladdr_t *second)
+{
+    return !memcmp(first, second, sizeof(nd_lladdr_t));
+}
+
 bool nd_ll_addr_is_unspecified(const nd_lladdr_t *lladdr)
 {
     return !lladdr->u8[0] && !lladdr->u8[1] && !lladdr->u8[2] && !lladdr->u8[3] && !lladdr->u8[4] && !lladdr->u8[5];

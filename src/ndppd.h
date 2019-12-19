@@ -284,6 +284,8 @@ uint32_t nd_addr_hash(const nd_addr_t *addr);
  */
 const char *nd_ll_ntoa(const nd_lladdr_t *addr);
 
+bool nd_ll_addr_eq(const nd_lladdr_t *first, const nd_lladdr_t *second);
+
 bool nd_ll_addr_is_unspecified(const nd_lladdr_t *lladdr);
 
 /*

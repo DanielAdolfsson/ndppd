@@ -58,7 +58,16 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
     session->ins_time = nd_current_time;
 
     if (session->state != ND_STATE_VALID && session->state != ND_STATE_STALE) {
-        /* Register sub */
+        nd_sub_t *sub;
+        ND_LL_SEARCH(session->subs, sub, next, nd_addr_eq(&sub->addr, src) && nd_ll_addr_eq(&sub->lladdr, src_ll));
+
+        if (!sub) {
+            sub = ND_NEW(nd_sub_t);
+            sub->addr = *src;
+            sub->lladdr = *src_ll;
+            ND_LL_PREPEND(session->subs, sub, next);
+        }
+
         return;
     }
 
@@ -81,15 +90,15 @@ void nd_session_handle_na(nd_session_t *session)
         return;
     }
 
-    /*if (!nd_addr_is_unspecified(&q)) {
-        nd_log_error("testing quickness.. ");
-        nd_lladdr_t *tgt_ll = !nd_ll_addr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
+    nd_lladdr_t *tgt_ll = !nd_ll_addr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
 
-        nd_iface_send_na(session->rule->proxy->iface, &q, &z, //
+    ND_LL_FOREACH_S (session->subs, sub, tmp, next) {
+        nd_iface_send_na(session->rule->proxy->iface, &sub->addr, &sub->lladdr, //
                          &session->tgt, tgt_ll, session->rule->proxy->router);
+        ND_DELETE(sub);
+    }
 
-        memset(&q, 0, sizeof(q));
-    }*/
+    session->subs = NULL;
 
     if (session->state != ND_STATE_VALID) {
         nd_log_debug("Session [%s] %s -> VALID", session->rule->proxy->ifname, nd_ntoa(&session->tgt));
@@ -166,6 +175,10 @@ void nd_session_update(nd_session_t *session)
 
         if (session->iface) {
             nd_iface_close(session->iface);
+        }
+
+        ND_LL_FOREACH_S (session->subs, sub, tmp, next) {
+            ND_DELETE(sub);
         }
 
         ND_LL_DELETE(ndL_sessions[NDL_BUCKET(&session->tgt)], session, next);
@@ -248,9 +261,8 @@ nd_session_t *nd_session_find_r(const nd_addr_t *tgt, const nd_iface_t *iface)
 void nd_session_update_all()
 {
     for (int i = 0; i < NDPPD_SESSION_BUCKETS; i++) {
-        ND_LL_FOREACH_S(ndL_sessions[i], session, tmp, next) {
+        ND_LL_FOREACH_S (ndL_sessions[i], session, tmp, next) {
             nd_session_update(session);
         }
     }
 }
-
