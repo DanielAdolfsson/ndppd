@@ -65,9 +65,8 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
         nd_rule_t *rule;
         ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
 
-        if (!rule) {
+        if (!rule)
             return;
-        }
 
         session = nd_session_create(rule, tgt);
     }
@@ -78,9 +77,8 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
 bool nd_proxy_startup()
 {
     ND_LL_FOREACH (ndL_proxies, proxy, next) {
-        if (!(proxy->iface = nd_iface_open(proxy->ifname, 0))) {
+        if (!(proxy->iface = nd_iface_open(proxy->ifname, 0)))
             return false;
-        }
 
         proxy->iface->proxy = proxy;
 

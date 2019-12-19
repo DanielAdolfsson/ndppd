@@ -24,17 +24,11 @@ nd_ml_t *nd_mld_watch(const char *ifname)
 {
     nd_iface_t *iface = nd_iface_open(ifname, 0);
 
-    if (iface == NULL) {
+    if (iface == NULL)
         return NULL;
-    }
 
     (void)ndL_first_free_ml;
     (void)ndL_first_ml;
-    (void) ifname;
+    (void)ifname;
     return NULL;
 }
-
-
-
-
-

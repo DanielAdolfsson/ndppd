@@ -59,7 +59,7 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
 
     if (session->state != ND_STATE_VALID && session->state != ND_STATE_STALE) {
         nd_sub_t *sub;
-        ND_LL_SEARCH(session->subs, sub, next, nd_addr_eq(&sub->addr, src) && nd_ll_addr_eq(&sub->lladdr, src_ll));
+        ND_LL_SEARCH(session->subs, sub, next, nd_addr_eq(&sub->addr, src) && nd_lladdr_eq(&sub->lladdr, src_ll));
 
         if (!sub) {
             sub = ND_NEW(nd_sub_t);
@@ -71,7 +71,7 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
         return;
     }
 
-    nd_lladdr_t *tgt_ll = !nd_ll_addr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
+    nd_lladdr_t *tgt_ll = !nd_lladdr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
 
     if (nd_addr_is_unspecified(src)) {
         static const nd_lladdr_t allnodes_ll = { .u8 = { 0x33, 0x33, [5] = 1 } };
@@ -79,8 +79,7 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
         nd_iface_send_na(session->rule->proxy->iface, &allnodes, &allnodes_ll, //
                          &session->tgt, tgt_ll, session->rule->proxy->router);
     } else {
-        nd_iface_send_na(session->rule->proxy->iface, src, src_ll, //
-                         &session->tgt, tgt_ll, session->rule->proxy->router);
+        nd_iface_send_na(session->rule->proxy->iface, src, src_ll, &session->tgt, tgt_ll, session->rule->proxy->router);
     }
 }
 
@@ -90,7 +89,7 @@ void nd_session_handle_na(nd_session_t *session)
         return;
     }
 
-    nd_lladdr_t *tgt_ll = !nd_ll_addr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
+    nd_lladdr_t *tgt_ll = !nd_lladdr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
 
     ND_LL_FOREACH_S (session->subs, sub, tmp, next) {
         nd_iface_send_na(session->rule->proxy->iface, &sub->addr, &sub->lladdr, //
@@ -151,9 +150,8 @@ void nd_session_update(nd_session_t *session)
 {
     switch (session->state) {
     case ND_STATE_INCOMPLETE:
-        if (nd_current_time - session->ons_time < nd_conf_retrans_time) {
+        if (nd_current_time - session->ons_time < nd_conf_retrans_time)
             break;
-        }
 
         if (++session->ons_count > nd_conf_retrans_limit) {
             session->state = ND_STATE_INVALID;
@@ -167,19 +165,16 @@ void nd_session_update(nd_session_t *session)
         break;
 
     case ND_STATE_INVALID:
-        if (nd_current_time - session->state_time < nd_conf_invalid_ttl) {
+        if (nd_current_time - session->state_time < nd_conf_invalid_ttl)
             break;
-        }
 
         ndL_down(session);
 
-        if (session->iface) {
+        if (session->iface)
             nd_iface_close(session->iface);
-        }
 
-        ND_LL_FOREACH_S (session->subs, sub, tmp, next) {
+        ND_LL_FOREACH_S (session->subs, sub, tmp, next)
             ND_DELETE(sub);
-        }
 
         ND_LL_DELETE(ndL_sessions[NDL_BUCKET(&session->tgt)], session, next);
         ND_LL_DELETE(ndL_sessions_r[NDL_BUCKET(&session->tgt_r)], session, next_r);
@@ -191,9 +186,8 @@ void nd_session_update(nd_session_t *session)
         break;
 
     case ND_STATE_VALID:
-        if (nd_current_time - session->state_time < nd_conf_valid_ttl) {
+        if (nd_current_time - session->state_time < nd_conf_valid_ttl)
             break;
-        }
 
         session->state = ND_STATE_STALE;
         session->state_time = nd_current_time;
@@ -222,17 +216,15 @@ void nd_session_update(nd_session_t *session)
             // We will only retransmit if nd_conf_keepalive is true, or if the last incoming NS
             // request was made less than nd_conf_valid_ttl milliseconds ago.
 
-            if (!nd_conf_keepalive && nd_current_time - session->ins_time > nd_conf_valid_ttl) {
+            if (!nd_conf_keepalive && nd_current_time - session->ins_time > nd_conf_valid_ttl)
                 break;
-            }
 
             long time = session->ons_count && !(session->ons_count % nd_conf_retrans_limit)
                             ? ((1 << session->ons_count / 3) * nd_conf_retrans_time)
                             : nd_conf_retrans_time;
 
-            if (nd_current_time - session->ons_time < time) {
+            if (nd_current_time - session->ons_time < time)
                 break;
-            }
 
             session->ons_count++;
             session->ons_time = nd_current_time;
@@ -261,8 +253,7 @@ nd_session_t *nd_session_find_r(const nd_addr_t *tgt, const nd_iface_t *iface)
 void nd_session_update_all()
 {
     for (int i = 0; i < NDPPD_SESSION_BUCKETS; i++) {
-        ND_LL_FOREACH_S (ndL_sessions[i], session, tmp, next) {
+        ND_LL_FOREACH_S (ndL_sessions[i], session, tmp, next)
             nd_session_update(session);
-        }
     }
 }

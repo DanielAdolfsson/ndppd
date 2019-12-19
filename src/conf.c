@@ -23,6 +23,7 @@
 #    include <netinet/ether.h>
 #else
 #    include <sys/types.h>
+
 #    include <net/ethernet.h>
 #endif
 #include <stdarg.h>
@@ -126,13 +127,11 @@ static void ndL_skip(ndL_state_t *state)
     while (state->offset < state->length) {
         char c = state->data[state->offset];
 
-        if (c == '#') {
+        if (c == '#')
             comment = true;
-        }
 
-        if (c == '\n' || (!comment && !isspace(c))) {
+        if (c == '\n' || (!comment && !isspace(c)))
             break;
-        }
 
         state->offset++;
         state->column++;
@@ -147,9 +146,8 @@ static char ndL_accept(ndL_state_t *state, char *valid)
 
     char c = state->data[state->offset];
 
-    if (!strchr(valid, c)) {
+    if (!strchr(valid, c))
         return 0;
-    }
 
     state->offset++;
 
@@ -173,18 +171,16 @@ static bool ndL_accept_int(ndL_state_t *state, int *ptr, int min, int max)
     while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
-        if (!isdigit(c) && c != '-') {
+        if (!isdigit(c) && c != '-')
             break;
-        }
 
         buf[i++] = c;
         tmp.offset++;
         tmp.column++;
     }
 
-    if (i == 64 || tmp.offset == state->offset) {
+    if (i == 64 || tmp.offset == state->offset)
         return false;
-    }
 
     buf[i] = 0;
 
@@ -192,9 +188,8 @@ static bool ndL_accept_int(ndL_state_t *state, int *ptr, int min, int max)
 
     long value = strtoll(buf, &endptr, 10);
 
-    if (*endptr || value > max || value < min) {
+    if (*endptr || value > max || value < min)
         return false;
-    }
 
     *ptr = (int)value;
 
@@ -212,18 +207,16 @@ static bool ndL_accept_addr(ndL_state_t *state, nd_addr_t *addr)
     while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
-        if (!isxdigit(c) && c != '.' && c != ':') {
+        if (!isxdigit(c) && c != '.' && c != ':')
             break;
-        }
 
         buf[i++] = c;
         tmp.offset++;
         tmp.column++;
     }
 
-    if (i == 64 || tmp.offset == state->offset) {
+    if (i == 64 || tmp.offset == state->offset)
         return false;
-    }
 
     buf[i] = 0;
 
@@ -246,18 +239,16 @@ static bool ndL_accept_lladdr(ndL_state_t *state, nd_lladdr_t *out)
     while (i < 64 && tmp.offset < tmp.length) {
         char c = tmp.data[tmp.offset];
 
-        if (!isxdigit(c) && c != ':') {
+        if (!isxdigit(c) && c != ':')
             break;
-        }
 
         buf[i++] = c;
         tmp.offset++;
         tmp.column++;
     }
 
-    if (i == 64 || tmp.offset == state->offset) {
+    if (i == 64 || tmp.offset == state->offset)
         return false;
-    }
 
     buf[i] = 0;
 
@@ -291,9 +282,8 @@ static bool ndL_accept_name(ndL_state_t *state, char *str, size_t size)
         tmp.column++;
     }
 
-    if (!size || tmp.offset == state->offset) {
+    if (!size || tmp.offset == state->offset)
         return false;
-    }
 
     *str = 0;
     *state = tmp;
@@ -305,13 +295,12 @@ static bool ndL_accept_bool(ndL_state_t *state, bool *value)
     char buf[16];
     ndL_state_t tmp = *state;
 
-    if (!ndL_accept_name(&tmp, buf, sizeof(buf)) || !strcmp(buf, "yes") || !strcmp(buf, "true")) {
+    if (!ndL_accept_name(&tmp, buf, sizeof(buf)) || !strcmp(buf, "yes") || !strcmp(buf, "true"))
         *value = true;
-    } else if (!strcmp(buf, "no") || !strcmp(buf, "false")) {
+    else if (!strcmp(buf, "no") || !strcmp(buf, "false"))
         *value = false;
-    } else {
+    else
         return false;
-    }
 
     *state = tmp;
     return true;
@@ -343,9 +332,8 @@ static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_
     rule->table = 0;
 #endif
 
-    if (!ndL_parse_block(state, NDL_RULE, rule)) {
+    if (!ndL_parse_block(state, NDL_RULE, rule))
         return false;
-    }
 
     if (rule->mode == ND_MODE_UNKNOWN) {
         ndL_error(state, "\"static\", \"auto\", or \"iface\" need to be specified");
@@ -362,9 +350,8 @@ static bool ndL_parse_rule(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_
 
 static bool ndL_parse_rewrite(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *info, nd_rule_t *rule)
 {
-    if (!ndL_accept_addr(state, &rule->rewrite_tgt)) {
+    if (!ndL_accept_addr(state, &rule->rewrite_tgt))
         return false;
-    }
 
     if (ndL_accept(state, "/")) {
         if (!ndL_accept_int(state, &rule->rewrite_pflen, 0, 128)) {
@@ -389,9 +376,8 @@ static bool ndL_parse_proxy(ndL_state_t *state, ND_UNUSED ndL_cfinfo_t *u1, ND_U
 
     nd_proxy_t *proxy = nd_proxy_create(ifname);
 
-    if (proxy == NULL) {
+    if (proxy == NULL)
         return false;
-    }
 
     return ndL_parse_block(state, NDL_PROXY, proxy);
 }
@@ -465,13 +451,11 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
         bool found = false;
 
         for (int i = 0; !found && ndL_cfinfo_table[i].key; i++) {
-            if (ndL_cfinfo_table[i].scope != scope) {
+            if (ndL_cfinfo_table[i].scope != scope)
                 continue;
-            }
 
-            if (strcmp(key, ndL_cfinfo_table[i].key) != 0) {
+            if (strcmp(key, ndL_cfinfo_table[i].key) != 0)
                 continue;
-            }
 
             bits |= 1 << i;
             found = true;
@@ -522,9 +506,8 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             if (t->cb) {
                 ndL_skip(state);
 
-                if (!t->cb(state, &ndL_cfinfo_table[i], ptr)) {
+                if (!t->cb(state, &ndL_cfinfo_table[i], ptr))
                     return false;
-                }
             }
 
             ndL_skip(state);

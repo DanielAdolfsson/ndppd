@@ -45,14 +45,8 @@ static nd_io_t *ndL_io;
 // All IPV6 routes on the system.
 static nd_rt_route_t *ndL_routes;
 
-// Freelist.
-static nd_rt_route_t *ndL_free_routes;
-
 // All IPv6 addresses on the system.
 static nd_rt_addr_t *ndL_addrs;
-
-// Freelist.
-static nd_rt_addr_t *ndL_free_addrs;
 
 long nd_rt_dump_timeout;
 
@@ -62,16 +56,11 @@ static void ndL_new_route(nd_rt_route_t *route)
 
     ND_LL_FOREACH_NODEF (ndL_routes, new_route, next) {
         if ((nd_addr_eq(&new_route->dst, &route->dst) && new_route->pflen == route->pflen &&
-             new_route->table == route->table)) {
+             new_route->table == route->table))
             return;
-        }
     }
 
-    if ((new_route = ndL_free_routes)) {
-        ND_LL_DELETE(ndL_free_routes, new_route, next);
-    } else {
-        new_route = ND_NEW(nd_rt_route_t);
-    }
+    new_route = ND_NEW(nd_rt_route_t);
 
     *new_route = *route;
 
@@ -80,9 +69,8 @@ static void ndL_new_route(nd_rt_route_t *route)
     nd_rt_route_t *prev = NULL;
 
     ND_LL_FOREACH (ndL_routes, cur, next) {
-        if (new_route->pflen >= cur->pflen) {
+        if (new_route->pflen >= cur->pflen)
             break;
-        }
 
         prev = cur;
     }
@@ -124,7 +112,7 @@ static void ndL_delete_route(nd_rt_route_t *route)
     nd_log_debug("rt(event): Delete route %s/%d dev %d table %d", //
                  nd_ntoa(&cur->dst), cur->pflen, cur->oif, cur->table);
 
-    ND_LL_PREPEND(ndL_free_routes, cur, next);
+    ND_DELETE(cur);
 }
 
 static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
@@ -137,11 +125,7 @@ static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
         }
     }
 
-    if ((rt_addr = ndL_free_addrs)) {
-        ND_LL_DELETE(ndL_free_addrs, rt_addr, next);
-    } else {
-        rt_addr = ND_NEW(nd_rt_addr_t);
-    }
+    rt_addr = ND_NEW(nd_rt_addr_t);
 
     ND_LL_PREPEND(ndL_addrs, rt_addr, next);
 
@@ -166,7 +150,7 @@ static void ndL_delete_addr(unsigned int index, nd_addr_t *addr, unsigned pflen)
                 ndL_addrs = rt_addr->next;
             }
 
-            ND_LL_PREPEND(ndL_free_addrs, rt_addr, next);
+            ND_DELETE(rt_addr);
             return;
         }
 
@@ -492,9 +476,8 @@ void nd_rt_cleanup()
 bool nd_rt_query_routes()
 {
 #ifdef __linux__
-    if (nd_rt_dump_timeout) {
+    if (nd_rt_dump_timeout)
         return false;
-    }
 
     struct {
         struct nlmsghdr hdr;
@@ -522,9 +505,8 @@ bool nd_rt_query_routes()
 bool nd_rt_query_addresses()
 {
 #ifdef __linux__
-    if (nd_rt_dump_timeout) {
+    if (nd_rt_dump_timeout)
         return false;
-    }
 
     struct {
         struct nlmsghdr hdr;
@@ -551,9 +533,8 @@ bool nd_rt_query_addresses()
 nd_rt_route_t *nd_rt_find_route(const nd_addr_t *addr, unsigned table)
 {
     ND_LL_FOREACH (ndL_routes, route, next) {
-        if (nd_addr_match(&route->dst, addr, route->pflen) && route->table == table) {
+        if (nd_addr_match(&route->dst, addr, route->pflen) && route->table == table)
             return route;
-        }
     }
 
     return NULL;

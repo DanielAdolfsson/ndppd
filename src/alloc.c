@@ -19,8 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef NDPPD_ALLOC_SIZE
-#    define NDPPD_ALLOC_SIZE 16384
+#ifndef NDPPD_CHUNK_ALLOC_SIZE
+#    define NDPPD_CHUNK_ALLOC_SIZE 16384
 #endif
 
 #ifndef NDPPD_MAX_ALLOC
@@ -43,7 +43,7 @@ struct ndL_obj {
 };
 
 static ndL_chunk_t *ndL_chunks;
-static size_t ndL_alloc_size = NDPPD_ALLOC_SIZE;
+static size_t ndL_alloc_size = NDPPD_CHUNK_ALLOC_SIZE;
 static ndL_obj_t *ndL_free_objects[NDPPD_MAX_ALLOC >> 3];
 
 char *nd_strdup(const char *str)
@@ -56,9 +56,8 @@ char *nd_strdup(const char *str)
 
 void nd_free(void *ptr, size_t size)
 {
-    if (size == 0 || size > NDPPD_MAX_ALLOC) {
+    if (size == 0 || size > NDPPD_MAX_ALLOC)
         abort();
-    }
 
     size = (size + 7U) & ~7U;
 
@@ -68,9 +67,8 @@ void nd_free(void *ptr, size_t size)
 
 void *nd_alloc(size_t size)
 {
-    if (size == 0 || size > NDPPD_MAX_ALLOC) {
+    if (size == 0 || size > NDPPD_MAX_ALLOC)
         abort();
-    }
 
     /* To keep everything properly aligned, we'll make sure it's multiple of 8. */
     size = (size + 7U) & ~7U;
@@ -98,9 +96,8 @@ void *nd_alloc(size_t size)
     ndL_chunk_t *chunk = (ndL_chunk_t *)malloc(ndL_alloc_size);
 
     // This should never happen.
-    if (chunk == NULL) {
+    if (chunk == NULL)
         abort();
-    }
 
     *chunk = (ndL_chunk_t){
         .next = ndL_chunks,
@@ -119,7 +116,6 @@ void *nd_alloc(size_t size)
 
 void nd_alloc_cleanup()
 {
-    ND_LL_FOREACH_S (ndL_chunks, chunk, tmp, next) {
+    ND_LL_FOREACH_S (ndL_chunks, chunk, tmp, next)
         free(chunk);
-    }
 }

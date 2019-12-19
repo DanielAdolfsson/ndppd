@@ -187,9 +187,8 @@ int main(int argc, char *argv[])
             break;
 
         case 'v':
-            if (nd_opt_verbosity < ND_LOG_ERROR) {
+            if (nd_opt_verbosity < ND_LOG_ERROR)
                 nd_opt_verbosity++;
-            }
             break;
 
         case 'p':
@@ -226,47 +225,39 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (nd_opt_config_path == NULL) {
+    if (nd_opt_config_path == NULL)
         nd_opt_config_path = NDPPD_CONFIG_PATH;
-    }
 
     nd_log_info("Loading configuration \"%s\"...", nd_opt_config_path);
 
-    if (!nd_conf_load(nd_opt_config_path)) {
+    if (!nd_conf_load(nd_opt_config_path))
         return -1;
-    }
 
 #ifdef __linux__
-    if (netns && !ndL_netns(netns)) {
+    if (netns && !ndL_netns(netns))
         return -1;
-    }
 #endif
 
-    if (!nd_iface_startup()) {
+    if (!nd_iface_startup())
         return -1;
-    }
 
-    if (!nd_proxy_startup()) {
+    if (!nd_proxy_startup())
         return -1;
-    }
 
-    if (!nd_rt_open()) {
+    if (!nd_rt_open())
         return -1;
-    }
 
-    if (nd_opt_daemonize && !ndL_daemonize()) {
+    if (nd_opt_daemonize && !ndL_daemonize())
         return -1;
-    }
 
     nd_rt_query_routes();
     bool querying_routes = true;
 
     long last_session_update = 0;
 
-    for(;;) {
-        if (nd_current_time >= nd_rt_dump_timeout) {
+    for (;;) {
+        if (nd_current_time >= nd_rt_dump_timeout)
             nd_rt_dump_timeout = 0;
-        }
 
         if (querying_routes && !nd_rt_dump_timeout) {
             querying_routes = false;

@@ -1,5 +1,7 @@
 Checks: >
   *,
+  -readability-braces-around-statements,
+  -hicpp-braces-around-statements,
   -android-*,
   -bugprone-bool-pointer-implicit-conversion,
   -bugprone-exception-escape,

@@ -67,13 +67,11 @@ typedef struct __attribute__((packed)) {
 
 static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_hdr *ih, size_t len)
 {
-    if (!iface->proxy) {
+    if (!iface->proxy)
         return;
-    }
 
-    if (len < sizeof(struct nd_neighbor_solicit)) {
+    if (len < sizeof(struct nd_neighbor_solicit))
         return;
-    }
 
     struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)ih;
 
@@ -83,15 +81,13 @@ static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_
         // FIXME: Source link-layer address MUST be included in multicast solicitations and SHOULD be included in
         //        unicast solicitations. [https://tools.ietf.org/html/rfc4861#section-4.3].
 
-        if (len - sizeof(struct nd_neighbor_solicit) < 8) {
+        if (len - sizeof(struct nd_neighbor_solicit) < 8)
             return;
-        }
 
         struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
 
-        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR) {
+        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR)
             return;
-        }
 
         src_ll = (nd_lladdr_t *)((void *)opt + 2);
     }
@@ -102,9 +98,8 @@ static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_
 
 static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
 {
-    if (len < sizeof(struct nd_neighbor_advert)) {
+    if (len < sizeof(struct nd_neighbor_advert))
         return;
-    }
 
     struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)ih;
 
@@ -112,9 +107,8 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
 
     nd_session_t *session = nd_session_find_r((nd_addr_t *)&na->nd_na_target, iface);
 
-    if (!session) {
+    if (!session)
         return;
-    }
 
     nd_session_handle_na(session);
 }
@@ -143,9 +137,8 @@ static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t le
             sum += *p++;
         }
 
-        if (sum > 0xffff) {
+        if (sum > 0xffff)
             sum -= 0xffff;
-        }
     }
 
     return sum;
@@ -186,39 +179,34 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
         /* We're gonna skip through hop-by-hop option. */
         struct ip6_hbh *hbh = (void *)(msg + 1) + i;
 
-        if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U)) {
+        if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U))
             return;
-        }
 
         i += 8 + 8 * hbh->ip6h_len;
 
-        if (hbh->ip6h_nxt != IPPROTO_ICMPV6) {
+        if (hbh->ip6h_nxt != IPPROTO_ICMPV6)
             return;
-        }
     } else if (msg->ip6h.ip6_nxt != IPPROTO_ICMPV6) {
         return;
     }
 
-    if (plen - i < sizeof(struct icmp6_hdr)) {
+    if (plen - i < sizeof(struct icmp6_hdr))
         return;
-    }
 
     struct icmp6_hdr *ih = (struct icmp6_hdr *)((void *)(msg + 1) + i);
     uint16_t ilen = plen - i;
 
-    if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum) {
+    if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum)
         return;
-    }
 
-    if (ih->icmp6_type == ND_NEIGHBOR_SOLICIT) {
+    if (ih->icmp6_type == ND_NEIGHBOR_SOLICIT)
         ndL_handle_ns(iface, &msg->ip6h, ih, ilen);
-    } else if (ih->icmp6_type == ND_NEIGHBOR_ADVERT) {
+    else if (ih->icmp6_type == ND_NEIGHBOR_ADVERT)
         ndL_handle_na(iface, ih, ilen);
-    } else if (ih->icmp6_type == MLD_LISTENER_QUERY) {
+    else if (ih->icmp6_type == MLD_LISTENER_QUERY)
         ndL_handle_mlq(iface);
-    } else if (ih->icmp6_type == MLD_LISTENER_REPORT) {
+    else if (ih->icmp6_type == MLD_LISTENER_REPORT)
         ndL_handle_mlr(iface);
-    }
 }
 
 #ifdef __linux__
@@ -234,35 +222,29 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
     for (;;) {
         ssize_t len = nd_io_recv(io, (struct sockaddr *)&lladdr, sizeof(lladdr), buf, sizeof(buf));
 
-        if (len == 0) {
+        if (len == 0)
             return;
-        }
 
-        if (len < 0) {
+        if (len < 0)
             return;
-        }
 
         nd_iface_t *iface;
 
         ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
 
-        if (!iface) {
+        if (!iface)
             continue;
-        }
 
-        if ((size_t)len < sizeof(ndL_ip6_msg_t)) {
+        if ((size_t)len < sizeof(ndL_ip6_msg_t))
             continue;
-        }
 
         ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)buf;
 
-        if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6)) {
+        if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6))
             continue;
-        }
 
-        if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+        if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t))
             continue;
-        }
 
         ndL_handle_msg(iface, msg);
     }
@@ -370,18 +352,16 @@ static bool ndL_configure_filter(nd_io_t *io)
         .filter = filter,
     };
 
-    if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1) {
+    if (setsockopt(io->fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) == -1)
         return false;
-    }
 #else
     static struct bpf_program fprog = {
         .bf_len = sizeof(filter) / sizeof(filter[0]),
         .bf_insns = filter,
     };
 
-    if (ioctl(io->fd, BIOCSETF, &fprog) == -1) {
+    if (ioctl(io->fd, BIOCSETF, &fprog) == -1)
         return false;
-    }
 #endif
 
     return true;
@@ -391,9 +371,8 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 {
     char tmp_name[IF_NAMESIZE];
 
-    if (!name && !index) {
+    if (!name && !index)
         return NULL;
-    }
 
     if (name && index && if_nametoindex(name) != index) {
         nd_log_error("Expected interface %s to have index %d", name, index);
@@ -530,18 +509,16 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 
 void nd_iface_close(nd_iface_t *iface)
 {
-    if (--iface->refcount > 0) {
+    if (--iface->refcount > 0)
         return;
-    }
 
 #ifdef __linux__
     /* Disable ALLMULTI. */
 
     struct packet_mreq mreq = { .mr_ifindex = (int)iface->index, .mr_type = PACKET_MR_ALLMULTI };
 
-    if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
+    if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1)
         nd_log_error("Could not disable ALLMULTI: %s", strerror(errno));
-    }
 #else
     nd_io_close(iface->bpf_io);
 #endif
@@ -607,13 +584,11 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladd
         .lladdr = *(struct ether_addr *)tgt_ll,
     };
 
-    if (!nd_addr_is_multicast(dst)) {
+    if (!nd_addr_is_multicast(dst))
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_SOLICITED;
-    }
 
-    if (router) {
+    if (router)
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_ROUTER;
-    }
 
     nd_log_info("Write NA tgt=%s [%s], dst=%s [%s(%s)]", //
                 nd_ntoa(tgt), nd_ll_ntoa(tgt_ll), nd_ntoa(dst), nd_ll_ntoa(dst_ll), iface->name);
@@ -656,9 +631,8 @@ ssize_t nd_iface_send_ns(nd_iface_t *iface, const nd_addr_t *tgt)
 bool nd_iface_startup()
 {
 #ifdef __linux__
-    if (!(ndL_io = nd_io_socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6)))) {
+    if (!(ndL_io = nd_io_socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6))))
         return false;
-    }
 
     if (!ndL_configure_filter(ndL_io)) {
         nd_log_error("Failed to configure BPF: %s", strerror(errno));
@@ -680,7 +654,6 @@ void nd_iface_cleanup()
         nd_iface_close(iface);
     }
 
-    if (ndL_io) {
+    if (ndL_io)
         nd_io_close(ndL_io);
-    }
 }

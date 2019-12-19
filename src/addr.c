@@ -63,26 +63,24 @@ static const uint32_t ndL_masks[] = {
 
 bool nd_addr_eq(const nd_addr_t *first, const nd_addr_t *second)
 {
-    return first->u32[0] == second->u32[0] && first->u32[1] == second->u32[1] && first->u32[2] == second->u32[2] &&
-           first->u32[3] == second->u32[3];
+    return first->u32[0] == second->u32[0] && first->u32[1] == second->u32[1] && //
+           first->u32[2] == second->u32[2] && first->u32[3] == second->u32[3];
 }
 
 bool nd_addr_match(const nd_addr_t *first, const nd_addr_t *second, unsigned pflen)
 {
-    if (pflen > 128) {
+    if (pflen > 128)
         return false;
-    } else if (pflen == 0) {
+    else if (pflen == 0)
         return true;
-    } else if (pflen == 128) {
+    else if (pflen == 128)
         return nd_addr_eq(first, second);
-    }
 
     for (unsigned i = 0, top = (pflen - 1) >> 5; i <= top; i++) {
         uint32_t mask = i < top ? 0xffffffff : ndL_masks[(pflen - 1) & 31];
 
-        if ((first->u32[i] ^ second->u32[i]) & mask) {
+        if ((first->u32[i] ^ second->u32[i]) & mask)
             return false;
-        }
     }
 
     return true;
@@ -151,13 +149,12 @@ void nd_mask_from_pflen(unsigned pflen, nd_addr_t *netmask)
     }
 
     for (unsigned i = 0, top = (pflen - 1) >> 5; i < 4; i++) {
-        if (i == top) {
+        if (i == top)
             netmask->u32[i] = ndL_masks[(pflen - 1) & 31];
-        } else if (i < top) {
+        else if (i < top)
             netmask->u32[i] = 0xffffffff;
-        } else {
+        else
             netmask->u32[i] = 0;
-        }
     }
 }
 
@@ -174,12 +171,12 @@ const char *nd_ll_ntoa(const nd_lladdr_t *addr)
     return addr ? ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]) : "(null)";
 }
 
-bool nd_ll_addr_eq(const nd_lladdr_t *first, const nd_lladdr_t *second)
+bool nd_lladdr_eq(const nd_lladdr_t *first, const nd_lladdr_t *second)
 {
     return !memcmp(first, second, sizeof(nd_lladdr_t));
 }
 
-bool nd_ll_addr_is_unspecified(const nd_lladdr_t *lladdr)
+bool nd_lladdr_is_unspecified(const nd_lladdr_t *lladdr)
 {
     return !lladdr->u8[0] && !lladdr->u8[1] && !lladdr->u8[2] && !lladdr->u8[3] && !lladdr->u8[4] && !lladdr->u8[5];
 }

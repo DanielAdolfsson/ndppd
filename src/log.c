@@ -45,22 +45,19 @@ void nd_log_printf(nd_loglevel_t level, const char *fmt, ...)
 {
     assert(level >= 0 && level <= ND_LOG_TRACE);
 
-    if (level > nd_opt_verbosity) {
+    if (level > nd_opt_verbosity)
         return;
-    }
 
-    if (nd_daemonized || nd_opt_syslog) {
+    if (nd_daemonized || nd_opt_syslog)
         ndL_open_syslog();
-    }
 
     char buf[512];
 
     va_list va;
     va_start(va, fmt);
 
-    if (vsnprintf(buf, sizeof(buf), fmt, va) < 0) {
+    if (vsnprintf(buf, sizeof(buf), fmt, va) < 0)
         abort();
-    }
 
     va_end(va);
 

@@ -138,9 +138,8 @@ nd_io_t *nd_io_open(const char *file, int oflag)
 {
     int fd = open(file, oflag);
 
-    if (fd == -1) {
+    if (fd == -1)
         return NULL;
-    }
 
     return ndL_create(fd);
 }
@@ -198,9 +197,8 @@ ssize_t nd_io_recv(nd_io_t *io, struct sockaddr *addr, size_t addrlen, void *msg
     int len;
 
     if ((len = recvmsg(io->fd, &mhdr, 0)) < 0) {
-        if (errno != EAGAIN) {
+        if (errno != EAGAIN)
             nd_log_error("nd_sio_recv() failed: %s", strerror(errno));
-        }
 
         return -1;
     }
@@ -217,9 +215,8 @@ ssize_t nd_io_write(nd_io_t *io, void *buf, size_t count)
 {
     ssize_t len = write(io->fd, buf, count);
 
-    if (len < 0) {
+    if (len < 0)
         nd_log_error("err: %s", strerror(errno));
-    }
 
     return len;
 }
@@ -255,24 +252,20 @@ bool nd_io_poll()
 
     int len = poll(ndL_pollfds, ndL_pollfds_count, 250);
 
-    if (len < 0) {
+    if (len < 0)
         return false;
-    }
 
-    if (len == 0) {
+    if (len == 0)
         return true;
-    }
 
     for (int i = 0; i < ndL_pollfds_count; i++) {
-        if (ndL_pollfds[i].revents == 0) {
+        if (ndL_pollfds[i].revents == 0)
             continue;
-        }
 
         ND_LL_FOREACH (ndL_first_io, io, next) {
             if (io->fd == ndL_pollfds[i].fd) {
-                if (io->handler != NULL) {
+                if (io->handler != NULL)
                     io->handler(io, ndL_pollfds[i].revents);
-                }
 
                 break;
             }
@@ -285,9 +278,8 @@ bool nd_io_poll()
 
 void nd_io_cleanup()
 {
-    ND_LL_FOREACH_S (ndL_first_io, sio, tmp, next) {
+    ND_LL_FOREACH_S (ndL_first_io, sio, tmp, next)
         nd_io_close(sio);
-    }
 
 #ifndef NDPPD_NO_USE_EPOLL
     if (ndL_epoll_fd > 0) {
