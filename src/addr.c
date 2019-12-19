@@ -116,14 +116,24 @@ void nd_addr_combine(const nd_addr_t *first, const nd_addr_t *second, unsigned p
     }
 }
 
-static int ndL_count_bits(uint32_t n)
+uint32_t nd_addr_hash(const nd_addr_t *addr)
 {
-    n = (n & 0x55555555) + ((n >> 1) & 0x55555555);
-    n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-    n = (n & 0x0f0f0f0f) + ((n >> 4) & 0x0f0f0f0f);
-    n = (n & 0x00ff00ff) + ((n >> 8) & 0x00ff00ff);
-    n = (n & 0x0000ffff) + ((n >> 16) & 0x0000ffff);
-    return n;
+    uint32_t hash = 7;
+    hash = 31 * hash + addr->u32[0];
+    hash = 31 * hash + addr->u32[1];
+    hash = 31 * hash + addr->u32[2];
+    hash = 31 * hash + addr->u32[3];
+    return hash;
+}
+
+static int ndL_count_bits(uint32_t value)
+{
+    value = (value & 0x55555555) + ((value >> 1) & 0x55555555);
+    value = (value & 0x33333333) + ((value >> 2) & 0x33333333);
+    value = (value & 0x0f0f0f0f) + ((value >> 4) & 0x0f0f0f0f);
+    value = (value & 0x00ff00ff) + ((value >> 8) & 0x00ff00ff);
+    value = (value & 0x0000ffff) + ((value >> 16) & 0x0000ffff);
+    return value;
 }
 
 int nd_mask_to_pflen(const nd_addr_t *netmask)

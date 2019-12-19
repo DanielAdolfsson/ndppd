@@ -96,16 +96,15 @@ struct nd_proxy {
 
     nd_iface_t *iface;
     nd_rule_t *rules;
-    nd_session_t *sessions;
     bool router;
 };
 
 struct nd_session {
-    nd_session_t *next_in_proxy;
-    nd_session_t *next_in_iface;
+    nd_session_t *next;
+    nd_session_t *next_r;
     nd_rule_t *rule;
     nd_addr_t tgt;
-    nd_addr_t real_tgt;
+    nd_addr_t tgt_r;
     int ons_count;   /* Number of outgoing NS messages. */
     long ons_time;   /* Last time we sent a NS message. */
     long ins_time;   /* Last time this session was the target of an incoming NS. */
@@ -143,11 +142,7 @@ struct nd_iface {
 
     uint index;
 
-    int old_allmulti;
-    int old_promisc;
-
     nd_proxy_t *proxy;
-    nd_session_t *sessions; // All sessions expecting NA messages to arrive here.
 
 #ifndef __linux__
     nd_io_t *bpf_io;
@@ -271,6 +266,8 @@ void nd_addr_combine(const nd_addr_t *first, const nd_addr_t *second, unsigned p
 
 bool nd_addr_is_unspecified(const nd_addr_t *addr);
 
+uint32_t nd_addr_hash(const nd_addr_t *addr);
+
 /*! Returns the string representation of link-layer address <tt>addr</tt>.
  *
  * @note This function returns a pointer to static data. It uses three different static arrays
@@ -288,7 +285,6 @@ nd_proxy_t *nd_proxy_create(const char *ifname);
 void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t *dst, const nd_addr_t *tgt,
                         const nd_lladdr_t *src_ll);
 bool nd_proxy_startup();
-void nd_proxy_update_all();
 
 /*
  * session.c
@@ -298,6 +294,9 @@ nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt);
 void nd_session_update(nd_session_t *session);
 void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_lladdr_t *src_ll);
 void nd_session_handle_na(nd_session_t *session);
+nd_session_t *nd_session_find(const nd_addr_t *tgt, const nd_proxy_t *proxy);
+nd_session_t *nd_session_find_r(const nd_addr_t *tgt, const nd_iface_t *iface);
+void nd_session_update_all();
 
 /*
  * rule.c

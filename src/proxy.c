@@ -56,42 +56,23 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
 {
     (void)dst;
 
-    if (nd_addr_is_unspecified(src)) {
-        nd_log_trace("Handle NS src=(unspecified), dst=%s, tgt=%s", nd_ntoa(dst), nd_ntoa(tgt));
-    } else {
-        nd_log_trace("Handle NS src=%s [%s], dst=%s, tgt=%s", //
-                     nd_ntoa(src), nd_ll_ntoa(src_ll), nd_ntoa(dst), nd_ntoa(tgt));
-    }
+    nd_log_trace("Handle NS src=%s [%s], dst=%s, tgt=%s", //
+                 nd_ntoa(src), nd_ll_ntoa(src_ll), nd_ntoa(dst), nd_ntoa(tgt));
 
-    nd_session_t *session;
+    nd_session_t *session = nd_session_find(tgt, proxy);
 
-    ND_LL_FOREACH_NODEF (proxy->sessions, session, next_in_proxy) {
-        if (nd_addr_eq(&session->tgt, tgt)) {
-            nd_session_handle_ns(session, src, src_ll);
+    if (!session) {
+        nd_rule_t *rule;
+        ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
+
+        if (!rule) {
             return;
         }
+
+        session = nd_session_create(rule, tgt);
     }
 
-    // If we get down here it means we don't have any valid sessions we can use.
-    // See if we can find one more more matching rules.
-
-    nd_rule_t *rule;
-    ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
-
-    if (!rule) {
-        return;
-    }
-
-    nd_session_handle_ns(nd_session_create(rule, tgt), src, src_ll);
-}
-
-void nd_proxy_update_all()
-{
-    ND_LL_FOREACH (ndL_proxies, proxy, next) {
-        ND_LL_FOREACH_S (proxy->sessions, session, tmp, next_in_proxy) {
-            nd_session_update(session);
-        }
-    }
+    nd_session_handle_ns(session, src, src_ll);
 }
 
 bool nd_proxy_startup()

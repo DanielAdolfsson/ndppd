@@ -261,7 +261,9 @@ int main(int argc, char *argv[])
     nd_rt_query_routes();
     bool querying_routes = true;
 
-    while (1) {
+    long last_session_update = 0;
+
+    for(;;) {
         if (nd_current_time >= nd_rt_dump_timeout) {
             nd_rt_dump_timeout = 0;
         }
@@ -272,12 +274,15 @@ int main(int argc, char *argv[])
             nd_rt_query_addresses();
         }
 
+        if (nd_current_time - last_session_update > 100) {
+            nd_session_update_all();
+            last_session_update = nd_current_time;
+        }
+
         if (!nd_io_poll()) {
             /* TODO: Error */
             break;
         }
-
-        nd_proxy_update_all();
 
         gettimeofday(&t1, 0);
         nd_current_time = t1.tv_sec * 1000 + t1.tv_usec / 1000;

@@ -28,7 +28,15 @@ extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
 
+#ifndef NDPPD_SESSION_BUCKETS
+#    define NDPPD_SESSION_BUCKETS 64
+#endif
+
+#define NDL_BUCKET(a) (nd_addr_hash(a) % NDPPD_SESSION_BUCKETS)
+
 static nd_session_t *ndL_free_sessions;
+static nd_session_t *ndL_sessions[NDPPD_SESSION_BUCKETS];
+static nd_session_t *ndL_sessions_r[NDPPD_SESSION_BUCKETS];
 
 static void ndL_up(nd_session_t *session)
 {
@@ -70,7 +78,7 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
 void nd_session_handle_na(nd_session_t *session)
 {
     if (session->state != ND_STATE_VALID) {
-        nd_log_debug("session [%s] %s -> VALID", session->rule->proxy->ifname, nd_ntoa(&session->tgt));
+        nd_log_debug("Session [%s] %s -> VALID", session->rule->proxy->ifname, nd_ntoa(&session->tgt));
 
         ndL_up(session);
         session->state = ND_STATE_VALID;
@@ -83,7 +91,7 @@ nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt)
     nd_session_t *session = ndL_free_sessions;
 
     if (session) {
-        ND_LL_DELETE(ndL_free_sessions, session, next_in_proxy);
+        ND_LL_DELETE(ndL_free_sessions, session, next);
     } else {
         session = ND_ALLOC(nd_session_t);
     }
@@ -94,9 +102,10 @@ nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt)
         .tgt = *tgt,
     };
 
-    nd_addr_combine(&rule->rewrite_tgt, tgt, rule->rewrite_pflen, &session->real_tgt);
+    nd_addr_combine(&rule->rewrite_tgt, tgt, rule->rewrite_pflen, &session->tgt_r);
 
-    ND_LL_PREPEND(rule->proxy->sessions, session, next_in_proxy);
+    ND_LL_PREPEND(ndL_sessions[NDL_BUCKET(&session->tgt)], session, next);
+    ND_LL_PREPEND(ndL_sessions_r[NDL_BUCKET(&session->tgt_r)], session, next_r);
 
     if (rule->mode == ND_MODE_AUTO) {
         nd_rt_route_t *route = nd_rt_find_route(tgt, rule->table);
@@ -110,12 +119,10 @@ nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt)
     }
 
     if (session->iface) {
-        ND_LL_PREPEND(session->iface->sessions, session, next_in_iface);
-
         session->state = ND_STATE_INCOMPLETE;
         session->ons_count = 1;
         session->ons_time = nd_current_time;
-        nd_iface_send_ns(session->iface, &session->real_tgt);
+        nd_iface_send_ns(session->iface, &session->tgt_r);
     } else if (rule->mode == ND_MODE_STATIC) {
         session->state = ND_STATE_VALID;
     }
@@ -139,7 +146,7 @@ void nd_session_update(nd_session_t *session)
             break;
         }
 
-        nd_iface_send_ns(session->iface, &session->real_tgt);
+        nd_iface_send_ns(session->iface, &session->tgt_r);
         break;
 
     case ND_STATE_INVALID:
@@ -150,12 +157,12 @@ void nd_session_update(nd_session_t *session)
         ndL_down(session);
 
         if (session->iface) {
-            ND_LL_DELETE(session->iface->sessions, session, next_in_iface);
             nd_iface_close(session->iface);
         }
 
-        ND_LL_DELETE(session->rule->proxy->sessions, session, next_in_proxy);
-        ND_LL_PREPEND(ndL_free_sessions, session, next_in_proxy);
+        ND_LL_DELETE(ndL_sessions[NDL_BUCKET(&session->tgt)], session, next);
+        ND_LL_DELETE(ndL_sessions_r[NDL_BUCKET(&session->tgt_r)], session, next_r);
+        ND_LL_PREPEND(ndL_free_sessions, session, next);
 
         nd_log_debug("session [%s] %s INVALID -> (deleted)", //
                      session->rule->proxy->ifname, nd_ntoa(&session->tgt));
@@ -175,7 +182,7 @@ void nd_session_update(nd_session_t *session)
 
         if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl) {
             session->ons_count = 1;
-            nd_iface_send_ns(session->iface, &session->real_tgt);
+            nd_iface_send_ns(session->iface, &session->tgt_r);
         } else {
             session->ons_count = 0;
         }
@@ -207,8 +214,34 @@ void nd_session_update(nd_session_t *session)
 
             session->ons_count++;
             session->ons_time = nd_current_time;
-            nd_iface_send_ns(session->iface, &session->real_tgt);
+            nd_iface_send_ns(session->iface, &session->tgt_r);
         }
         break;
     }
 }
+
+nd_session_t *nd_session_find(const nd_addr_t *tgt, const nd_proxy_t *proxy)
+{
+    nd_session_t *session;
+    ND_LL_SEARCH(ndL_sessions[NDL_BUCKET(tgt)], session, next,
+                 session->rule->proxy == proxy && nd_addr_eq(&session->tgt, tgt));
+    return session;
+}
+
+nd_session_t *nd_session_find_r(const nd_addr_t *tgt, const nd_iface_t *iface)
+{
+    nd_session_t *session;
+    ND_LL_SEARCH(ndL_sessions_r[NDL_BUCKET(tgt)], session, next_r,
+                 session->iface == iface && nd_addr_eq(&session->tgt_r, tgt));
+    return session;
+}
+
+void nd_session_update_all()
+{
+    for (int i = 0; i < NDPPD_SESSION_BUCKETS; i++) {
+        ND_LL_FOREACH(ndL_sessions[i], session, next) {
+            nd_session_update(session);
+        }
+    }
+}
+

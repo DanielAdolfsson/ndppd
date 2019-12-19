@@ -62,19 +62,24 @@ case "$1" in
   ip netns exec ndppd.rt ip link set ndppd.rt1 up
   ip netns exec ndppd.1 ip link set ndppd.1 up
 
-  ip netns exec ndppd.0 ip -6 addr add dead::1 dev ndppd.0
-  ip netns exec ndppd.0 ip -6 route add default dev ndppd.0
+  ip netns exec ndppd.0 ip -6 addr add dead::1/64 dev ndppd.0
+  ip netns exec ndppd.0 ip -6 addr add dead::2/64 dev ndppd.0
 
-  ip netns exec ndppd.rt ip -6 addr add dead:: dev ndppd.rt0
-  ip netns exec ndppd.rt ip -6 route add dead::/64 dev ndppd.rt0
+  while ! ip netns exec ndppd.0 ip -6 route add default dev ndppd.0 src dead::1 &>/dev/null; do
+    sleep 1
+  done
 
-  ip netns exec ndppd.rt ip -6 addr add dead:1:: dev ndppd.rt1
-  ip netns exec ndppd.rt ip -6 route add dead:1::/64 dev ndppd.rt1
+  ip netns exec ndppd.rt ip -6 addr add dead::/64 dev ndppd.rt0
+  ip netns exec ndppd.rt ip -6 addr add dead:1::/64 dev ndppd.rt1
 
-  ip netns exec ndppd.1 ip -6 addr add dead:1::1 dev ndppd.1
-  ip netns exec ndppd.1 ip -6 route add default dev ndppd.1
+  ip netns exec ndppd.1 ip -6 addr add dead:1::1/64 dev ndppd.1
+  ip netns exec ndppd.1 ip -6 addr add dead:1::2/64 dev ndppd.1
 
-  ip netns exec ndppd.rt sysctl net.ipv6.conf.all.forwarding=1
+  while ! ip netns exec ndppd.1 ip -6 route add default dev ndppd.1 src dead:1::1 &>/dev/null; do
+    sleep 1
+  done
+
+  ip netns exec ndppd.rt sysctl -q net.ipv6.conf.all.forwarding=1
   ;;
 
 "ndppd")

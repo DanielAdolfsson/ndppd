@@ -108,9 +108,9 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
 
     struct nd_neighbor_advert *na = (struct nd_neighbor_advert *)ih;
 
-    nd_session_t *session;
-    ND_LL_SEARCH(iface->sessions, session, next_in_iface,
-                 nd_addr_eq(&session->real_tgt, (nd_addr_t *)&na->nd_na_target));
+    nd_log_trace("Handle NA tgt=%s", nd_ntoa((nd_addr_t *)&na->nd_na_target));
+
+    nd_session_t *session = nd_session_find_r((nd_addr_t *)&na->nd_na_target, iface);
 
     if (!session) {
         return;
@@ -517,8 +517,6 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     *iface = (nd_iface_t){
         .index = index,
         .refcount = 1,
-        .old_allmulti = -1,
-        .old_promisc = -1,
         .lladdr = *lladdr,
     };
 
@@ -609,12 +607,13 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladd
         .ip.ip6_dst = *(struct in6_addr *)dst,
         .na.nd_na_type = ND_NEIGHBOR_ADVERT,
         .na.nd_na_target = *(struct in6_addr *)tgt,
+        .na.nd_na_flags_reserved = ND_NA_FLAG_OVERRIDE,
         .opt.nd_opt_type = ND_OPT_TARGET_LINKADDR,
         .opt.nd_opt_len = 1,
         .lladdr = *(struct ether_addr *)tgt_ll,
     };
 
-    if (nd_addr_is_multicast(dst)) {
+    if (!nd_addr_is_multicast(dst)) {
         msg.na.nd_na_flags_reserved |= ND_NA_FLAG_SOLICITED;
     }
 
