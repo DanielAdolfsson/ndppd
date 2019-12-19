@@ -20,7 +20,7 @@
 
 nd_rule_t *nd_rule_create(nd_proxy_t *proxy)
 {
-    nd_rule_t *rule = ND_ALLOC(nd_rule_t);
+    nd_rule_t *rule = ND_NEW(nd_rule_t);
 
     *rule = (nd_rule_t){ .proxy = proxy, .target = proxy->target };
 

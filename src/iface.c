@@ -54,7 +54,7 @@ extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
 
-static nd_iface_t *ndL_first_iface, *ndL_first_free_iface;
+static nd_iface_t *ndL_first_iface;
 static nd_io_t *ndL_io;
 
 //! Used when daemonizing to make sure the parent process does not restore these flags upon exit.
@@ -506,13 +506,7 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
     nd_lladdr_t *lladdr = (nd_lladdr_t *)LLADDR((struct sockaddr_dl *)(sysctl_buf + sizeof(struct if_msghdr)));
 #endif
 
-    iface = ndL_first_free_iface;
-
-    if (iface) {
-        ND_LL_DELETE(ndL_first_free_iface, iface, next);
-    } else {
-        iface = ND_ALLOC(nd_iface_t);
-    }
+    iface = ND_NEW(nd_iface_t);
 
     *iface = (nd_iface_t){
         .index = index,
@@ -553,7 +547,7 @@ void nd_iface_close(nd_iface_t *iface)
 #endif
 
     ND_LL_DELETE(ndL_first_iface, iface, next);
-    ND_LL_PREPEND(ndL_first_free_iface, iface, next);
+    ND_DELETE(iface);
 }
 
 static void ndL_get_local_addr(nd_iface_t *iface, nd_addr_t *addr)

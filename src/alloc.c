@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,9 +23,14 @@
 #    define NDPPD_ALLOC_SIZE 16384
 #endif
 
+#ifndef NDPPD_MAX_ALLOC
+#    define NDPPD_MAX_ALLOC 128
+#endif
+
 #include "ndppd.h"
 
 typedef struct ndL_chunk ndL_chunk_t;
+typedef struct ndL_obj ndL_obj_t;
 
 struct ndL_chunk {
     ndL_chunk_t *next;
@@ -34,8 +38,13 @@ struct ndL_chunk {
     size_t size;
 };
 
+struct ndL_obj {
+    ndL_obj_t *next;
+};
+
 static ndL_chunk_t *ndL_chunks;
 static size_t ndL_alloc_size = NDPPD_ALLOC_SIZE;
+static ndL_obj_t *ndL_free_objects[NDPPD_MAX_ALLOC >> 3];
 
 char *nd_strdup(const char *str)
 {
@@ -45,12 +54,38 @@ char *nd_strdup(const char *str)
     return buf;
 }
 
+void nd_free(void *ptr, size_t size)
+{
+    if (size == 0 || size > NDPPD_MAX_ALLOC) {
+        abort();
+    }
+
+    size = (size + 7U) & ~7U;
+
+    unsigned int bucket = (size >> 3) - 1;
+    ND_LL_PREPEND(ndL_free_objects[bucket], (ndL_obj_t *)ptr, next);
+}
+
 void *nd_alloc(size_t size)
 {
-    assert(size > 0 && size < 512);
+    if (size == 0 || size > NDPPD_MAX_ALLOC) {
+        abort();
+    }
 
-    // To keep everything properly aligned, we'll make sure it's multiple of 8.
+    /* To keep everything properly aligned, we'll make sure it's multiple of 8. */
     size = (size + 7U) & ~7U;
+
+    /* See if we can reuse an object. */
+
+    unsigned int bucket = (size >> 3) - 1;
+    ndL_obj_t *obj = ndL_free_objects[bucket];
+
+    if (obj) {
+        ND_LL_DELETE(ndL_free_objects[bucket], obj, next);
+        return obj;
+    }
+
+    /* See if we have any chunks with enough space left. */
 
     for (ndL_chunk_t *chunk = ndL_chunks; chunk; chunk = chunk->next) {
         if (chunk->free >= size) {

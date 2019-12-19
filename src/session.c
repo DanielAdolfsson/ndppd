@@ -34,7 +34,6 @@ extern bool nd_conf_keepalive;
 
 #define NDL_BUCKET(a) (nd_addr_hash(a) % NDPPD_SESSION_BUCKETS)
 
-static nd_session_t *ndL_free_sessions;
 static nd_session_t *ndL_sessions[NDPPD_SESSION_BUCKETS];
 static nd_session_t *ndL_sessions_r[NDPPD_SESSION_BUCKETS];
 
@@ -59,6 +58,7 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
     session->ins_time = nd_current_time;
 
     if (session->state != ND_STATE_VALID && session->state != ND_STATE_STALE) {
+        /* Register sub */
         return;
     }
 
@@ -77,6 +77,20 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
 
 void nd_session_handle_na(nd_session_t *session)
 {
+    if (session->state == ND_STATE_VALID) {
+        return;
+    }
+
+    /*if (!nd_addr_is_unspecified(&q)) {
+        nd_log_error("testing quickness.. ");
+        nd_lladdr_t *tgt_ll = !nd_ll_addr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
+
+        nd_iface_send_na(session->rule->proxy->iface, &q, &z, //
+                         &session->tgt, tgt_ll, session->rule->proxy->router);
+
+        memset(&q, 0, sizeof(q));
+    }*/
+
     if (session->state != ND_STATE_VALID) {
         nd_log_debug("Session [%s] %s -> VALID", session->rule->proxy->ifname, nd_ntoa(&session->tgt));
 
@@ -88,13 +102,7 @@ void nd_session_handle_na(nd_session_t *session)
 
 nd_session_t *nd_session_create(nd_rule_t *rule, const nd_addr_t *tgt)
 {
-    nd_session_t *session = ndL_free_sessions;
-
-    if (session) {
-        ND_LL_DELETE(ndL_free_sessions, session, next);
-    } else {
-        session = ND_ALLOC(nd_session_t);
-    }
+    nd_session_t *session = ND_NEW(nd_session_t);
 
     *session = (nd_session_t){
         .rule = rule,
@@ -162,10 +170,11 @@ void nd_session_update(nd_session_t *session)
 
         ND_LL_DELETE(ndL_sessions[NDL_BUCKET(&session->tgt)], session, next);
         ND_LL_DELETE(ndL_sessions_r[NDL_BUCKET(&session->tgt_r)], session, next_r);
-        ND_LL_PREPEND(ndL_free_sessions, session, next);
 
         nd_log_debug("session [%s] %s INVALID -> (deleted)", //
                      session->rule->proxy->ifname, nd_ntoa(&session->tgt));
+
+        ND_DELETE(session);
         break;
 
     case ND_STATE_VALID:
@@ -239,7 +248,7 @@ nd_session_t *nd_session_find_r(const nd_addr_t *tgt, const nd_iface_t *iface)
 void nd_session_update_all()
 {
     for (int i = 0; i < NDPPD_SESSION_BUCKETS; i++) {
-        ND_LL_FOREACH(ndL_sessions[i], session, next) {
+        ND_LL_FOREACH_S(ndL_sessions[i], session, tmp, next) {
             nd_session_update(session);
         }
     }

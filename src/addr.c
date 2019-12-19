@@ -35,11 +35,7 @@ const char *nd_ntoa(const nd_addr_t *addr)
     static int index;
     static char buf[3][64];
 
-    if (addr == NULL) {
-        return "(null)";
-    }
-
-    return inet_ntop(AF_INET6, addr, buf[index++ % 3], 64);
+    return addr ? inet_ntop(AF_INET6, addr, buf[index++ % 3], 64) : "(null)";
 }
 
 bool nd_addr_is_multicast(const nd_addr_t *addr)
@@ -175,11 +171,7 @@ const char *nd_ll_ntoa(const nd_lladdr_t *addr)
     static int index;
     static char buf[3][64];
 
-    if (addr == NULL) {
-        return "(null)";
-    }
-
-    return ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]);
+    return addr ? ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]) : "(null)";
 }
 
 bool nd_ll_addr_is_unspecified(const nd_lladdr_t *lladdr)

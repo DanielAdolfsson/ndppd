@@ -40,6 +40,7 @@ typedef struct nd_lladdr nd_lladdr_t;
 typedef struct nd_rt_route nd_rt_route_t;
 typedef struct nd_rt_addr nd_rt_addr_t;
 typedef struct nd_ml nd_ml_t;
+typedef struct nd_sub nd_sub_t;
 
 typedef void(nd_io_handler_t)(nd_io_t *io, int events);
 
@@ -100,18 +101,25 @@ struct nd_proxy {
 };
 
 struct nd_session {
-    nd_session_t *next;
-    nd_session_t *next_r;
-    nd_rule_t *rule;
-    nd_addr_t tgt;
-    nd_addr_t tgt_r;
-    int ons_count;   /* Number of outgoing NS messages. */
-    long ons_time;   /* Last time we sent a NS message. */
-    long ins_time;   /* Last time this session was the target of an incoming NS. */
-    long state_time; /* Time when session entered it's current state. */
+    nd_session_t *next;   /* Next session in ndL_sessions. */
+    nd_session_t *next_r; /* Next session in ndL_sessions_r. */
+    nd_rule_t *rule;      /* */
+    nd_addr_t tgt;        /* Target address. */
+    nd_addr_t tgt_r;      /* Rewritten target address. */
+    int ons_count;        /* Number of outgoing NS messages. */
+    long ons_time;        /* Last time we sent a NS message. */
+    long ins_time;        /* Last time this session was the target of an incoming NS. */
+    long state_time;      /* Time when session entered it's current state. */
     nd_state_t state;
     nd_iface_t *iface;
+    nd_sub_t *subs;
     bool autowired; /* If this session had a route set up. */
+};
+
+struct nd_sub {
+    nd_sub_t *next;
+    nd_addr_t addr;
+    nd_lladdr_t lladdr;
 };
 
 struct nd_rule {
@@ -227,7 +235,8 @@ struct nd_io {
             ;                                                                                                          \
     } while (0)
 
-#define ND_ALLOC(type) (type *)nd_alloc(sizeof(type))
+#define ND_NEW(type) (type *)nd_alloc(sizeof(type))
+#define ND_DELETE(ptr) nd_free((ptr), sizeof((ptr)[0]))
 
 /*
  * ndppd.c
@@ -309,6 +318,7 @@ nd_rule_t *nd_rule_create(nd_proxy_t *proxy);
  */
 
 void *nd_alloc(size_t size);
+void nd_free(void *ptr, size_t size);
 char *nd_strdup(const char *str);
 void nd_alloc_cleanup();
 

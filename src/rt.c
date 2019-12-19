@@ -70,7 +70,7 @@ static void ndL_new_route(nd_rt_route_t *route)
     if ((new_route = ndL_free_routes)) {
         ND_LL_DELETE(ndL_free_routes, new_route, next);
     } else {
-        new_route = ND_ALLOC(nd_rt_route_t);
+        new_route = ND_NEW(nd_rt_route_t);
     }
 
     *new_route = *route;
@@ -140,7 +140,7 @@ static void ndL_new_addr(unsigned index, nd_addr_t *addr, unsigned pflen)
     if ((rt_addr = ndL_free_addrs)) {
         ND_LL_DELETE(ndL_free_addrs, rt_addr, next);
     } else {
-        rt_addr = ND_ALLOC(nd_rt_addr_t);
+        rt_addr = ND_NEW(nd_rt_addr_t);
     }
 
     ND_LL_PREPEND(ndL_addrs, rt_addr, next);

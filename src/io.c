@@ -40,7 +40,7 @@
 
 #include "ndppd.h"
 
-static nd_io_t *ndL_first_io, *ndL_first_free_io;
+static nd_io_t *ndL_first_io;
 
 #ifndef NDPPD_NO_USE_EPOLL
 static int ndL_epoll_fd;
@@ -96,13 +96,7 @@ static nd_io_t *ndL_create(int fd)
         return false;
     }
 
-    nd_io_t *io = ndL_first_free_io;
-
-    if (io) {
-        ND_LL_DELETE(ndL_first_free_io, io, next);
-    } else {
-        io = ND_ALLOC(nd_io_t);
-    }
+    nd_io_t *io = ND_NEW(nd_io_t);
 
     *io = (nd_io_t){ .fd = fd };
 
@@ -160,7 +154,7 @@ void nd_io_close(nd_io_t *io)
 #endif
 
     ND_LL_DELETE(ndL_first_io, io, next);
-    ND_LL_PREPEND(ndL_first_free_io, io, next);
+    ND_DELETE(io);
 }
 
 ssize_t nd_io_send(nd_io_t *io, const struct sockaddr *addr, size_t addrlen, const void *msg, size_t msglen)
