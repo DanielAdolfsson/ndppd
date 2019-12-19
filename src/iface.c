@@ -644,7 +644,6 @@ ssize_t nd_iface_send_ns(nd_iface_t *iface, const nd_addr_t *tgt)
     };
 
     ndL_get_local_addr(iface, (nd_addr_t *)&msg.ip.ip6_src);
-    nd_log_trace("Write NS iface=%s, tgt=%s, src=%s", iface->name, nd_ntoa(tgt), nd_ntoa((nd_addr_t *)&msg.ip.ip6_src));
 
     static const nd_addr_t multicast = { .u8 = { 0xff, 0x02, [11] = 0x01, 0xff, 0, 0, 0 } };
     *(nd_addr_t *)&msg.ip.ip6_dst = multicast;
