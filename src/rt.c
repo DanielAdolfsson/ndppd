@@ -664,11 +664,61 @@ bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table)
 #endif
 }
 
-void nl_rt_remove_owned_routes()
+void nd_rt_remove_owned_routes()
 {
     ND_LL_FOREACH_S (ndL_routes, route, tmp, next) {
         if (route->owned) {
             nd_rt_remove_route(&route->dst, route->pflen, route->table);
         }
     }
+}
+
+bool nd_rt_add_neigh(nd_addr_t *dst, unsigned oif)
+{
+    struct __attribute__((packed)) {
+        struct nlmsghdr hdr;
+        struct ndmsg msg;
+        struct rtattr dst_attr __attribute__((aligned(NLMSG_ALIGNTO)));
+        nd_addr_t dst;
+    } req = {
+        .hdr.nlmsg_type = RTM_NEWNEIGH,
+        .hdr.nlmsg_flags = NLM_F_REQUEST,
+        .hdr.nlmsg_len = sizeof(req),
+        .msg.ndm_family = AF_INET6,
+        .msg.ndm_state = NUD_PERMANENT,
+        .msg.ndm_flags = NTF_PROXY,
+        .msg.ndm_ifindex = oif,
+        .dst_attr.rta_type = NDA_DST,
+        .dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst)),
+        .dst = *dst,
+    };
+
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
+
+    return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
+}
+
+bool nd_rt_remove_neigh(nd_addr_t *dst, unsigned oif)
+{
+    struct __attribute__((packed)) {
+        struct nlmsghdr hdr;
+        struct ndmsg msg;
+        struct rtattr dst_attr __attribute__((aligned(NLMSG_ALIGNTO)));
+        nd_addr_t dst;
+    } req = {
+        .hdr.nlmsg_type = RTM_DELNEIGH,
+        .hdr.nlmsg_flags = NLM_F_REQUEST,
+        .hdr.nlmsg_len = sizeof(req),
+        .msg.ndm_family = AF_INET6,
+        .msg.ndm_state = NUD_PERMANENT,
+        .msg.ndm_flags = NTF_PROXY,
+        .msg.ndm_ifindex = oif,
+        .dst_attr.rta_type = NDA_DST,
+        .dst_attr.rta_len = RTA_LENGTH(sizeof(req.dst)),
+        .dst = *dst,
+    };
+
+    struct sockaddr_nl addr = { .nl_family = AF_NETLINK };
+
+    return nd_io_send(ndL_io, (struct sockaddr *)&addr, sizeof(addr), &req, sizeof(req)) >= 0;
 }

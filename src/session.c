@@ -27,6 +27,7 @@ extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
+extern bool nd_conf_use_kernel;
 
 #ifndef NDPPD_SESSION_BUCKETS
 #    define NDPPD_SESSION_BUCKETS 64
@@ -43,6 +44,12 @@ static void ndL_up(nd_session_t *session)
         nd_rt_add_route(&session->tgt, 128, session->iface->index, session->rule->table);
         session->autowired = true;
     }
+
+    if (nd_conf_use_kernel) {
+        nd_log_debug("session [%s] add kernel neighbor proxy for %s", //
+                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
+        nd_rt_add_neigh(&session->tgt, session->rule->proxy->iface->index);
+    }
 }
 
 static void ndL_down(nd_session_t *session)
@@ -50,6 +57,12 @@ static void ndL_down(nd_session_t *session)
     if (session->iface && session->autowired) {
         nd_rt_remove_route(&session->tgt, 128, session->rule->table);
         session->autowired = false;
+    }
+
+    if (nd_conf_use_kernel) {
+        nd_log_debug("session [%s] removing kernel neighbor proxy for %s", //
+                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
+        nd_rt_remove_neigh(&session->tgt, session->rule->proxy->iface->index);
     }
 }
 

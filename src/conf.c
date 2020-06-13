@@ -41,6 +41,7 @@ int nd_conf_stale_ttl = 30000;
 int nd_conf_renew = 5000;
 int nd_conf_retrans_limit = 3;
 int nd_conf_retrans_time = 1000;
+bool nd_conf_use_kernel = false;
 bool nd_conf_keepalive = false;
 
 typedef struct {
@@ -96,6 +97,7 @@ static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "iface", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_mode },
     { "target", NDL_PROXY, NDL_LLADDR, offsetof(nd_proxy_t, target), 0, 0, NULL },
     { "target", NDL_RULE, NDL_LLADDR, offsetof(nd_rule_t, target), 0, 0, NULL },
+    { "use-kernel", NDL_DEFAULT, NDL_BOOL, &nd_conf_use_kernel, 0, 0, NULL },
 #ifndef __FreeBSD__
     { "table", NDL_RULE, NDL_INT, offsetof(nd_rule_t, table), 0, 255, NULL },
 #endif

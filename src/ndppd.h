@@ -388,6 +388,8 @@ bool nd_rt_query_routes();
 nd_rt_route_t *nd_rt_find_route(const nd_addr_t *addr, unsigned table);
 bool nd_rt_add_route(nd_addr_t *dst, unsigned pflen, unsigned oif, unsigned table);
 bool nd_rt_remove_route(nd_addr_t *dst, unsigned pflen, unsigned table);
-void nl_rt_remove_owned_routes();
+void nd_rt_remove_owned_routes();
+bool nd_rt_add_neigh(nd_addr_t *dst, unsigned oif);
+bool nd_rt_remove_neigh(nd_addr_t *dst, unsigned oif);
 
 #endif /* NDPPD_H */
