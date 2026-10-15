@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # `rewrite` lets a rule advertise one prefix upstream while soliciting a
 # different one downstream -- a public prefix in front of addresses that are
 # really ULAs.  ndppd rewrites only the neighbor discovery; forwarding the

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # `-d` forks into the background and `-p` records the child's PID under an
 # exclusive flock, so a second instance cannot start against the same file.
 #

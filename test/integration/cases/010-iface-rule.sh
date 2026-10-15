@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # An `iface` rule is the most common ndppd configuration: proxy for a prefix
 # that lives behind a named downstream interface.  ndppd must solicit the
 # target on that interface and answer upstream only once the target replies.

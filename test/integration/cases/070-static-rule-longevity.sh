@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # A static rule under sustained upstream traffic, run past its valid-ttl.
 #
 # A static session has no downstream interface -- that is the whole point of

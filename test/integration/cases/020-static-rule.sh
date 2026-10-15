@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # A `static` rule answers for a prefix without checking whether anything is
 # actually there.  It is the right configuration when the operator knows the
 # topology and does not want the probe round-trip, and the wrong one when

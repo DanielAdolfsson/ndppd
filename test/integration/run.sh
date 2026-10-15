@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ndppd - NDP Proxy Daemon
 # Copyright (C) 2011-2026  Daniel Adolfsson <daniel@ashen.se>
 #
