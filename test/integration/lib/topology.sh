@@ -94,7 +94,11 @@ esac
 # --- the parts that are the same everywhere ------------------------------
 
 topo_up() {
-    TOPO_RUN="$(mktemp -d)"
+    # An explicit template, because the two mktemp(1)s disagree about
+    # everything else: a bare `mktemp -d` is a GNU extension and FreeBSD
+    # rejects it, while FreeBSD's `-t prefix` means something different
+    # under GNU. A template with X's is the one spelling both accept.
+    TOPO_RUN="$(mktemp -d "${TMPDIR:-/tmp}/ndppd-test.XXXXXXXX")"
     topo_build
 }
 
