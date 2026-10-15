@@ -4,9 +4,10 @@
 routed on-link to your gateway is reachable by the machines actually
 holding those addresses behind it.
 
-This is the `1.0-devel` branch: a ground-up C99 rewrite with a corrected
-session state machine, promiscuous-mode packet capture and strict RFC 4861
-compliance. The 0.2.x C++ implementation lives on `master`.
+This is `main`: a ground-up C99 rewrite with a corrected session state
+machine, promiscuous-mode packet capture and strict RFC 4861 compliance.
+The 0.2.x C++ implementation is in maintenance on the [`0.2.x`][b02x]
+branch — see [Versions and branches](#versions-and-branches).
 
 ## Status
 
@@ -31,6 +32,38 @@ are deploying this, read that section first.
 
 [toto]: https://github.com/totoCZ
 [pr93]: https://github.com/DanielAdolfsson/ndppd/pull/93
+
+---
+
+## Versions and branches
+
+| Branch | What it is | Receives |
+|---|---|---|
+| **`main`** | The 1.0 C99 rewrite — this tree | All new development |
+| **[`0.2.x`][b02x]** | The original C++ implementation | Critical fixes only |
+
+`master` no longer exists. It was where 0.2.x was developed, and it was
+retired when 1.0 became the default branch; every commit it had is on
+`0.2.x`, at the same SHA.
+
+**0.2.x is in maintenance.** It still works, and it is what most
+distributions still package, so it continues to take fixes for crashes and
+memory errors — the most recent being a null dereference in the reverse
+advertisement path, an uninitialised stack read driven by short frames, and
+unaligned header access that scrambled addresses on ARMv5/v6. It does not
+take features, and the behavioural problems that motivated this rewrite are
+not being fixed there. Its own documentation lives with it, in
+[`0.2.x/README.md`][r02x].
+
+**Configurations are not portable between the two.** 1.0 reorganised the
+configuration file: `timeout`, `ttl`, `retries`, `promiscuous`, `autovia`,
+`deadtime`, `route-ttl` and `address-ttl` are 0.2.x spellings with no 1.0
+equivalent, and 1.0 rejects an unknown keyword rather than ignoring it. A
+0.2.x file will not load unmodified — start from [Configuration](#configuration)
+below rather than adapting one.
+
+[b02x]: https://github.com/DanielAdolfsson/ndppd/tree/0.2.x
+[r02x]: https://github.com/DanielAdolfsson/ndppd/blob/0.2.x/README.md
 
 ---
 
@@ -88,11 +121,11 @@ Most "ndppd isn't working" reports are one of these. None of them is a bug.
   ([#55][i55])
 - **Interfaces must exist at startup.** ndppd exits if a configured
   interface is missing, which at boot is a race against Docker and libvirt
-  bridges. ([#79][i79])
+  bridges. Order the unit after whatever creates them, or set
+  `Restart=on-failure`.
 
 [i55]: https://github.com/DanielAdolfsson/ndppd/issues/55
 [i72]: https://github.com/DanielAdolfsson/ndppd/issues/72
-[i79]: https://github.com/DanielAdolfsson/ndppd/issues/79
 
 ---
 
