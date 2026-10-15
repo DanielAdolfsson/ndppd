@@ -49,7 +49,6 @@
 
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;
-extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
@@ -142,16 +141,18 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
     nd_session_handle_na(session);
 }
 
+/* MLD is admitted by the BPF filter but not yet acted on -- see #55.  These
+ * log at trace rather than error: MLD queries are periodic on any real link,
+ * so at error level they were unconditional noise at the one level an
+ * operator cannot turn down, and noise that looks like a fault. */
 static void ndL_handle_mlq(nd_iface_t *iface)
 {
-    (void)iface;
-    nd_log_error("(mlq) in");
+    nd_log_trace("%s: MLD listener query, ignored", iface->name);
 }
 
 static void ndL_handle_mlr(nd_iface_t *iface)
 {
-    (void)iface;
-    nd_log_error("(mlr) in");
+    nd_log_trace("%s: MLD listener report, ignored", iface->name);
 }
 
 static uint16_t ndL_calculate_checksum(uint32_t sum, const void *data, size_t length)

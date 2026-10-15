@@ -2,14 +2,19 @@
 # A static rule under sustained upstream traffic, run past its valid-ttl.
 #
 # A static session has no downstream interface -- that is the whole point of
-# static -- but nd_session_update() does not know that.  When VALID ages
-# into STALE it calls nd_iface_send_ns(session->iface, ...) with no NULL
-# check, and nd_iface_send_ns() reads iface->lladdr as its first act.
+# static -- but nd_session_update() did not know that.  When VALID aged into
+# STALE it called nd_iface_send_ns(session->iface, ...) with no NULL check,
+# and nd_iface_send_ns() reads iface->lladdr as its first act.
 #
 # The transition only probes when the session was recently solicited, so it
-# needs upstream traffic to reach: a static rule nobody is using survives,
-# and a static rule carrying traffic dies roughly valid-ttl after it starts.
-# valid-ttl is clamped to a 10s minimum by the parser, so that is the wait.
+# needed upstream traffic to reach: a static rule nobody was using survived,
+# and a static rule carrying traffic died roughly valid-ttl after it
+# started.  valid-ttl is clamped to a 10s minimum by the parser, so that is
+# the wait here.
+#
+# A static session now stays VALID while it is in use.  That is a second
+# fix as much as the first: ageing it into STALE would have stopped it
+# answering for stale-ttl plus invalid-ttl while nothing was wrong.
 set -u
 . "$LIB/topology.sh"
 . "$LIB/assert.sh"
@@ -45,23 +50,19 @@ for _ in $(seq 1 16); do
     topo_ndppd_alive || break
 done
 
-todo "static sessions probe on a NULL interface when VALID ages out (see plan/)"
-if topo_ndppd_alive; then
-    _result 0 "ndppd survives a static rule outliving its valid-ttl"
-else
-    _result 1 "ndppd survives a static rule outliving its valid-ttl"
-fi
+assert_alive "ndppd survives a static rule outliving its valid-ttl"
 
-# Pinned alongside it: an assertion on *current* behaviour, so the crash
-# cannot quietly change shape while the bug is open.  When it is fixed this
-# one starts failing, which is the reminder to delete the todo above.
-if topo_ndppd_alive; then
-    _result 1 "current behaviour: the daemon is gone"
-    diag "  ndppd survived -- if the NULL-interface probe was fixed, remove the todo above"
-else
-    _result 0 "current behaviour: the daemon is gone"
-    diag "  last log lines:"
-    tail -4 "$(topo_logfile)" | sed 's/^/#     /'
-fi
+# Still answering, which is the half that a crash would have hidden.
+assert_reachable up "$TOPO_DOWN_HOST" \
+    "the static rule still works after outliving its valid-ttl"
+
+# It must not have tried to solicit anything. A static rule has no
+# downstream interface to solicit on, and the attempt is what used to be
+# fatal.
+assert_log_not_matches "Write NS" \
+    "the static session solicited nothing at any point"
+
+assert_log_not_matches "VALID -> STALE" \
+    "the static session never entered STALE"
 
 assert_summary
