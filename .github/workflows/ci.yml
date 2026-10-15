@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build (${{ matrix.cxx }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: make CXX=${{ matrix.cxx }}
+      - name: Build with DEBUG=1
+        run: make clean && make DEBUG=1 CXX=${{ matrix.cxx }}
+
+  unit:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make check-unit
+
+  unit-sanitizers:
+    name: unit tests (asan+ubsan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ndppd's reference counting and its fixed-offset /proc parsing are
+      # exactly the code a sanitizer build is good at catching.
+      - name: Run unit tests under ASan and UBSan
+        run: |
+          make check-unit \
+            CXXFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" \
+            LDFLAGS="-fsanitize=address,undefined"
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+  integration:
+    name: integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allow unprivileged user namespaces
+        # Ubuntu 24.04 restricts unprivileged user namespaces via AppArmor.
+        # The suite needs them; it does not need root.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: Build
+        run: make
+      - name: Run integration suite
+        run: |
+          set -o pipefail
+          ./test/integration/run.sh | tee /tmp/tap.txt
+      - name: Fail if the suite skipped instead of running
+        # A skip exits 0, which would otherwise show up as a green tick for
+        # a suite that never ran.
+        run: |
+          if grep -q '^1\.\.0 # SKIP' /tmp/tap.txt; then
+            echo "::error::integration suite skipped: $(sed -n 's/^1\.\.0 # SKIP //p' /tmp/tap.txt)"
+            exit 1
+          fi

@@ -12,14 +12,27 @@ SBINDIR ?= ${DESTDIR}${PREFIX}/sbin
 PKG_CONFIG ?= pkg-config
 
 
-OBJS     = src/logger.o src/ndppd.o src/iface.o src/proxy.o src/address.o \
-           src/rule.o src/session.o src/conf.o src/route.o 
+# Everything except the entry point. The unit tests link against these, so
+# they must not contain main().
+LIB_OBJS = src/logger.o src/iface.o src/proxy.o src/address.o \
+           src/rule.o src/session.o src/conf.o src/route.o
+
+OBJS     = ${LIB_OBJS} src/ndppd.o
 
 ifdef WITH_ND_NETLINK
   LIBS     = `${PKG_CONFIG} --libs glib-2.0 libnl-3.0 libnl-route-3.0` -pthread
   CPPFLAGS = `${PKG_CONFIG} --cflags glib-2.0 libnl-3.0 libnl-route-3.0`
   OBJ      = ${OBJ} src/nd-netlink.o
 endif
+
+TEST_SRCS = test/unit/main.cc \
+            test/unit/test_address.cc \
+            test/unit/test_conf.cc \
+            test/unit/test_ptr.cc \
+            test/unit/test_route.cc
+
+TEST_OBJS = ${TEST_SRCS:.cc=.o}
+TEST_BIN  = test/unit/ndppd-unit-tests
 
 all: ndppd ndppd.1.gz ndppd.conf.5.gz
 
@@ -45,5 +58,35 @@ nd-proxy: nd-proxy.c
 .cc.o:
 	${CXX} -c ${CPPFLAGS} $(CXXFLAGS) -o $@ $<
 
+# --- tests ---------------------------------------------------------------
+#
+# `make check` runs both layers. See test/README.md.
+#
+#   check-unit         pure functions; no privileges, no network
+#   check-integration  a real daemon in unprivileged network namespaces
+#
+# NDPPD_TEST_SRCDIR lets the tests find checked-in fixtures and the shipped
+# ndppd.conf-dist regardless of where they are run from.
+
+test/unit/%.o: test/unit/%.cc
+	${CXX} -c ${CPPFLAGS} $(CXXFLAGS) -I src -I test/unit \
+	    -DNDPPD_TEST_SRCDIR='"$(CURDIR)"' -o $@ $<
+
+${TEST_BIN}: ${TEST_OBJS} ${LIB_OBJS}
+	${CXX} -o $@ ${LDFLAGS} ${TEST_OBJS} ${LIB_OBJS} ${LIBS}
+
+check-unit: ${TEST_BIN}
+	./${TEST_BIN}
+
+check-integration: ndppd
+	./test/integration/run.sh
+
+check: check-unit check-integration
+
+test: check
+
 clean:
-	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz ${OBJS} nd-proxy
+	rm -f ndppd ndppd.conf.5.gz ndppd.1.gz ${OBJS} nd-proxy \
+	      ${TEST_OBJS} ${TEST_BIN}
+
+.PHONY: all install clean check check-unit check-integration test
