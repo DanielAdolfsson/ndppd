@@ -1,6 +1,35 @@
 #!/bin/bash
+#
+# A hand-driven network-namespace sandbox, kept from before the automated
+# suite in test/integration existed.  That suite covers everything this
+# script's plain "up" mode does, and covers it unprivileged and with
+# assertions -- use it instead for anything routine.
+#
+# What is kept here and nowhere else is the "mld-up" mode, which builds the
+# same topology with multicast flooding disabled and an MLD querier running
+# on both bridges.  That reproduces issue #55: a snooping switch forwards
+# solicited-node multicast only to ports that have reported interest, ndppd
+# does not report interest in the addresses it proxies for, and so it is
+# bypassed entirely.  The automated suite has no MLD coverage, so until it
+# does, this is the only reproduction in the tree.
+#
+# Unlike the automated suite this needs root -- it creates namespaces and
+# bridges in the host's own network stack, and leaves them there until
+# "down" is run.
+#
+#   sudo ./test/manual/netns-sandbox.sh up        # or mld-up
+#   sudo ./test/manual/netns-sandbox.sh ndppd     # in a second terminal
+#   sudo ./test/manual/netns-sandbox.sh ping1
+#   sudo ./test/manual/netns-sandbox.sh down
+#
+# Build ndppd first; "ndppd" below runs the binary from the repository root.
 
-case "$1" in
+set -u
+
+here="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+root="$(CDPATH= cd -- "${here}/../.." && pwd)"
+
+case "${1-}" in
 "down")
   ip netns del ndppd.0
   ip netns del ndppd.rt
@@ -33,7 +62,7 @@ case "$1" in
   ip link set ndppd.rt1b master ndppd.br1
   ip link set ndppd.1b master ndppd.br1
 
-  if [ "$1" = "mld-up" ]; then
+  if [ "${1}" = "mld-up" ]; then
     ip link set ndppd.0b type bridge_slave mcast_flood off
     ip link set ndppd.rt0b type bridge_slave mcast_flood off
     ip link set ndppd.rt1b type bridge_slave mcast_flood off
@@ -83,7 +112,7 @@ case "$1" in
   ;;
 
 "ndppd")
-  ip netns exec ndppd.rt ./ndppd -c ndppd.test.conf -vvv
+  ip netns exec ndppd.rt "${root}/ndppd" -c "${here}/ndppd.test.conf" -vvv
   ;;
 
 "ping0")
@@ -92,5 +121,10 @@ case "$1" in
 
 "ping1")
   ip netns exec ndppd.0 ping -6 dead:1::1
+  ;;
+
+*)
+  echo "usage: $0 {up|mld-up|ndppd|ping0|ping1|down}" >&2
+  exit 1
   ;;
 esac
