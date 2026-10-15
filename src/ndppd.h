@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define NDPPD_VERSION "1.0-beta1"
+#define NDPPD_VERSION "1.0.0-rc1"
 
 /*
  * Types.
