@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Builds the three-namespace test topology.
+# The three-host test topology, and the lifecycle of the daemon under test.
 #
-#     ns:up  ---- veth ---- ns:rt ---- veth ---- ns:down
+#     ns:up  ---- link ---- ns:rt ---- link ---- ns:down
 #   2001:db8::1/48      2001:db8::2/48          2001:db8:0:1::2/64
 #                   2001:db8:0:1::1/64
 #                        [ ndppd ]
@@ -27,17 +27,37 @@
 # that is ndppd's job.  This is the situation every ndppd deployment is in:
 # a provider that routes a prefix on-link rather than to a next hop.
 #
-# Everything here runs unprivileged.  `unshare -Urn` (applied by run.sh)
-# grants CAP_NET_ADMIN inside a user namespace, which covers veth pairs,
-# addresses, promiscuous mode, the forwarding sysctl and AF_PACKET sockets.
-# Extra namespaces are made by parking a child in its own netns and moving a
-# veth end in by PID -- `ip netns` would want a bind mount under /run/netns
-# and would reintroduce the root requirement this harness exists to avoid.
+# This file is platform-independent.  Everything that needs a kernel's own
+# vocabulary for "a separate network stack" lives in a backend:
+#
+#   topology-linux.sh     network namespaces, veth pairs, iproute2
+#   topology-freebsd.sh   VNET jails, epair interfaces, ifconfig
+#
+# A backend must provide exactly these, and nothing else may differ:
+#
+#   topo_platform_preflight   print why this host cannot run the suite and
+#                             return 1; return 0 when it can
+#   topo_build                create the three stacks, the two links, the
+#                             addresses and the routes
+#   topo_teardown             destroy them
+#   topo_ns <ns> <cmd...>     run a command inside one of the stacks
+#   topo_add_down_addr <cidr> give the downstream host another address
+#   topo_mac <ns> <iface>     the interface's hardware address
+#   topo_ping <ns> <count> <wait-seconds> <addr>
+#                             ping, in the local ping's dialect
+#
+# Interface names are part of the contract too: a case names rt0 and rt1 in
+# the ndppd configuration it writes, so both backends must deliver
+# interfaces under exactly those names.
+#
+# Keeping the seam here rather than in the cases is what lets the same
+# cases run unmodified on both platforms -- no case file names an interface
+# type, a namespace mechanism or a tool.
 
 TOPO_RUN=""
 TOPO_NDPPD_PID=""
 
-# Addresses are added with `nodad`: duplicate address detection would
+# Addresses are added without duplicate address detection: DAD would
 # otherwise hold every address tentative for the first second of each case,
 # and a tentative source address makes ping fail for reasons that have
 # nothing to do with ndppd.
@@ -58,64 +78,24 @@ topo_logfile() { printf '%s/ndppd.log\n' "$TOPO_RUN"; }
 topo_conffile() { printf '%s/ndppd.conf\n' "$TOPO_RUN"; }
 topo_rundir() { printf '%s\n' "$TOPO_RUN"; }
 
-_topo_mknetns() { # $1=name
-    # stdout/stderr must be detached, or a $( ) capturing this function
-    # blocks until the backgrounded holder exits.
-    unshare -n sh -c "echo \$\$ > $TOPO_RUN/$1.pid; exec sleep 600" >/dev/null 2>&1 &
-    local i
-    for i in $(seq 1 100); do
-        [ -s "$TOPO_RUN/$1.pid" ] && break
-        sleep 0.05
-    done
-}
+# --- backend selection ---------------------------------------------------
 
-# topo_ns <up|rt|down> <command...>
-topo_ns() {
-    local ns="$1"; shift
-    nsenter -t "$(cat "$TOPO_RUN/$ns.pid")" -n "$@"
-}
+TOPO_PLATFORM="$(uname -s)"
+
+case "$TOPO_PLATFORM" in
+    Linux)   . "$LIB/topology-linux.sh" ;;
+    FreeBSD) . "$LIB/topology-freebsd.sh" ;;
+    *)
+        echo "Bail out! no topology backend for $TOPO_PLATFORM" >&2
+        exit 1
+        ;;
+esac
+
+# --- the parts that are the same everywhere ------------------------------
 
 topo_up() {
     TOPO_RUN="$(mktemp -d)"
-
-    _topo_mknetns up
-    _topo_mknetns rt
-    _topo_mknetns down
-
-    ip link add up0 type veth peer name rt0
-    ip link add rt1 type veth peer name down0
-
-    ip link set up0   netns "$(cat "$TOPO_RUN/up.pid")"
-    ip link set rt0   netns "$(cat "$TOPO_RUN/rt.pid")"
-    ip link set rt1   netns "$(cat "$TOPO_RUN/rt.pid")"
-    ip link set down0 netns "$(cat "$TOPO_RUN/down.pid")"
-
-    topo_ns up   ip link set lo up
-    topo_ns rt   ip link set lo up
-    topo_ns down ip link set lo up
-    topo_ns up   ip link set up0 up
-    topo_ns rt   ip link set rt0 up
-    topo_ns rt   ip link set rt1 up
-    topo_ns down ip link set down0 up
-
-    topo_ns up   ip -6 addr add "$TOPO_UP_ADDR"      dev up0   nodad
-    topo_ns rt   ip -6 addr add "$TOPO_RT_UP_ADDR"   dev rt0   nodad
-    topo_ns rt   ip -6 addr add "$TOPO_RT_DOWN_ADDR" dev rt1   nodad
-    topo_ns down ip -6 addr add "$TOPO_DOWN_ADDR"    dev down0 nodad
-
-    topo_ns down ip -6 route add default via 2001:db8:0:1::1 dev down0
-    topo_ns rt   sysctl -qw net.ipv6.conf.all.forwarding=1
-}
-
-# topo_add_down_addr <address/prefix> -- give the downstream host another
-# address, for cases that need two targets behind one route.
-topo_add_down_addr() {
-    topo_ns down ip -6 addr add "$1" dev down0 nodad
-}
-
-# topo_mac <ns> <iface> -- the interface's hardware address.
-topo_mac() {
-    topo_ns "$1" ip -o link show "$2" | sed -n 's/.*link\/ether \([0-9a-f:]*\).*/\1/p'
+    topo_build
 }
 
 # topo_ndppd_start <config-text> [extra args...]
@@ -126,6 +106,7 @@ topo_ndppd_start() {
     # stdbuf: ndppd logs with printf(3), so with stdout on a file instead of
     # a terminal the C library buffers it in 4 KiB blocks and a case that
     # greps the log while the daemon is still running sees an empty file.
+    # stdbuf(1) is in the base system on both platforms.
     topo_ns rt stdbuf -oL -eL "$NDPPD_BINARY" -c "$(topo_conffile)" -vvv "$@" \
         > "$(topo_logfile)" 2>&1 &
     TOPO_NDPPD_PID=$!
@@ -153,13 +134,7 @@ topo_ndppd_alive() {
 
 topo_down() {
     topo_ndppd_stop
-    local ns pid
-    for ns in up rt down; do
-        [ -s "$TOPO_RUN/$ns.pid" ] || continue
-        pid="$(cat "$TOPO_RUN/$ns.pid")"
-        kill "$pid" 2>/dev/null
-        wait "$pid" 2>/dev/null
-    done
+    topo_teardown
     [ -n "$TOPO_RUN" ] && rm -rf "$TOPO_RUN"
     return 0
 }

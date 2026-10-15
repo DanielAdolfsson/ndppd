@@ -35,12 +35,19 @@
 #   - solicitations that ndppd is required to discard (multicast target,
 #     hop limit below 255), which no cooperating kernel will emit.
 #
-# Everything here is stdlib: AF_PACKET sockets and struct.  Inside the
-# suite's user namespace CAP_NET_RAW is available, so no privileges beyond
-# what run.sh already establishes are needed.
+# Everything here is stdlib.  Reading and writing raw frames is the one
+# part that is not portable, so it sits behind open_socket(): AF_PACKET on
+# Linux, /dev/bpf on FreeBSD.  Neither needs privileges beyond what
+# run.sh has already established -- CAP_NET_RAW inside the suite's user
+# namespace on Linux, root on FreeBSD.
 
 import argparse
 import binascii
+import ctypes
+import fcntl
+import os
+import platform
+import select
 import socket
 import struct
 import sys
@@ -220,10 +227,136 @@ def render(pkt):
     return " ".join(parts)
 
 
+# --- raw frame I/O -------------------------------------------------------
+#
+# Both backends present the three calls the commands below use --
+# settimeout(), recv() and send() -- so nothing past this point knows which
+# platform it is on.  A read timeout raises socket.timeout either way.
+
+
+def _ioc(inout, group, num, length):
+    """FreeBSD's _IOC from <sys/ioccom.h>."""
+    return inout | ((length & 0x1FFF) << 16) | (ord(group) << 8) | num
+
+
+_IOC_VOID = 0x20000000
+_IOC_OUT = 0x40000000
+_IOC_IN = 0x80000000
+
+# <net/bpf.h>.  struct ifreq is IFNAMSIZ (16) plus a 16-byte union.
+BIOCGBLEN = _ioc(_IOC_OUT, "B", 102, 4)
+BIOCSETIF = _ioc(_IOC_IN, "B", 108, 32)
+BIOCIMMEDIATE = _ioc(_IOC_IN, "B", 112, 4)
+BIOCSHDRCMPLT = _ioc(_IOC_IN, "B", 117, 4)
+
+# struct bpf_hdr is { struct timeval bh_tstamp; uint32 bh_caplen;
+# uint32 bh_datalen; u_short bh_hdrlen; }.  FreeBSD's timeval is two longs
+# wide on every architecture it still supports, and bh_hdrlen carries the
+# padded total, so only the offset of bh_caplen has to be computed here.
+_LONG = ctypes.sizeof(ctypes.c_long)
+BPF_HDR_CAPLEN_OFF = 2 * _LONG
+BPF_HDR_MIN = BPF_HDR_CAPLEN_OFF + 10
+BPF_ALIGNMENT = _LONG
+
+
+def _bpf_wordalign(x):
+    return (x + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
+
+
+def _ioctl(fd, request, payload):
+    """fcntl.ioctl, tolerating interpreters that reject requests >= 2**31.
+
+    Older CPython converts the request through a signed int and raises
+    OverflowError on the BIOC* numbers, every one of which has IOC_IN or
+    IOC_OUT set."""
+    try:
+        return fcntl.ioctl(fd, request, payload)
+    except OverflowError:
+        return fcntl.ioctl(fd, request - (1 << 32), payload)
+
+
+class BpfSocket(object):
+    """A /dev/bpf handle wearing the three methods a socket would offer."""
+
+    def __init__(self, iface):
+        self.fd = self._open_device()
+        self._timeout = None
+        self._queue = []
+
+        try:
+            # BIOCSETIF has to come after the buffer length is known and
+            # before anything is read.
+            _ioctl(self.fd, BIOCSETIF, struct.pack("16s16x", iface.encode()))
+            # Hand each frame over as it arrives rather than waiting for the
+            # buffer to fill -- without this a probe waits for a timeout
+            # that the reply has already beaten.
+            _ioctl(self.fd, BIOCIMMEDIATE, struct.pack("I", 1))
+            # We write complete Ethernet headers, including a source
+            # address that is deliberately not the interface's own in some
+            # cases.  Without this the kernel overwrites it.
+            _ioctl(self.fd, BIOCSHDRCMPLT, struct.pack("I", 1))
+            self._blen = struct.unpack(
+                "I", _ioctl(self.fd, BIOCGBLEN, struct.pack("I", 0))
+            )[0]
+        except Exception:
+            os.close(self.fd)
+            raise
+
+    @staticmethod
+    def _open_device():
+        # /dev/bpf is a cloning device on FreeBSD; the numbered nodes are
+        # the fallback for a system that still has them instead.
+        try:
+            return os.open("/dev/bpf", os.O_RDWR)
+        except OSError:
+            for i in range(256):
+                try:
+                    return os.open("/dev/bpf%d" % i, os.O_RDWR)
+                except OSError:
+                    continue
+            raise
+
+    def settimeout(self, seconds):
+        self._timeout = seconds
+
+    def send(self, frame):
+        return os.write(self.fd, frame)
+
+    def recv(self, _bufsize):
+        # One read returns several frames, each with its own header; they
+        # are queued so that recv() keeps its one-frame-per-call contract.
+        while not self._queue:
+            ready, _, _ = select.select([self.fd], [], [], self._timeout)
+            if not ready:
+                raise socket.timeout()
+
+            data = os.read(self.fd, self._blen)
+            offset = 0
+            while offset + BPF_HDR_MIN <= len(data):
+                caplen, _datalen, hdrlen = struct.unpack_from(
+                    "=IIH", data, offset + BPF_HDR_CAPLEN_OFF
+                )
+                start = offset + hdrlen
+                self._queue.append(data[start:start + caplen])
+                offset += _bpf_wordalign(hdrlen + caplen)
+
+        return self._queue.pop(0)
+
+    def close(self):
+        os.close(self.fd)
+
+
 def open_socket(iface, protocol=ETH_P_IPV6):
-    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(protocol))
-    sock.bind((iface, 0))
-    return sock
+    if platform.system() == "Linux":
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(protocol))
+        sock.bind((iface, 0))
+        return sock
+
+    # BPF has no protocol filter to bind to: it delivers every frame on the
+    # interface and parse() discards what is not neighbor discovery, which
+    # is what the Linux side ends up doing for anything that slips through
+    # its ETH_P_IPV6 bind anyway.
+    return BpfSocket(iface)
 
 
 def cmd_sniff(args):

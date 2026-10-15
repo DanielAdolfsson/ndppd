@@ -72,17 +72,60 @@ Nobody does — that is ndppd's job. This is the situation every ndppd
 deployment is in: a provider that routes a prefix on-link rather than to a
 next hop.
 
-### It needs no root
+### It runs on Linux and on FreeBSD
 
-The whole harness runs under `unshare -Urn`. A user namespace grants
-`CAP_NET_ADMIN` inside its own network namespace, which covers veth pairs,
-addressing, promiscuous mode, the forwarding sysctl, `AF_PACKET` and
+ndppd supports both, so the suite does too — and the *same* cases run on
+both. Everything that needs a kernel's own vocabulary for "a separate
+network stack" lives in a backend behind a fixed contract:
+
+| | Linux | FreeBSD |
+| --- | --- | --- |
+| separate stack | network namespace (`unshare -n`) | VNET jail (`jail -c vnet persist`) |
+| cable | `veth` pair | `epair` |
+| move an end | `ip link set X netns PID` | `ifconfig X vnet <jail>` |
+| run a command there | `nsenter -t PID -n` | `jexec <jail>` |
+| forwarding | `/proc/sys/net/ipv6/conf/all/forwarding` | `sysctl net.inet6.ip6.forwarding` |
+| raw frames (`ndtool.py`) | `AF_PACKET` socket | `/dev/bpf` |
+
+The contract is documented at the top of `lib/topology.sh`; the backends
+are `lib/topology-linux.sh` and `lib/topology-freebsd.sh`. No case file
+names an interface type, a namespace mechanism or a tool, which is what
+keeps them identical across platforms. Both backends must also deliver the
+interfaces under the same names — a case writes `rt0` and `rt1` into the
+ndppd config it generates.
+
+Two traps are worth knowing about, because both would otherwise look like
+an ndppd bug rather than a harness bug:
+
+- **`ping -W` is seconds on Linux and milliseconds on FreeBSD.** Cases say
+  `assert_reachable`, which calls `topo_ping <ns> <count> <seconds> <addr>`;
+  the backend converts. A shared flag string would make every FreeBSD
+  reachability assertion fail.
+- **FreeBSD tears the epairs down before the jails.** Destroying a VNET
+  jail that still owns interfaces has a history of panicking the host.
+
+### Root: not on Linux, necessarily on FreeBSD
+
+On Linux the whole harness runs under `unshare -Urn`. A user namespace
+grants `CAP_NET_ADMIN` inside its own network namespace, which covers veth
+pairs, addressing, promiscuous mode, the forwarding sysctl, `AF_PACKET` and
 `CAP_NET_RAW`. Extra namespaces are made by parking a child in its own
 netns and moving a veth end in by PID — `ip netns` would want a bind mount
 under `/run/netns` and would reintroduce the root requirement.
 
-Where unprivileged user namespaces are disabled, the suite reports
-`1..0 # SKIP` with the reason rather than failing.
+FreeBSD has no unprivileged equivalent: VNET jails and `epair` are root
+operations. The FreeBSD backend therefore requires root and says so, which
+is why the FreeBSD CI job runs in a disposable VM. Run it anywhere else at
+your own risk — it creates and destroys interfaces and jails.
+
+Where the host cannot support the suite — unprivileged user namespaces
+disabled, no root on FreeBSD, no VIMAGE in the kernel, a `ping` that does
+not take these flags — it reports `1..0 # SKIP` with the reason rather
+than failing.
+
+Beyond the base system, FreeBSD needs `bash` and `python3` from packages
+(`pkg install -y gmake bash python3`), and the Makefile is GNU make, so
+build with `gmake`.
 
 ### It tests a binary, not an API
 
