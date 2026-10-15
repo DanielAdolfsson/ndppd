@@ -25,8 +25,8 @@ In short; the general structure of *ndppd.conf* can be simplified to:
 ----
 ...
 
-route eth0 {
-    rule dead:beef:: {
+proxy eth0 {
+    rule 2001:db8::/48 {
         ...
     }
 }
@@ -51,23 +51,31 @@ Python
 *valid-ttl* _milliseconds_::
     The time a target will be considered valid after having received a _neighbor advertisement_ from a neighbor.
 +
-Default: 30000
+Default: 30000. Minimum 10000, maximum 3600000.
 
 *invalid-ttl* _milliseconds_::
-    The time a target will be considered invalid after not receiving any _neighbor solicitation_ messages from a neighbor.
+    The time a target will be considered invalid after not receiving any _neighbor advertisement_ from it.
+    Caching the failure is what keeps a flood of solicitations for an absent address from becoming a
+    flood of probes.
 +
-Default: 5000
+Default: 10000. Minimum 1000, maximum 3600000.
 
 *retrans-time* _milliseconds_::
     The time *ndppd* will wait before sending another _neighbor solicitation_ to the internal interface.
 +
-Default: 1000
+Default: 1000. Maximum 60000.
 
 *retrans-limit* _count_::
     How many times *ndppd* attempt to send _neighbor solicitation_ messages, and not receiving a valid _neighbor advertisement_ response,
     before considering it being invalid.
 +
-Default: 3
+Default: 3. Maximum 10.
+
+*keepalive* _yes|no_::
+    Whether to keep probing a stale session even when nothing upstream has asked for the target
+    recently.
++
+Default: no
 
 *proxy* _interface_ _block_::
     Create a new proxy on the specified interface. That interface will be listening for _neighbor solicitation_
@@ -80,12 +88,22 @@ Default: 3
 
 === Proxy specific
 
+*router* _yes|no_::
+    Whether to set the Router flag on outgoing _neighbor advertisement_ messages. Set this if the
+    proxied targets are themselves routers.
++
+Default: no
+
+*target* _lladdr_::
+    Advertise this link-layer address instead of the proxy interface's own, for every rule in the
+    block. A rule may override it.
+
 *rule* _ip_ [ */* _prefix_ ] _block_::
     Add a new rule for the matching IPv6 address. If *prefix* is not specified, it defaults to 128. Note that the
     address and prefix must be provided without any whitespace between them.
 
-    rule dead:beef::1/127 {
-        # Route specific configuration
+    rule 2001:db8::1/127 {
+        # Rule specific configuration
     }
 
 === Rule specific
@@ -100,8 +118,29 @@ static::
 *iface* _interface_::
     Forwards the *Neighbor Solicitation* message through this specific interface.
 
-*autowire*::
-    A flag whether or not a new route should be automatically added to the routing table if a match has been found.
+*autowire* [ _yes|no_ ]::
+    Add a host route (*/128*) to the target through the rule's interface for as long as the session
+    is valid, and remove it when the session expires. May only be used together with *iface*.
++
+Default: no
+
+*target* _lladdr_::
+    Advertise this link-layer address instead of the proxy interface's own, for this rule. Overrides
+    a *target* given at proxy level.
+
+*rewrite* _ip_ [ */* _prefix_ ]::
+    Solicit a different address than the one advertised: the first _prefix_ bits are taken from
+    _ip_ and the remainder from the solicited target. This allows a public prefix to be advertised
+    upstream while unique local addresses are solicited downstream. Only _neighbor discovery_ is
+    rewritten; forwarding the traffic afterwards is not handled by *ndppd*.
++
+If _prefix_ is not specified, it defaults to 128.
 
 *table* _index_::
-    Indicates which routing table should be used when *auto* and *autowire* is used.
+    Indicates which routing table should be consulted by *auto*, and written to by *autowire*.
+    Linux only.
++
+Default: 254 (main). Maximum 255.
+
+== See also
+*ndppd*(8)

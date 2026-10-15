@@ -399,15 +399,12 @@ void test_session(void)
             ok(fake_na[0].iface == &fake_iface_up, "the advertisement goes out the proxy interface");
     }
 
-    /* A static session has no downstream interface, but nd_session_update()
-     * does not know that: when VALID ages into STALE it calls
-     * nd_iface_send_ns(session->iface, ...) unconditionally.  Against the
-     * real iface.c that reads iface->lladdr off a NULL pointer and the
-     * daemon dies -- roughly valid-ttl after a static rule last saw
-     * traffic, which is to say under exactly the load it is meant to carry.
-     *
-     * The fake records the call instead of dereferencing, so the bug shows
-     * up here as a solicitation sent on no interface at all. */
+    /* A static session has no downstream interface.  nd_session_update()
+     * used not to know that: when VALID aged into STALE it called
+     * nd_iface_send_ns(session->iface, ...) unconditionally, and against
+     * the real iface.c that reads iface->lladdr off a NULL pointer.  The
+     * fake records the call rather than dereferencing it, so the condition
+     * is assertable here as well as in the integration suite. */
     {
         fake_reset();
         nd_conf_valid_ttl = 30000;
@@ -419,8 +416,9 @@ void test_session(void)
         nd_session_t *s = nd_session_create(rule, &tgt);
 
         /* Upstream keeps using the address, so ins_time stays recent -- and
-         * a recent ins_time is exactly what makes nd_session_update()
-         * decide the session is worth re-probing when VALID ages out. */
+         * a recent ins_time is exactly what used to make
+         * nd_session_update() decide the session was worth re-probing when
+         * VALID aged out. */
         advance_with_traffic(s, &src, &src_ll, 1000, 40);
 
         int null_iface_ns = 0;
@@ -428,31 +426,62 @@ void test_session(void)
             if (fake_ns[i].iface == NULL)
                 null_iface_ns++;
 
-        todo("static sessions probe on a NULL interface; segfaults against real iface.c (see plan/)");
-        ok_todo(null_iface_ns == 0, "a static session never solicits on a NULL interface");
+        ok_int(null_iface_ns, 0, "a static session never solicits on a NULL interface");
 
-        /* Pinned alongside it: an assertion on *current* behaviour, so the
-         * bug cannot quietly change shape while it is open.  When it is
-         * fixed this one starts failing, which is the reminder to delete
-         * the todo above and turn it into an enforcing assertion. */
-        ok(null_iface_ns > 0,
-           "current behaviour: %d solicitation(s) attempted on a NULL interface", null_iface_ns);
+        /* And it must still be answering.  Ageing a static session into
+         * STALE would have stopped it answering for stale-ttl plus
+         * invalid-ttl while nothing at all was wrong. */
+        ok_int(s->state, ND_STATE_VALID, "a static session in use stays VALID past valid-ttl");
 
-        /* Against the real iface.c the first of those reads iface->lladdr
-         * off a NULL pointer.  It is reached here after forty seconds of
-         * ordinary upstream traffic against a static rule. */
-        ok(s->state == ND_STATE_STALE || s->state == ND_STATE_INVALID,
-           "the static session did age out of VALID, which is what triggers it");
+        int before = fake_na_count;
+        nd_session_handle_ns(s, &src, &src_ll);
+        ok_int(fake_na_count, before + 1, "...and is still answering solicitations");
+    }
+
+    /* Left alone, though, a static session must still age out.  Otherwise
+     * the table keeps an entry for every address ever solicited inside the
+     * prefix, which for a /64 is an unbounded number of them. */
+    {
+        fake_reset();
+        nd_conf_valid_ttl = 30000;
+        nd_conf_invalid_ttl = 10000;
+        nd_conf_keepalive = false;
+
+        nd_rule_t *rule = rule_for(ND_MODE_STATIC, "2001:db8:0:21::", 64);
+        nd_addr_t tgt = fake_addr("2001:db8:0:21::2");
+
+        nd_session_t *s = nd_session_create(rule, &tgt);
+        nd_session_handle_ns(s, &src, &src_ll);
+
+        /* Nothing asks again. */
+        advance(s, 10000, 8);
+
+        ok_int(s->state, ND_STATE_INVALID, "an idle static session ages out of VALID");
+
+        /* But a solicitation arriving during that window is still
+         * answered: a static rule answers from configuration, and there is
+         * no reachability for INVALID to be describing. */
+        int before = fake_na_count;
+        nd_session_handle_ns(s, &src, &src_ll);
+        ok_int(fake_na_count, before + 1, "...and answers anyway if someone asks again");
+
+        ok_int(fake_ns_count, 0, "a static session never solicits anything, in any state");
+
+        /* And it is reaped rather than lingering forever. */
+        advance_to_deletion(s, 10000, 8);
+        s = NULL;
+
+        ok(nd_session_find(&tgt, &ndL_proxy) == NULL, "the idle static session was deleted");
     }
 
     /* --- auto mode ------------------------------------------------------------- */
 
     {
         fake_reset();
-        fake_route("2001:db8:0:21::/64", FAKE_IF_DOWN_INDEX, 254);
+        fake_route("2001:db8:0:31::/64", FAKE_IF_DOWN_INDEX, 254);
 
-        nd_rule_t *rule = rule_for(ND_MODE_AUTO, "2001:db8:0:21::", 64);
-        nd_addr_t tgt = fake_addr("2001:db8:0:21::2");
+        nd_rule_t *rule = rule_for(ND_MODE_AUTO, "2001:db8:0:31::", 64);
+        nd_addr_t tgt = fake_addr("2001:db8:0:31::2");
 
         nd_session_t *s = nd_session_create(rule, &tgt);
 

@@ -25,7 +25,6 @@ static nd_proxy_t *ndL_proxies;
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;
 extern int nd_conf_stale_ttl;
-extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
