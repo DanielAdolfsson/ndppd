@@ -6,6 +6,7 @@ LDFLAGS ?= -s -w
 endif
 
 PREFIX      ?= /usr/local
+SYSCONFDIR  ?= /etc
 CC          ?= gcc
 GZIP        ?= /bin/gzip
 MANDIR      ?= ${DESTDIR}${PREFIX}/share/man
@@ -18,6 +19,10 @@ ASCIIDOCTOR ?= /usr/bin/asciidoctor
 # warning into a failed build -- so without these the Makefile the README
 # tells you to use has not compiled for several releases, even though
 # CMakeLists.txt (which carries the same flags) has.
+# Where ndppd looks for its configuration when -c is not given. This has to
+# match ndppd(8) and ndppd.service, which passes no -c.
+CPPFLAGS := ${CPPFLAGS} -DNDPPD_CONFIG_PATH='"${SYSCONFDIR}/ndppd.conf"'
+
 CFLAGS := ${CFLAGS} -Werror -Wall -Wextra \
 	-fno-strict-aliasing -Wno-strict-aliasing \
 	-Wno-missing-braces -Wno-missing-field-initializers \
