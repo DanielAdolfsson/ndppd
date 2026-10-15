@@ -30,11 +30,18 @@ extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
 
-nd_proxy_t *nd_proxy_create(const char *ifname)
+nd_proxy_t *nd_proxy_find(const char *ifname)
 {
     nd_proxy_t *proxy;
 
     ND_LL_SEARCH(ndL_proxies, proxy, next, !strcmp(proxy->ifname, ifname));
+
+    return proxy;
+}
+
+nd_proxy_t *nd_proxy_create(const char *ifname)
+{
+    nd_proxy_t *proxy = nd_proxy_find(ifname);
 
     if (proxy) {
         nd_log_error("Proxy already exists for interface \"%s\"", ifname);

@@ -293,6 +293,7 @@ bool nd_lladdr_is_unspecified(const nd_lladdr_t *lladdr);
  */
 
 nd_proxy_t *nd_proxy_create(const char *ifname);
+nd_proxy_t *nd_proxy_find(const char *ifname);
 void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t *dst, const nd_addr_t *tgt,
                         const nd_lladdr_t *src_ll);
 bool nd_proxy_startup();
