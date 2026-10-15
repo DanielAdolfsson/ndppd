@@ -52,6 +52,22 @@ ndppd: ${OBJS}
 %.o: %.c
 	${CC} -c ${CPPFLAGS} $(CFLAGS) -o $@ $<
 
+# The 1.0 tree amalgamated its headers, so every .c in src/ includes
+# src/ndppd.h and nothing else -- which means every object depends on it.
+# Without this rule, editing that header leaves all twelve objects stale and
+# `make ndppd` reports the binary up to date while the build quietly keeps
+# the old code.  That is how a version bump can be committed, built and
+# still announce the previous version on startup.
+#
+# A wildcard rather than a literal filename: if the header is ever split up
+# again, the new pieces are picked up instead of silently reintroducing this.
+# Not generated depfiles (-MMD), because ndppd aims to build with nothing
+# but a compiler on platforms as old and odd as #67 and #73, and a single
+# amalgamated header needs nothing cleverer than this.
+HDRS = $(wildcard src/*.h)
+
+${OBJS}: ${HDRS}
+
 # --- tests ----------------------------------------------------------------
 #
 # Two layers, both emitting TAP 13.  See test/README.md.
@@ -78,6 +94,12 @@ TEST_LIB_OBJS = src/addr.o src/alloc.o src/conf.o src/log.o \
 test/unit/%.o: test/unit/%.c
 	${CC} -c ${CPPFLAGS} $(CFLAGS) -I src -I test/unit \
 	    -DNDPPD_TEST_SRCDIR='"$(CURDIR)"' -o $@ $<
+
+# Same reasoning as ${OBJS} above; the unit sources include src/ndppd.h as
+# well as their own tap.h and fake.h.
+TEST_UNIT_HDRS = $(wildcard test/unit/*.h)
+
+${TEST_UNIT_OBJS}: ${HDRS} ${TEST_UNIT_HDRS}
 
 # TEST_LDFLAGS rather than LDFLAGS: the release link uses -s, and a
 # stripped test binary makes a sanitizer report unreadable.  CI overrides
