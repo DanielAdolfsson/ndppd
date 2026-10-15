@@ -414,8 +414,6 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
         return false;
     }
 
-    uint32_t bits = 0;
-
     for (;;) {
         ndL_skip(state);
 
@@ -457,7 +455,6 @@ static bool ndL_parse_block(ndL_state_t *state, int scope, void *ptr)
             if (strcmp(key, ndL_cfinfo_table[i].key) != 0)
                 continue;
 
-            bits |= 1 << i;
             found = true;
 
             const ndL_cfinfo_t *t = &ndL_cfinfo_table[i];

@@ -2,3 +2,15 @@
 cmake-build-*
 ndppd.conf
 build
+
+# Build output
+/ndppd
+src/*.o
+*.gz
+
+# Tests
+test/unit/*.o
+test/unit/ndppd-unit-tests
+
+# Scratch notes, not shipped
+plan/
