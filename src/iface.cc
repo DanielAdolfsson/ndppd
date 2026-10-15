@@ -565,6 +565,7 @@ void iface::handle_reverse_advert(const address& saddr, const std::string& ifnam
             ptr<rule> ru = *it;
 
             if (ru->addr() == saddr &&
+                ru->daughter() &&
                 ru->daughter()->name() == ifname)
             {
                 logger::debug() << " - generating artifical advertisement: " << ifname;
