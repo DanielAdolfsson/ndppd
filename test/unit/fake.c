@@ -17,7 +17,18 @@
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <arpa/inet.h>
-#include <netinet/ether.h>
+
+/* ether_ntoa(3) and friends live in different headers per platform; the
+   production sources split the same way.  See src/addr.c. */
+#ifdef __linux__
+#    include <netinet/ether.h>
+#else
+#    include <sys/types.h>
+
+#    include <net/ethernet.h>
+#    include <sys/socket.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
