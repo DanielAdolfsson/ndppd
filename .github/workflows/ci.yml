@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ "1.0-devel", "master" ]
+    # 1.0-devel became main and master was retired to 0.2.x, which carries no
+    # workflow of its own -- so this listed two branches that no longer exist
+    # and nothing ran on a merge to the default branch.  Pull requests were
+    # still covered, but the branch the releases are cut from was not.
+    branches: [ "main" ]
   pull_request:
 
 jobs:
