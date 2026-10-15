@@ -23,7 +23,6 @@
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;
 extern int nd_conf_stale_ttl;
-extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
@@ -57,7 +56,11 @@ void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_
 {
     session->ins_time = nd_current_time;
 
-    if (session->state == ND_STATE_VALID) {
+    /* A static session answers from configuration alone.  There is no
+     * downstream target to confirm, so there is no state in which it should
+     * decline -- and if it is allowed to age into STALE or INVALID it stops
+     * answering for up to stale-ttl + invalid-ttl while nothing is wrong. */
+    if (session->state == ND_STATE_VALID || session->rule->mode == ND_MODE_STATIC) {
         nd_lladdr_t *tgt_ll = !nd_lladdr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
 
         /* DAD (unspecified source) or unicast NS without SLLAO: respond to all-nodes multicast. */
@@ -226,6 +229,26 @@ void nd_session_update(nd_session_t *session)
         if (nd_current_time - session->state_time < nd_conf_valid_ttl)
             break;
 
+        /* No downstream interface means a static session.  There is nothing
+         * to solicit -- nd_iface_send_ns() would read iface->lladdr off a
+         * NULL pointer -- and nothing for STALE to mean, so keep it VALID
+         * while upstream is still asking.  Once upstream stops, let it fall
+         * through and age out, or the table would keep an entry for every
+         * address ever solicited inside the prefix. */
+        if (!session->iface) {
+            if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl) {
+                session->state_time = nd_current_time;
+                break;
+            }
+
+            session->state = ND_STATE_INVALID;
+            session->state_time = nd_current_time;
+
+            nd_log_debug("session [%s] %s VALID -> INVALID (idle, no interface)", //
+                         session->rule->proxy->ifname, nd_ntoa(&session->tgt));
+            break;
+        }
+
         session->state = ND_STATE_STALE;
         session->state_time = nd_current_time;
         session->ons_time = nd_current_time;
@@ -235,7 +258,9 @@ void nd_session_update(nd_session_t *session)
 
         if (nd_conf_keepalive || nd_current_time - session->ins_time < nd_conf_valid_ttl) {
             session->ons_count = 1;
-            nd_iface_send_ns(session->iface, &session->tgt_r);
+
+            if (session->iface)
+                nd_iface_send_ns(session->iface, &session->tgt_r);
         } else {
             session->ons_count = 0;
         }
@@ -269,7 +294,9 @@ void nd_session_update(nd_session_t *session)
 
             session->ons_count++;
             session->ons_time = nd_current_time;
-            nd_iface_send_ns(session->iface, &session->tgt_r);
+
+            if (session->iface)
+                nd_iface_send_ns(session->iface, &session->tgt_r);
         }
         break;
     }

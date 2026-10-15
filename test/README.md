@@ -2,8 +2,8 @@
 
 ```
 make check              # both layers
-make check-unit         # 219 assertions; no network, no privileges, no waiting
-make check-integration  #  51 assertions; a real daemon on real interfaces
+make check-unit         # 228 assertions; no network, no privileges, no waiting
+make check-integration  #  53 assertions; a real daemon on real interfaces
 ```
 
 Both layers emit [TAP 13](https://testanything.org), so either can be fed
@@ -135,12 +135,15 @@ form turns `080` red with
 
 ## Known failures
 
-Six unit assertions and one integration assertion are reported with TAP's
-`TODO` directive. They are bugs the suite reproduces but that are fixed
-separately, so they are tracked without turning the suite red. Each is
-paired with an assertion on *current* behaviour, so a bug cannot change
-shape while it is open — when the fix lands, that assertion starts failing,
-which is the reminder to delete the `todo` line and let the pinned one
-start enforcing.
+None. Every assertion enforces.
 
-`plan/findings.md` has the detail.
+The suite shipped with six unit assertions and one integration assertion
+reported under TAP's `TODO` directive — bugs it reproduced but that were
+fixed separately, so they were tracked without turning CI red. Each was
+paired with an assertion on *current* behaviour, so a bug could not change
+shape while it was open: when the fix landed, that assertion started
+failing, which was the reminder to delete the `todo` line.
+
+If you add one, follow the same pattern. `todo("reason")` before `ok_todo`
+in the unit suite, `todo "reason"` before the assertion in an integration
+case.

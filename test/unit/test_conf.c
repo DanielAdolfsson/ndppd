@@ -43,7 +43,6 @@
 extern int nd_conf_invalid_ttl;
 extern int nd_conf_valid_ttl;
 extern int nd_conf_stale_ttl;
-extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
@@ -432,18 +431,11 @@ void test_conf(void)
         nd_conf_keepalive = old_keepalive;
     }
 
-    /* `renew` is listed in the table with min 0 and max 0, so the only
-     * value it accepts is the one it already has.  It is also read by
-     * nothing: four files extern it and none use it.  Pinned here so the
-     * dead option cannot quietly come back to life with the wrong bounds. */
-    {
-        int old_renew = nd_conf_renew;
-
-        todo("renew is declared with min=0 max=0 and is read by nothing (see plan/)");
-        ok_todo(load("renew 5000\n"), "renew accepts the value its own default uses");
-
-        nd_conf_renew = old_renew;
-    }
+    /* `renew` was listed in the table with min 0 and max 0, so the only
+     * value it accepted was the one it already had -- and nothing read it.
+     * It is gone; if it ever comes back it needs bounds that permit a
+     * value, and this assertion is the reminder. */
+    ok(!load("renew 5000\n"), "renew is not a recognised option");
 
     /* `stale-ttl` has a variable and a default but no entry in the parser
      * table at all, so the 30s STALE timeout cannot be configured. */
@@ -467,12 +459,39 @@ void test_conf(void)
         ok(nd_proxy_find("ut17") != NULL, "the proxy after a comment was still created");
     }
 
-    /* The README that arrived with #93 documents C-style comments.  The
-     * parser has never supported them: ndL_skip() only knows about '#'. */
-    todo("README documents /* */ comments; ndL_skip only handles # (see plan/)");
-    ok_todo(load("/* a C-style comment */\n"
-                 "valid-ttl 30000\n"),
-            "C-style comments are accepted");
+    /* README.md documents C-style comments, so the parser has to have
+     * them. They may span lines, which means ndL_skip() consumes them
+     * rather than leaving them to the caller's end-of-line handling. */
+    {
+        ok(load("/* a C-style comment */\n"
+                "valid-ttl 30000\n"),
+           "a C-style comment is accepted");
+
+        ok(load("/* a comment\n"
+                "   spanning\n"
+                "   several lines */\n"
+                "valid-ttl 30000\n"),
+           "a C-style comment may span lines");
+
+        ok(load("proxy ut21 { /* inline */\n"
+                "    rule 2001:db8::/64 { /* here too */\n"
+                "        static\n"
+                "    }\n"
+                "}\n"),
+           "a C-style comment is accepted inside a block");
+
+        ok(nd_proxy_find("ut21") != NULL, "the surrounding configuration still parsed");
+
+        /* An unterminated comment swallows the rest of the file, so the
+         * block it was opened in never closes. */
+        ok(!load("proxy ut22 {\n"
+                 "    /* unterminated\n"
+                 "    rule 2001:db8::/64 {\n"
+                 "        static\n"
+                 "    }\n"
+                 "}\n"),
+           "an unterminated C-style comment is an error, not a silent truncation");
+    }
 
     /* --- structural errors ------------------------------------------------------ */
 
@@ -542,24 +561,18 @@ void test_conf(void)
             while ((p = strstr(buf, "proxy eth0")) != NULL)
                 memcpy(p, "proxy dist", 10);
 
-            /* Three separate defects keep this from parsing: the only rule
-             * has its mode commented out, so it is rejected outright; the
-             * file documents `retransmit-limit` and `retransmit-time` when
-             * the parser's keys are `retrans-limit` and `retrans-time`; and
-             * it documents `renew`, which the parser's own bounds forbid.
-             * All three are commented out in the shipped file, so only the
-             * missing mode is fatal today -- but a user who uncomments the
-             * lines the file tells them to uncomment gets an error. */
-            todo("ndppd.conf-dist has its rule mode commented out (see plan/)");
-            ok_todo(load(buf), "the shipped ndppd.conf-dist parses");
+            ok(load(buf), "the shipped ndppd.conf-dist parses");
 
-            todo("ndppd.conf-dist documents retransmit-limit; the parser key is retrans-limit");
-            ok_todo(strstr(buf, "retransmit-limit") == NULL,
-                    "ndppd.conf-dist does not document a retransmit-limit key");
-
-            todo("ndppd.conf-dist documents retransmit-time; the parser key is retrans-time");
-            ok_todo(strstr(buf, "retransmit-time") == NULL,
-                    "ndppd.conf-dist does not document a retransmit-time key");
+            /* It used to document three keys the parser does not have --
+             * `retransmit-limit`, `retransmit-time` and `renew` -- all
+             * commented out, so a user only found out by uncommenting the
+             * line the file told them to uncomment. */
+            ok(strstr(buf, "retransmit-limit") == NULL,
+               "ndppd.conf-dist does not document a retransmit-limit key");
+            ok(strstr(buf, "retransmit-time") == NULL,
+               "ndppd.conf-dist does not document a retransmit-time key");
+            ok(strstr(buf, "renew") == NULL,
+               "ndppd.conf-dist does not document the removed renew key");
         }
     }
 }
