@@ -1,30 +1,72 @@
-# Please refer to man ndppd.conf(8) for details.
+# Example configuration for ndppd.  See ndppd.conf(5) for the full
+# reference, and README.md for how to choose between the rule modes.
+#
+# Comments are '#' to end of line, or /* ... */.
+#
+# Every value below is shown at its default, commented out.  The proxy
+# block at the bottom is the part you have to write.
 
-# invalid-ttl <milliseconds>
-#invalid-ttl 5000
-
-# valid-ttl <milliseconds>
+# How long a resolved session stays valid without hearing from the target,
+# in milliseconds.  Minimum 10000.
 #valid-ttl 30000
 
-# renew <milliseconds>
-#renew 5000
+# How long a failed session is remembered, in milliseconds.  Caching the
+# failure is what stops a flood of solicitations for an address that is not
+# there from becoming a flood of probes.  Minimum 1000.
+#invalid-ttl 10000
 
-# retransmit-limit <count>
-#retransmit-limit 3
+# How long to wait between probes, in milliseconds.
+#retrans-time 1000
 
-# retransmit-time <milliseconds>
-#retransmit-time 1000
+# How many probes before giving up on a target.  Maximum 10.
+#retrans-limit 3
 
-# keepalive <yes|no>
-#keepalive yes
+# Keep probing a stale session even when nothing upstream is asking for it.
+#keepalive no
 
-# proxy <interface>
+# proxy <interface> -- the interface solicitations arrive on.  This is the
+# one facing your provider, not the one facing the machines you are
+# proxying for.
 proxy eth0 {
-    # router <yes|no>
-    #router yes
+    # Set the Router flag on advertisements.  Yes if the addresses you are
+    # proxying for belong to routers, such as downstream CPE.
+    #router no
 
-    # rule <ip>[/<prefix>]
-    rule dead::beef:: {
-        #auto
+    # Advertise this link-layer address instead of the proxy interface's
+    # own, for every rule in this block.
+    #target 00:00:00:00:00:00
+
+    # rule <address>[/<prefix>] -- which targets this block answers for.
+    # A prefix of /64 is usual; with no prefix at all the rule matches a
+    # single address.
+    rule 2001:db8:1234:5600::/64 {
+        # Exactly one of the three modes below is required.
+
+        # auto -- find the downstream interface in the routing table.
+        # Survives an interface being renamed, and picks up a route that
+        # appears after ndppd started.
+        auto
+
+        # iface <interface> -- always solicit on this interface.
+        #iface eth1
+
+        # static -- answer immediately, without soliciting anything.  Only
+        # correct when you know the targets are there; ndppd will answer
+        # for every address in the prefix whether or not anything exists.
+        #static
+
+        # Which routing table to consult, and to write to with autowire.
+        # Linux only.
+        #table 254
+
+        # Add a host route to the target through the downstream interface
+        # for as long as the session lives.  Requires 'iface'.
+        #autowire no
+
+        # Solicit a different prefix downstream than the one advertised
+        # upstream -- a public prefix in front of ULAs.  ndppd rewrites the
+        # discovery only; routing the traffic afterwards is still yours to
+        # arrange.
+        #rewrite fd00::/64
     }
 }

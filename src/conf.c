@@ -38,7 +38,6 @@
 int nd_conf_invalid_ttl = 10000;
 int nd_conf_valid_ttl = 30000;
 int nd_conf_stale_ttl = 30000;
-int nd_conf_renew = 5000;
 int nd_conf_retrans_limit = 3;
 int nd_conf_retrans_time = 1000;
 bool nd_conf_keepalive = false;
@@ -85,7 +84,6 @@ static const ndL_cfinfo_t ndL_cfinfo_table[] = {
     { "rewrite", NDL_RULE, NDL_NONE, 0, 0, 0, ndL_parse_rewrite },
     { "invalid-ttl", NDL_DEFAULT, NDL_INT, &nd_conf_invalid_ttl, 1000, 3600000, NULL },
     { "valid-ttl", NDL_DEFAULT, NDL_INT, &nd_conf_valid_ttl, 10000, 3600000, NULL },
-    { "renew", NDL_DEFAULT, NDL_INT, &nd_conf_renew, 0, 0, NULL },
     { "retrans-limit", NDL_DEFAULT, NDL_INT, &nd_conf_retrans_limit, 0, 10, NULL },
     { "retrans-time", NDL_DEFAULT, NDL_INT, &nd_conf_retrans_time, 0, 60000, NULL },
     { "keepalive", NDL_DEFAULT, NDL_BOOL, &nd_conf_keepalive, 0, 0, NULL },
@@ -126,6 +124,35 @@ static void ndL_skip(ndL_state_t *state)
 
     while (state->offset < state->length) {
         char c = state->data[state->offset];
+
+        /* A C-style comment can span lines, so it is consumed here rather
+         * than left to the caller's end-of-line handling.  An unterminated
+         * one runs to end-of-file, where the usual "expected end-of-block"
+         * check catches it for every scope but the outermost. */
+        if (!comment && c == '/' && state->offset + 1 < state->length && state->data[state->offset + 1] == '*') {
+            state->offset += 2;
+            state->column += 2;
+
+            while (state->offset < state->length) {
+                if (state->data[state->offset] == '*' && state->offset + 1 < state->length &&
+                    state->data[state->offset + 1] == '/') {
+                    state->offset += 2;
+                    state->column += 2;
+                    break;
+                }
+
+                if (state->data[state->offset] == '\n') {
+                    state->line++;
+                    state->column = 1;
+                } else {
+                    state->column++;
+                }
+
+                state->offset++;
+            }
+
+            continue;
+        }
 
         if (c == '#')
             comment = true;
@@ -528,7 +555,7 @@ bool nd_conf_load(const char *path)
 
     if (fp == NULL) {
         nd_log_error("Failed to load configuration: %s", strerror(errno));
-        return NULL;
+        return false;
     }
 
     struct stat stat;
@@ -536,7 +563,7 @@ bool nd_conf_load(const char *path)
     if (fstat(fileno(fp), &stat) < 0) {
         nd_log_error("Failed to determine size: %s", strerror(errno));
         fclose(fp);
-        return NULL;
+        return false;
     }
 
     char *buf = (char *)malloc(stat.st_size);
@@ -544,7 +571,7 @@ bool nd_conf_load(const char *path)
     if (buf == NULL) {
         nd_log_error("Failed to allocate buffer: %s", strerror(errno));
         fclose(fp);
-        return NULL;
+        return false;
     }
 
     bool result = false;
