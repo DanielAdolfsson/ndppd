@@ -378,6 +378,16 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
         return -1;
     }
 
+    // iface::read() only guarantees an ICMPv6 header's worth of data, but
+    // everything below reads an Ethernet header, an IPv6 header and a whole
+    // neighbor solicitation out of the buffer. Anything shorter leaves the
+    // addresses -- taddr above all, which decides what we proxy for -- made
+    // up of whatever happened to be on the stack.
+    if ((size_t)len < ETH_HLEN + sizeof(struct ip6_hdr) + sizeof(struct nd_neighbor_solicit)) {
+        logger::debug() << "iface::read_solicit() discarding runt frame, len=" << len;
+        return 0;
+    }
+
     struct ip6_hdr* ip6h =
           (struct ip6_hdr* )(msg + ETH_HLEN);
 
@@ -488,6 +498,14 @@ ssize_t iface::read_advert(address& saddr, address& taddr)
     
     // Ignore packets sent from this machine
     if (iface::is_local(saddr) == true) {
+        return 0;
+    }
+
+    // _ifd is an ICMPv6 socket, so msg starts at the ICMPv6 header -- but
+    // read() still only guarantees 8 bytes, and the target address below
+    // lives at offset 8..24.
+    if ((size_t)len < sizeof(struct nd_neighbor_advert)) {
+        logger::debug() << "iface::read_advert() discarding runt advert, len=" << len;
         return 0;
     }
 
