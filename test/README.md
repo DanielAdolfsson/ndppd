@@ -3,7 +3,7 @@
 ```
 make check              # both layers
 make check-unit         # 228 assertions; no network, no privileges, no waiting
-make check-integration  #  53 assertions; a real daemon on real interfaces
+make check-integration  #  55 assertions; a real daemon on real interfaces
 ```
 
 Both layers emit [TAP 13](https://testanything.org), so either can be fed
@@ -125,6 +125,7 @@ there is a small stdlib-only packet tool for them:
 | `080-solicited-node-mac` | the Ethernet destination is `33:33:ff:..`, not `33:33:fe:..` |
 | `090-unicast-nud` | a unicast NS with no SLLAO gets a *solicited* NA, unicast back to the prober |
 | `100-rfc-validation` | hop limit ≠ 255 and multicast targets are discarded, and a discard does not break the next good packet |
+| `110-config-path` | the configuration path used when `-c` is absent is absolute, and `ndppd(8)` names it |
 
 Several of these are regression tests for specific fixes in #93, and they
 discriminate: reverting the solicited-node MAC computation to its pre-#93

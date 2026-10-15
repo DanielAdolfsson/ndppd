@@ -29,6 +29,9 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 export LIB="$HERE/lib"
+# The source tree, so a case can check the binary against the documentation
+# shipped alongside it.
+export SRCDIR="$(cd "$HERE/../.." && pwd)"
 
 NDPPD_BINARY="${NDPPD_BINARY:-$HERE/../../ndppd}"
 SELECT=()

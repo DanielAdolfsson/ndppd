@@ -6,7 +6,7 @@ Daniel Adolfsson <daniel@ashen.se>
 ndppd - neighbor advertisement proxy daemon for IPv6
 
 == Synopsis
-*ndppd* [ *-dv* ] [ *-c* _config_file_ ] [ *-p* _pid_file_ ] [ *--syslog* ]
+*ndppd* [ *-dv* ] [ *-c* _config_file_ ] [ *-p* _pid_file_ ] [ *--syslog* ] [ *--netns* _name_ ]
 
 == Description
 *ndppd* is a neighbor advertisement proxy daemon; it allows a host to proxy neighbor discovery
@@ -33,4 +33,21 @@ Default: /etc/ndppd.conf
 
 *-v*::
     Increase the verbosity of the logging. Multiple *-v* increases the verbosity even further.
+    The default level is _info_; *-v* adds _debug_ and *-vv* adds _trace_.
+
+*--netns*=_name_::
+    (Linux only.) Enter the named network namespace, as created by *ip-netns*(8), before opening
+    any sockets. The configuration file is read before the namespace is entered.
+
+== Notes
+
+*ndppd* places every proxied interface into promiscuous mode. A unicast _neighbor solicitation_
+sent as part of neighbor unreachability detection is addressed to a specific link-layer address,
+and will not otherwise be delivered when that address is stale or belongs to another host.
+
+Log output is written with the standard C library, which buffers it when standard output is not a
+terminal. Use *stdbuf*(1) with *-oL* to read the log as it is produced.
+
+== See also
+*ndppd.conf*(5)
 

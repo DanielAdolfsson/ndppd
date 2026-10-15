@@ -39,8 +39,11 @@
 
 extern bool nd_iface_no_restore_flags;
 
+/* Overridable at build time -- the Makefile derives it from SYSCONFDIR.
+ * It has to agree with ndppd(8), with README.md, and above all with
+ * ndppd.service, which passes no -c at all and so depends on this. */
 #ifndef NDPPD_CONFIG_PATH
-#    define NDPPD_CONFIG_PATH "../ndppd.conf"
+#    define NDPPD_CONFIG_PATH "/etc/ndppd.conf"
 #endif
 
 long nd_current_time;
