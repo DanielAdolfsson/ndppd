@@ -37,6 +37,8 @@
 
 #include "ndppd.h"
 
+extern bool nd_iface_no_restore_flags;
+
 #ifndef NDPPD_CONFIG_PATH
 #    define NDPPD_CONFIG_PATH "../ndppd.conf"
 #endif
@@ -91,10 +93,13 @@ static bool ndL_daemonize()
 
         if (ftruncate(fd, 0) == -1) {
             nd_log_error("Failed to write PID file: ftruncate(): %s", strerror(errno));
-        } else if (write(fd, buf, len) != 0) {
+        } else if (write(fd, buf, len) != len) {
             nd_log_error("Failed to write PID file: write(): %s", strerror(errno));
         }
 
+        /* The child daemon owns the packet socket. Tell the atexit cleanup not to remove
+         * interface memberships (PROMISC) from the shared socket — the child still needs them. */
+        nd_iface_no_restore_flags = true;
         exit(0);
     }
 
@@ -187,7 +192,7 @@ int main(int argc, char *argv[])
             break;
 
         case 'v':
-            if (nd_opt_verbosity < ND_LOG_ERROR)
+            if (nd_opt_verbosity < ND_LOG_TRACE)
                 nd_opt_verbosity++;
             break;
 

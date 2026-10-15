@@ -65,8 +65,10 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
         nd_rule_t *rule;
         ND_LL_SEARCH(proxy->rules, rule, next, nd_addr_match(&rule->addr, tgt, rule->prefix));
 
-        if (!rule)
+        if (!rule) {
+            nd_log_debug("proxy %s: no rule matches tgt=%s, drop NS", proxy->ifname, nd_ntoa(tgt));
             return;
+        }
 
         session = nd_session_create(rule, tgt);
     }

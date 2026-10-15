@@ -65,31 +65,58 @@ typedef struct __attribute__((packed)) {
     struct ip6_hdr ip6h;
 } ndL_ip6_msg_t;
 
-static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_hdr *ih, size_t len)
+static void ndL_handle_ns(nd_iface_t *iface, struct ip6_hdr *ip6h, struct icmp6_hdr *ih, size_t len,
+                          const nd_lladdr_t *eth_src)
 {
-    if (!iface->proxy)
+    if (!iface->proxy) {
+        nd_log_trace("%s: NS on non-proxy iface, drop", iface->name);
         return;
+    }
 
-    if (len < sizeof(struct nd_neighbor_solicit))
+    if (len < sizeof(struct nd_neighbor_solicit)) {
+        nd_log_debug("%s: NS too short (%zu), drop", iface->name, len);
         return;
+    }
 
     struct nd_neighbor_solicit *ns = (struct nd_neighbor_solicit *)ih;
+
+    /* RFC 4861 §7.1.1: Target Address MUST NOT be a multicast address. */
+    if (nd_addr_is_multicast((nd_addr_t *)&ns->nd_ns_target)) {
+        nd_log_debug("%s: NS target is multicast, drop", iface->name);
+        return;
+    }
 
     nd_lladdr_t *src_ll = NULL;
 
     if (!nd_addr_is_unspecified((nd_addr_t *)&ip6h->ip6_src)) {
-        // FIXME: Source link-layer address MUST be included in multicast solicitations and SHOULD be included in
-        //        unicast solicitations. [https://tools.ietf.org/html/rfc4861#section-4.3].
+        /* RFC 4861 §4.6: MUST discard if any option has length zero.
+         * Iterate all options to find SLLAO (RFC 4861 §4.3). */
+        uint8_t *opts = (uint8_t *)ns + sizeof(struct nd_neighbor_solicit);
+        size_t opts_len = len - sizeof(struct nd_neighbor_solicit);
 
-        if (len - sizeof(struct nd_neighbor_solicit) < 8)
-            return;
+        while (opts_len >= 8) {
+            struct nd_opt_hdr *opt = (struct nd_opt_hdr *)opts;
 
-        struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((void *)ns + sizeof(struct nd_neighbor_solicit));
+            if (opt->nd_opt_len == 0)
+                return; /* RFC 4861 §4.6: discard entire packet */
 
-        if (opt->nd_opt_len != 1 || opt->nd_opt_type != ND_OPT_SOURCE_LINKADDR)
-            return;
+            size_t opt_bytes = (size_t)opt->nd_opt_len * 8;
+            if (opt_bytes > opts_len)
+                break; /* truncated option — stop parsing */
 
-        src_ll = (nd_lladdr_t *)((void *)opt + 2);
+            if (opt->nd_opt_type == ND_OPT_SOURCE_LINKADDR && opt->nd_opt_len == 1)
+                src_ll = (nd_lladdr_t *)(opts + 2);
+
+            opts += opt_bytes;
+            opts_len -= opt_bytes;
+        }
+
+        /* RFC 4861 §7.7.3: NUD unicast NS SHOULD omit SLLAO since the sender already knows the
+         * link-layer address.  Fall back to the Ethernet source MAC so we can send a solicited NA
+         * (SOLICITED=1) back to the probe sender — an unsolicited NA (SOLICITED=0) does not
+         * satisfy a NUD PROBE transition per §7.3.5. */
+        if (!src_ll)
+            src_ll = (nd_lladdr_t *)eth_src;
     }
 
     nd_proxy_handle_ns(iface->proxy, (nd_addr_t *)&ip6h->ip6_src, (nd_addr_t *)&ip6h->ip6_dst,
@@ -107,8 +134,10 @@ static void ndL_handle_na(nd_iface_t *iface, struct icmp6_hdr *ih, size_t len)
 
     nd_session_t *session = nd_session_find_r((nd_addr_t *)&na->nd_na_target, iface);
 
-    if (!session)
+    if (!session) {
+        nd_log_trace("%s: NA for %s has no matching session, drop", iface->name, nd_ntoa((nd_addr_t *)&na->nd_na_target));
         return;
+    }
 
     nd_session_handle_na(session);
 }
@@ -176,31 +205,47 @@ static void ndL_handle_msg(nd_iface_t *iface, ndL_ip6_msg_t *msg)
     size_t i = 0;
 
     if (msg->ip6h.ip6_nxt == IPPROTO_HOPOPTS) {
-        /* We're gonna skip through hop-by-hop option. */
         struct ip6_hbh *hbh = (void *)(msg + 1) + i;
 
-        if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U))
+        if (plen - i < 8 || plen - i < 8U + (hbh->ip6h_len * 8U)) {
+            nd_log_debug("%s: truncated hop-by-hop header, drop", iface->name);
             return;
+        }
 
         i += 8 + 8 * hbh->ip6h_len;
 
-        if (hbh->ip6h_nxt != IPPROTO_ICMPV6)
+        if (hbh->ip6h_nxt != IPPROTO_ICMPV6) {
+            nd_log_trace("%s: hbh nxt=%d != ICMPv6, drop", iface->name, hbh->ip6h_nxt);
             return;
+        }
     } else if (msg->ip6h.ip6_nxt != IPPROTO_ICMPV6) {
+        nd_log_trace("%s: nxt=%d != ICMPv6, drop", iface->name, msg->ip6h.ip6_nxt);
         return;
     }
 
-    if (plen - i < sizeof(struct icmp6_hdr))
+    if (plen - i < sizeof(struct icmp6_hdr)) {
+        nd_log_debug("%s: ICMPv6 header truncated, drop", iface->name);
         return;
+    }
 
     struct icmp6_hdr *ih = (struct icmp6_hdr *)((void *)(msg + 1) + i);
     uint16_t ilen = plen - i;
 
-    if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum)
+    if (ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen) != ih->icmp6_cksum) {
+        nd_log_debug("%s: ICMPv6 checksum mismatch (got %04x want %04x), drop",
+                     iface->name, ntohs(ih->icmp6_cksum),
+                     ntohs(ndL_calculate_icmp6_checksum(&msg->ip6h, ih, ilen)));
         return;
+    }
+
+    /* RFC 4861 §6.1.1: hop limit MUST be 255 — reject anything that may have been forwarded. */
+    if (msg->ip6h.ip6_hops != 255) {
+        nd_log_debug("%s: hop limit %d != 255, drop", iface->name, msg->ip6h.ip6_hops);
+        return;
+    }
 
     if (ih->icmp6_type == ND_NEIGHBOR_SOLICIT)
-        ndL_handle_ns(iface, &msg->ip6h, ih, ilen);
+        ndL_handle_ns(iface, &msg->ip6h, ih, ilen, (nd_lladdr_t *)msg->eh.ether_shost);
     else if (ih->icmp6_type == ND_NEIGHBOR_ADVERT)
         ndL_handle_na(iface, ih, ilen);
     else if (ih->icmp6_type == MLD_LISTENER_QUERY)
@@ -232,20 +277,30 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 
         ND_LL_SEARCH(ndL_first_iface, iface, next, iface->index == (unsigned int)lladdr.sll_ifindex);
 
-        if (!iface)
+        if (!iface) {
+            nd_log_trace("pkt on unknown ifindex %d, skip", lladdr.sll_ifindex);
             continue;
+        }
 
-        if ((size_t)len < sizeof(ndL_ip6_msg_t))
+        if ((size_t)len < sizeof(ndL_ip6_msg_t)) {
+            nd_log_trace("pkt too short (%zd) on %s, skip", len, iface->name);
             continue;
+        }
 
         ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)buf;
 
-        if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6))
+        if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6)) {
+            nd_log_trace("non-IPv6 ethertype 0x%04x on %s, skip", ntohs(msg->eh.ether_type), iface->name);
             continue;
+        }
 
-        if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t))
+        if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+            nd_log_trace("plen mismatch on %s (plen=%u frame=%zd), skip",
+                         iface->name, ntohs(msg->ip6h.ip6_plen), len - sizeof(ndL_ip6_msg_t));
             continue;
+        }
 
+        nd_log_trace("pkt len=%zd on %s pkttype=%d", len, iface->name, lladdr.sll_pkttype);
         ndL_handle_msg(iface, msg);
     }
 }
@@ -267,19 +322,20 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 
         for (size_t i = 0; i < (size_t)len;) {
             struct bpf_hdr *bpf_hdr = (struct bpf_hdr *)(buf + i);
+            size_t pkt_offset = i + bpf_hdr->bh_hdrlen;
             i += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_caplen);
 
             if (bpf_hdr->bh_caplen < sizeof(ndL_ip6_msg_t)) {
                 continue;
             }
 
-            ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)buf;
+            ndL_ip6_msg_t *msg = (ndL_ip6_msg_t *)(buf + pkt_offset);
 
             if (msg->eh.ether_type != ntohs(ETHERTYPE_IPV6)) {
                 continue;
             }
 
-            if (ntohs(msg->ip6h.ip6_plen) != len - sizeof(ndL_ip6_msg_t)) {
+            if (ntohs(msg->ip6h.ip6_plen) != bpf_hdr->bh_caplen - sizeof(ndL_ip6_msg_t)) {
                 continue;
             }
 
@@ -408,12 +464,12 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 
     nd_lladdr_t *lladdr = (nd_lladdr_t *)ifr.ifr_hwaddr.sa_data;
 
-    /* Enable ALLMULTI. */
+    /* Enable promiscuous mode so unicast NS sent to a stale/different MAC are received. */
 
-    struct packet_mreq mreq = { .mr_ifindex = (int)index, .mr_type = PACKET_MR_ALLMULTI };
+    struct packet_mreq mreq = { .mr_ifindex = (int)index, .mr_type = PACKET_MR_PROMISC };
 
     if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1) {
-        nd_log_error("Could not configure ALLMULTI: %s", strerror(errno));
+        nd_log_error("Could not configure promiscuous mode: %s", strerror(errno));
         return NULL;
     }
 
@@ -513,12 +569,12 @@ void nd_iface_close(nd_iface_t *iface)
         return;
 
 #ifdef __linux__
-    /* Disable ALLMULTI. */
+    if (!nd_iface_no_restore_flags) {
+        struct packet_mreq mreq = { .mr_ifindex = (int)iface->index, .mr_type = PACKET_MR_PROMISC };
 
-    struct packet_mreq mreq = { .mr_ifindex = (int)iface->index, .mr_type = PACKET_MR_ALLMULTI };
-
-    if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1)
-        nd_log_error("Could not disable ALLMULTI: %s", strerror(errno));
+        if (setsockopt(ndL_io->fd, SOL_PACKET, PACKET_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) == -1)
+            nd_log_error("Could not disable promiscuous mode: %s", strerror(errno));
+    }
 #else
     nd_io_close(iface->bpf_io);
 #endif
@@ -620,8 +676,7 @@ ssize_t nd_iface_send_ns(nd_iface_t *iface, const nd_addr_t *tgt)
     (*(nd_addr_t *)&msg.ip.ip6_dst).u8[14] = tgt->u8[14];
     (*(nd_addr_t *)&msg.ip.ip6_dst).u8[15] = tgt->u8[15];
 
-    nd_lladdr_t ll_mcast = { 0x33, 0x33 };
-    *(uint32_t *)&ll_mcast.u8[2] = tgt->u32[3];
+    nd_lladdr_t ll_mcast = { 0x33, 0x33, 0xff, tgt->u8[13], tgt->u8[14], tgt->u8[15] };
 
     nd_log_trace("Write NS iface=%s, tgt=%s, src=%s", iface->name, nd_ntoa(tgt), nd_ntoa((nd_addr_t *)&msg.ip.ip6_src));
 

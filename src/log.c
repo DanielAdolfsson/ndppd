@@ -27,7 +27,7 @@
 
 bool ndL_syslog_opened;
 
-nd_loglevel_t nd_opt_verbosity = ND_LOG_TRACE;
+nd_loglevel_t nd_opt_verbosity = ND_LOG_INFO;
 bool nd_opt_syslog;
 
 static void ndL_open_syslog()

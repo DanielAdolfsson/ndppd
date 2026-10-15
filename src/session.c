@@ -27,7 +27,6 @@ extern int nd_conf_renew;
 extern int nd_conf_retrans_limit;
 extern int nd_conf_retrans_time;
 extern bool nd_conf_keepalive;
-extern bool nd_conf_use_kernel;
 
 #ifndef NDPPD_SESSION_BUCKETS
 #    define NDPPD_SESSION_BUCKETS 64
@@ -44,12 +43,6 @@ static void ndL_up(nd_session_t *session)
         nd_rt_add_route(&session->tgt, 128, session->iface->index, session->rule->table);
         session->autowired = true;
     }
-
-    if (nd_conf_use_kernel) {
-        nd_log_debug("session [%s] add kernel neighbor proxy for %s", //
-                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
-        nd_rt_add_neigh(&session->tgt, session->rule->proxy->iface->index);
-    }
 }
 
 static void ndL_down(nd_session_t *session)
@@ -58,47 +51,78 @@ static void ndL_down(nd_session_t *session)
         nd_rt_remove_route(&session->tgt, 128, session->rule->table);
         session->autowired = false;
     }
-
-    if (nd_conf_use_kernel) {
-        nd_log_debug("session [%s] removing kernel neighbor proxy for %s", //
-                     session->rule->proxy->ifname, nd_ntoa(&session->tgt));
-        nd_rt_remove_neigh(&session->tgt, session->rule->proxy->iface->index);
-    }
 }
 
 void nd_session_handle_ns(nd_session_t *session, const nd_addr_t *src, const nd_lladdr_t *src_ll)
 {
     session->ins_time = nd_current_time;
 
-    if (session->state != ND_STATE_VALID && session->state != ND_STATE_STALE) {
-        nd_sub_t *sub;
-        ND_LL_SEARCH(session->subs, sub, next, nd_addr_eq(&sub->addr, src) && nd_lladdr_eq(&sub->lladdr, src_ll));
+    if (session->state == ND_STATE_VALID) {
+        nd_lladdr_t *tgt_ll = !nd_lladdr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
 
-        if (!sub) {
-            sub = ND_NEW(nd_sub_t);
-            sub->addr = *src;
-            sub->lladdr = *src_ll;
-            ND_LL_PREPEND(session->subs, sub, next);
+        /* DAD (unspecified source) or unicast NS without SLLAO: respond to all-nodes multicast. */
+        if (nd_addr_is_unspecified(src) || !src_ll) {
+            static const nd_lladdr_t allnodes_ll = { .u8 = { 0x33, 0x33, [5] = 1 } };
+            static const nd_addr_t allnodes = { .u8 = { 0xff, 0x02, [15] = 1 } };
+            nd_iface_send_na(session->rule->proxy->iface, &allnodes, &allnodes_ll,
+                             &session->tgt, tgt_ll, session->rule->proxy->router);
+        } else {
+            nd_iface_send_na(session->rule->proxy->iface, src, src_ll, &session->tgt, tgt_ll,
+                             session->rule->proxy->router);
         }
-
         return;
     }
 
-    nd_lladdr_t *tgt_ll = !nd_lladdr_is_unspecified(&session->rule->target) ? &session->rule->target : NULL;
+    /* INCOMPLETE, STALE, INVALID: cannot confirm reachability yet — queue the subscriber
+     * and wait for a fresh NA from the target before responding with OVERRIDE. */
+    if (!src_ll) {
+        nd_log_debug("session %s %s: no src_ll (DAD/no SLLAO) and state=%d, drop NS",
+                     session->rule->proxy->ifname, nd_ntoa(&session->tgt), session->state);
+        return;
+    }
 
-    if (nd_addr_is_unspecified(src)) {
-        static const nd_lladdr_t allnodes_ll = { .u8 = { 0x33, 0x33, [5] = 1 } };
-        static const nd_addr_t allnodes = { .u8 = { 0xff, 0x02, [15] = 1 } };
-        nd_iface_send_na(session->rule->proxy->iface, &allnodes, &allnodes_ll, //
-                         &session->tgt, tgt_ll, session->rule->proxy->router);
-    } else {
-        nd_iface_send_na(session->rule->proxy->iface, src, src_ll, &session->tgt, tgt_ll, session->rule->proxy->router);
+    nd_sub_t *sub;
+    ND_LL_SEARCH(session->subs, sub, next, nd_addr_eq(&sub->addr, src) && nd_lladdr_eq(&sub->lladdr, src_ll));
+
+    if (!sub) {
+        sub = ND_NEW(nd_sub_t);
+        sub->addr = *src;
+        sub->lladdr = *src_ll;
+        ND_LL_PREPEND(session->subs, sub, next);
+    }
+
+    /* INVALID with no iface: route was missing at session creation. Re-check now — if the
+     * container's route has appeared in the meantime, open the interface and start probing. */
+    if (session->state == ND_STATE_INVALID && !session->iface) {
+        nd_rule_t *rule = session->rule;
+        if (rule->mode == ND_MODE_AUTO) {
+            nd_rt_route_t *route = nd_rt_find_route(&session->tgt, rule->table);
+            if (route && route->oif != rule->proxy->iface->index &&
+                (session->iface = nd_iface_open(NULL, route->oif))) {
+                session->state = ND_STATE_INCOMPLETE;
+                session->state_time = nd_current_time;
+                session->ons_count = 1;
+                session->ons_time = nd_current_time;
+                nd_iface_send_ns(session->iface, &session->tgt_r);
+            }
+        }
+    }
+
+    /* STALE: trigger a fresh NUD probe if not recently sent. */
+    if (session->state == ND_STATE_STALE && session->iface &&
+        nd_current_time - session->ons_time >= nd_conf_retrans_time) {
+        if (!session->ons_count)
+            session->ons_count = 1;
+        session->ons_time = nd_current_time;
+        nd_iface_send_ns(session->iface, &session->tgt_r);
     }
 }
 
 void nd_session_handle_na(nd_session_t *session)
 {
     if (session->state == ND_STATE_VALID) {
+        /* Gratuitous NA confirms the target is still alive — refresh the VALID timer. */
+        session->state_time = nd_current_time;
         return;
     }
 
@@ -232,8 +256,12 @@ void nd_session_update(nd_session_t *session)
             if (!nd_conf_keepalive && nd_current_time - session->ins_time > nd_conf_valid_ttl)
                 break;
 
-            long time = session->ons_count && !(session->ons_count % nd_conf_retrans_limit)
-                            ? ((1 << session->ons_count / 3) * nd_conf_retrans_time)
+            int shift = session->ons_count / 3;
+            if (shift > 20)
+                shift = 20; /* cap: 2^20 * retrans_time avoids int overflow */
+            long time = session->ons_count && nd_conf_retrans_limit > 0 &&
+                                !(session->ons_count % nd_conf_retrans_limit)
+                            ? ((1 << shift) * nd_conf_retrans_time)
                             : nd_conf_retrans_time;
 
             if (nd_current_time - session->ons_time < time)
