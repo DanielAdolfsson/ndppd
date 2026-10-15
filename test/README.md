@@ -191,3 +191,36 @@ failing, which was the reminder to delete the `todo` line.
 If you add one, follow the same pattern. `todo("reason")` before `ok_todo`
 in the unit suite, `todo "reason"` before the assertion in an integration
 case.
+
+---
+
+## Manual sandbox — `test/manual/`
+
+`netns-sandbox.sh` predates the automated suite and is kept for one reason:
+its `mld-up` mode is the only reproduction of [#55][i55] in the tree.
+
+```sh
+sudo ./test/manual/netns-sandbox.sh mld-up   # or: up
+sudo ./test/manual/netns-sandbox.sh ndppd    # second terminal
+sudo ./test/manual/netns-sandbox.sh ping1
+sudo ./test/manual/netns-sandbox.sh down
+```
+
+It builds the same three-node shape as the integration suite, but across
+two host bridges, and `mld-up` turns `mcast_flood` off on every port and
+runs an MLD querier on both. That is a snooping switch: solicited-node
+multicast reaches only ports that have reported interest, ndppd reports
+interest in nothing, and the proxy is bypassed. Plain `up` leaves flooding
+on, which is the working case.
+
+Two things to know before reaching for it. It needs **root**, because it
+builds namespaces and bridges in the host's own network stack rather than
+inside an unprivileged user namespace — and it leaves them there until you
+run `down`. And it **asserts nothing**: you read the `-vvv` log and the
+`ping` output yourself.
+
+So for anything the integration suite already covers, use that instead.
+When MLD coverage lands there, this script has no remaining purpose and
+should go.
+
+[i55]: https://github.com/DanielAdolfsson/ndppd/issues/55

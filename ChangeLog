@@ -1,9 +1,40 @@
-2019-12-xx  Daniel Adolfsson <daniel@ashen.se>
+2026-10-15  Daniel Adolfsson <daniel@ashen.se>
 
-    * Version 1.0.0
+    * Version 1.0.0-rc1
 
         * ndppd has been rewritten from scratch, and is written in C (C99).
-          Some features has been ported over from the master branch.
+          Some features have been ported over from the 0.2.x branch.  The
+          configuration file was reorganised in the process and is not
+          portable from 0.2.x; unknown keywords are rejected rather than
+          ignored.
+
+        * Packets are now captured in promiscuous mode, so ndppd sees the
+          unicast Neighbor Solicitations an upstream router uses to refresh
+          an existing neighbor entry.  0.2.x listened on an all-multicast
+          socket and never saw them, which is why entries went STALE and
+          then FAILED under sustained traffic, and why ndppd appeared to
+          work only while tcpdump was running.
+
+        * Numerous RFC 4861 conformance fixes, found in production by
+          Toto <https://github.com/totoCZ> and contributed as #93: the
+          solicited-node multicast MAC was wrong by one byte; a unicast
+          solicitation omitting the source link-layer address option was
+          discarded rather than answered; advertisements omitted the
+          OVERRIDE flag; the source address of an advertisement is now set
+          explicitly instead of left to the kernel; the hop limit 255 check
+          on receive (section 6.1.1) was missing; and a socket membership
+          was dropped by the wrong process at fork, leaving the daemon
+          unable to see the packets it exists to answer.
+
+        * The ICMPv6 checksum is verified on receive, and solicitations
+          with a multicast or solicited-node target are discarded.
+
+        * Session state machine corrections around STALE and around routes
+          that appear after a session was already created.
+
+        * The experimental "use-kernel" option has been removed.  It
+          duplicated proxying to the kernel, which does not handle unicast
+          neighbor discovery, and so did nothing but duplicate packets.
 
         * Support for epoll has been added for better scaling. It's still
           possible to revert to using poll by defining NDPPD_NO_USE_EPOLL.
@@ -15,6 +46,25 @@
         * Support for /proc has been removed.
 
         * Man pages are now written in .adoc format.
+
+        * The compiled-in default configuration path is now an absolute
+          path derived from SYSCONFDIR, rather than a path relative to the
+          working directory.
+
+        * A test suite has been added: 228 unit assertions and 55
+          integration assertions, both emitting TAP 13, run by "make
+          check".  The integration layer drives a real daemon across a
+          three-node topology and asserts on what reaches the wire, using
+          network namespaces on Linux (requiring no root) and VNET jails on
+          FreeBSD.  Continuous integration builds with gcc and clang in
+          release and debug, runs the unit suite under AddressSanitizer and
+          UndefinedBehaviorSanitizer, and runs both layers on Linux and
+          FreeBSD.
+
+        * Known limitations at this release: MLD proxying is not
+          implemented (#55), and the packet path assumes Ethernet framing,
+          so tun, wg and other point-to-point devices are unsupported
+          (#72).
 
 2017-01-07  Johnathan Sharratt <johnathan.sharratt@gmail.com>
 
