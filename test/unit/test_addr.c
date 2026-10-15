@@ -354,7 +354,7 @@ void test_addr(void)
             ok(!nd_lladdr_is_unspecified(&one), "a MAC with only byte %d set is not unspecified", i);
         }
 
-        ok_str(nd_ll_ntoa(&a), "2:0:0:0:0:1", "nd_ll_ntoa renders a MAC");
+        ok_str(nd_ll_ntoa(&a), "02:00:00:00:00:01", "nd_ll_ntoa renders a MAC");
         ok_str(nd_ll_ntoa(NULL), "(null)", "nd_ll_ntoa tolerates NULL");
     }
 }

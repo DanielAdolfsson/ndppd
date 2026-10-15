@@ -17,6 +17,7 @@
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <arpa/inet.h>
+#include <stdio.h>
 #include <string.h>
 
 #ifdef __linux__
@@ -168,7 +169,19 @@ const char *nd_ll_ntoa(const nd_lladdr_t *addr)
     static int index;
     static char buf[3][64];
 
-    return addr ? ether_ntoa_r((struct ether_addr *)addr, buf[index++ % 3]) : "(null)";
+    if (!addr)
+        return "(null)";
+
+    /* Formatted here rather than by ether_ntoa_r(3), which does not agree
+       with itself across platforms: glibc drops leading zeros and renders
+       02:00:00:00:00:01 as "2:0:0:0:0:1", while FreeBSD pads. ndppd's log
+       output is the same on both systems, and the padded spelling is the
+       one every other tool prints. */
+    char *out = buf[index++ % 3];
+    snprintf(out, sizeof(buf[0]), "%02x:%02x:%02x:%02x:%02x:%02x", addr->u8[0], addr->u8[1], addr->u8[2],
+             addr->u8[3], addr->u8[4], addr->u8[5]);
+
+    return out;
 }
 
 bool nd_lladdr_eq(const nd_lladdr_t *first, const nd_lladdr_t *second)

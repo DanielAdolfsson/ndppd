@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # The checks RFC 4861 states as MUST, and that #93 added.
 #
 # Each of these is a packet no cooperating kernel will send, which is

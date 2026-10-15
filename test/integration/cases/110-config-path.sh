@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # The configuration path ndppd uses when -c is not given.
 #
 # ndppd.service passes no -c, and systemd runs a service with its working

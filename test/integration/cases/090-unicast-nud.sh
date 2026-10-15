@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Unicast neighbor unreachability detection -- the failure #93 was opened
 # for, and the one that makes a proxy look like it works and then stop.
 #

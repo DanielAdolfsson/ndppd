@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ndppd - NDP Proxy Daemon
 # Copyright (C) 2011-2026  Daniel Adolfsson <daniel@ashen.se>
 #
@@ -56,18 +56,37 @@ skip_all() {
 
 [ -x "$NDPPD_BINARY" ] || skip_all "ndppd binary not found at $NDPPD_BINARY (run 'make' first)"
 
-for tool in unshare nsenter ip ping stdbuf; do
-    command -v "$tool" >/dev/null 2>&1 || skip_all "missing required tool: $tool"
-done
+# The backend owns everything platform-specific, including what this host
+# must provide before the suite can run at all.  Sourcing it here costs
+# nothing -- a backend file only defines functions.
+case "$(uname -s)" in
+    Linux)   . "$LIB/topology-linux.sh" ;;
+    FreeBSD) . "$LIB/topology-freebsd.sh" ;;
+    *)       skip_all "no topology backend for $(uname -s)" ;;
+esac
 
-# Unprivileged user namespaces are not available everywhere -- some
-# distributions and container runtimes disable them. Rather than demanding
-# root, say why the suite cannot run and skip cleanly.
-if ! unshare -Urn true 2>/dev/null; then
-    skip_all "unprivileged user+network namespaces are unavailable on this host"
+if ! PREFLIGHT="$(topo_platform_preflight)"; then
+    skip_all "$PREFLIGHT"
 fi
 
 export NDPPD_BINARY
+
+# --- case isolation ------------------------------------------------------
+#
+# On Linux each case gets its own user+network namespace, so a case that
+# leaves interfaces or a stray daemon behind cannot affect the next one --
+# the namespace and everything in it is reclaimed when the process exits.
+#
+# FreeBSD has no unprivileged equivalent, and a VNET jail is already a
+# separate network stack owned by a name rather than by a process.  Cases
+# name their jails after their own PID and destroy them on exit, which
+# gives the same isolation without a second mechanism.
+
+if [ "$(uname -s)" = "Linux" ]; then
+    run_case() { unshare -Urn bash "$1"; }
+else
+    run_case() { bash "$1"; }
+fi
 
 # --- run -----------------------------------------------------------------
 
@@ -91,10 +110,7 @@ for case_file in "${cases[@]}"; do
     name="$(basename "$case_file" .sh)"
     echo "# Subtest: $name"
 
-    # Each case gets its own user+network namespace, so a case that leaves
-    # interfaces or a stray daemon behind cannot affect the next one -- the
-    # namespace and everything in it is reclaimed when the process exits.
-    output="$(unshare -Urn bash "$case_file" 2>&1)"
+    output="$(run_case "$case_file" 2>&1)"
     rc=$?
 
     while IFS= read -r line; do

@@ -56,9 +56,13 @@ assert_ok()   { _result "$([ "$1" = "0" ] && echo 0 || echo 1)" "$2"; }
 assert_true() { if "$@" >/dev/null 2>&1; then _result 0 "$ASSERT_DESC"; else _result 1 "$ASSERT_DESC"; fi; }
 
 # assert_reachable <ns> <address> <description>
+#
+# topo_ping rather than a ping command line: the per-packet timeout is in
+# seconds on Linux and milliseconds on FreeBSD, so the backend owns the
+# dialect and this file states the intent.
 assert_reachable() {
     local ns="$1" addr="$2" desc="$3"
-    if topo_ns "$ns" ping -6 -c 2 -W 3 "$addr" >/dev/null 2>&1; then
+    if topo_ping "$ns" 2 3 "$addr"; then
         _result 0 "$desc"
     else
         _result 1 "$desc" || diag "  $addr was not reachable from namespace '$ns'"
@@ -68,7 +72,7 @@ assert_reachable() {
 # assert_unreachable <ns> <address> <description>
 assert_unreachable() {
     local ns="$1" addr="$2" desc="$3"
-    if topo_ns "$ns" ping -6 -c 1 -W 2 "$addr" >/dev/null 2>&1; then
+    if topo_ping "$ns" 1 2 "$addr"; then
         _result 1 "$desc" || diag "  $addr was unexpectedly reachable from '$ns'"
     else
         _result 0 "$desc"

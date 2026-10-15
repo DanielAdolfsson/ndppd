@@ -73,3 +73,47 @@ jobs:
           # to masquerade as a pass here.
           unshare -Urn true
       - run: make check-integration
+
+  freebsd:
+    name: build and test (FreeBSD)
+    runs-on: ubuntu-latest
+    # A FreeBSD VM on a runner with no nested virtualisation runs under
+    # QEMU's interpreter, so this job is minutes rather than seconds and
+    # occasionally stalls on boot. It is still the only free way to put
+    # ndppd's BSD backend in front of a real kernel on every change.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test in a FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: '14.5'
+          # FreeBSD's root shell is csh; the suite is bash and sh.
+          usesh: true
+          # Nothing produced in the VM is needed back on the runner.
+          copyback: false
+          prepare: |
+            pkg install -y gmake bash python3
+          run: |
+            set -e
+            # The Makefile uses GNU make syntax, which is what issue #66 was
+            # really about: on FreeBSD it is gmake, not make.
+            gmake ndppd CC=clang
+            gmake check-unit CC=clang
+            # Unlike the Linux job this runs as root, because a VNET jail
+            # and an epair are privileged operations with no unprivileged
+            # equivalent. The VM is disposable, which is what makes that
+            # acceptable here and nowhere else.
+            gmake check-integration CC=clang > tap.txt 2>&1 || {
+                cat tap.txt
+                exit 1
+            }
+            cat tap.txt
+
+            # The suite skips cleanly where a host cannot run it, which is
+            # right for a developer's machine and wrong here: a skip exits
+            # 0 and would hand us a green tick for having tested nothing.
+            if grep -q '^1\.\.0 # SKIP' tap.txt; then
+                echo "the integration suite skipped; CI must not count that as a pass"
+                exit 1
+            fi

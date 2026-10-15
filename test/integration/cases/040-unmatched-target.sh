@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ndppd must answer only for the prefixes it was configured for.  A proxy
 # that answers for everything on the link is worse than no proxy at all: it
 # blackholes every address the operator did not mean to delegate.

@@ -53,6 +53,16 @@ static bool ndL_conf_path_ready;
 /* Loads `text` as a configuration and returns whether the parser accepted
  * it.  Errors are expected in the negative cases, so the log is silenced
  * for the duration unless the suite is being run verbosely. */
+/* `table` selects a routing table, and src/conf.c only offers the key on
+   Linux -- FreeBSD has FIBs rather than rtnetlink tables. Config text that
+   needs the key has to vary with it, or the whole load fails there for a
+   reason the test is not about. */
+#ifdef __linux__
+#    define TABLE_LINE "        table 100\n"
+#else
+#    define TABLE_LINE ""
+#endif
+
 static bool load(const char *text)
 {
     if (!ndL_conf_path_ready) {
@@ -297,8 +307,7 @@ void test_conf(void)
         ok(load("proxy ut12 {\n"
                 "    rule 2001:db8::/64 {\n"
                 "        iface ut12d\n"
-                "        autowire yes\n"
-                "        table 100\n"
+                "        autowire yes\n" TABLE_LINE
                 "    }\n"
                 "}\n"),
            "autowire with iface is accepted");
@@ -508,7 +517,6 @@ void test_conf(void)
     ok(!load("proxy ut19 {\n"
              "    router yes\n"
              "    rule 2001:db8::/64 {\n"
-             "        table 100\n"
              "        static\n"
              "    }\n"
              "    valid-ttl 30000\n"

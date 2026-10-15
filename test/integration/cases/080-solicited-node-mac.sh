@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # The Ethernet destination of an outgoing solicitation.
 #
 # The solicited-node multicast MAC is 33:33 followed by the last four bytes

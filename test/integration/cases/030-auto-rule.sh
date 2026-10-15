@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # An `auto` rule resolves the downstream interface from the routing table
 # rather than from the config, which is what makes it survive an interface
 # being renamed or appearing late.  ndppd must find the route, solicit on

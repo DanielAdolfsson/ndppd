@@ -56,6 +56,13 @@ extern bool nd_conf_keepalive;
 static nd_iface_t *ndL_first_iface;
 static nd_io_t *ndL_io;
 
+#ifndef __linux__
+/* bpf(4) rejects any read() whose buffer is not exactly the length the
+   device was configured with, so the read buffer and BIOCSBLEN have to
+   agree. One constant, used by both. */
+#    define ND_BPF_BUFLEN 4096
+#endif
+
 //! Used when daemonizing to make sure the parent process does not restore these flags upon exit.
 bool nd_iface_no_restore_flags;
 
@@ -308,7 +315,7 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 #else
 static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
 {
-    __attribute__((aligned(BPF_ALIGNMENT))) uint8_t buf[4096]; /* Depends on BIOCGBLEN */
+    __attribute__((aligned(BPF_ALIGNMENT))) uint8_t buf[ND_BPF_BUFLEN];
 
     for (;;) {
         ssize_t len = nd_io_read(io, buf, sizeof(buf));
@@ -319,12 +326,43 @@ static void ndL_io_handler(nd_io_t *io, __attribute__((unused)) int events)
             }
 
             nd_log_error("%s", strerror(errno));
+
+            /* Without this the negative length below is cast to size_t and
+               the record loop walks off the end of the buffer. Any read
+               error other than EAGAIN reaches here -- EINVAL alone is one
+               BIOCSBLEN mismatch away. */
+            return;
+        }
+
+        if (len == 0) {
+            return;
         }
 
         for (size_t i = 0; i < (size_t)len;) {
+            /* Everything below reads a length out of the record header, so
+               the header itself has to be known to be there first. */
+            if (i + sizeof(struct bpf_hdr) > (size_t)len) {
+                break;
+            }
+
             struct bpf_hdr *bpf_hdr = (struct bpf_hdr *)(buf + i);
             size_t pkt_offset = i + bpf_hdr->bh_hdrlen;
-            i += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_caplen);
+            size_t advance = BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_caplen);
+
+            /* A zero-length record would never advance i, and the loop
+               would spin on it forever. */
+            if (advance == 0) {
+                break;
+            }
+
+            /* The kernel is not supposed to hand us a record that runs past
+               what it said it wrote. Trusting it anyway is how a short read
+               turns into an out-of-bounds one. */
+            if (pkt_offset > (size_t)len || bpf_hdr->bh_caplen > (size_t)len - pkt_offset) {
+                break;
+            }
+
+            i += advance;
 
             if (bpf_hdr->bh_caplen < sizeof(ndL_ip6_msg_t)) {
                 continue;
@@ -487,9 +525,19 @@ nd_iface_t *nd_iface_open(const char *name, unsigned index)
 
     /* Set buffer length. */
 
-    unsigned len = 4096; /* TODO: Configure */
+    unsigned len = ND_BPF_BUFLEN;
     if (ioctl(io->fd, BIOCSBLEN, &len) < 0) {
         nd_log_error("BIOCSBLEN: %s", strerror(errno));
+        nd_io_close(io);
+        return NULL;
+    }
+
+    /* BIOCSBLEN writes back the length the kernel settled on, which it is
+       free to clamp. Every later read() would then fail with EINVAL and
+       the daemon would run while seeing no packets at all. Say so now
+       rather than leaving it to be diagnosed from silence. */
+    if (len != ND_BPF_BUFLEN) {
+        nd_log_error("Kernel set the BPF buffer length to %u, expected %u", len, ND_BPF_BUFLEN);
         nd_io_close(io);
         return NULL;
     }
