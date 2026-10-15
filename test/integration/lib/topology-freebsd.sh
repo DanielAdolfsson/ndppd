@@ -94,7 +94,11 @@ _topo_mkjail() { # $1=ns
     # per-stack, and each VNET jail has its own: without it every address
     # stays tentative for a second and a tentative source address makes
     # ping fail for reasons that have nothing to do with ndppd.
-    jexec "$(_topo_jail "$1")" sysctl -q net.inet6.ip6.dad_count=0
+    # sysctl(8) prints "old -> new" when it sets something, and -q does not
+    # stop it; ifconfig echoes the name it was just given. Both would reach
+    # the TAP stream, where run.sh turns them into comments -- valid, but
+    # noise that buries the lines that matter.
+    jexec "$(_topo_jail "$1")" sysctl -q net.inet6.ip6.dad_count=0 >/dev/null
     jexec "$(_topo_jail "$1")" ifconfig lo0 up
 }
 
@@ -120,8 +124,8 @@ _topo_link() {
     ifconfig "$a" vnet "$(_topo_jail "$a_ns")"
     ifconfig "$b" vnet "$(_topo_jail "$b_ns")"
 
-    topo_ns "$a_ns" ifconfig "$a" name "$a_name"
-    topo_ns "$b_ns" ifconfig "$b" name "$b_name"
+    topo_ns "$a_ns" ifconfig "$a" name "$a_name" >/dev/null
+    topo_ns "$b_ns" ifconfig "$b" name "$b_name" >/dev/null
 
     topo_ns "$a_ns" ifconfig "$a_name" up
     topo_ns "$b_ns" ifconfig "$b_name" up
@@ -157,7 +161,7 @@ topo_build() {
 
     topo_ns down route -6 -q add default 2001:db8:0:1::1
 
-    topo_ns rt sysctl -q net.inet6.ip6.forwarding=1 || {
+    topo_ns rt sysctl -q net.inet6.ip6.forwarding=1 >/dev/null || {
         echo "Bail out! could not enable IPv6 forwarding in the rt jail"
         exit 1
     }

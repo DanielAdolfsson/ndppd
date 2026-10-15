@@ -104,4 +104,16 @@ jobs:
             # and an epair are privileged operations with no unprivileged
             # equivalent. The VM is disposable, which is what makes that
             # acceptable here and nowhere else.
-            gmake check-integration CC=clang
+            gmake check-integration CC=clang > tap.txt 2>&1 || {
+                cat tap.txt
+                exit 1
+            }
+            cat tap.txt
+
+            # The suite skips cleanly where a host cannot run it, which is
+            # right for a developer's machine and wrong here: a skip exits
+            # 0 and would hand us a green tick for having tested nothing.
+            if grep -q '^1\.\.0 # SKIP' tap.txt; then
+                echo "the integration suite skipped; CI must not count that as a pass"
+                exit 1
+            fi
