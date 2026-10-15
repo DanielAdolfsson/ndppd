@@ -388,15 +388,22 @@ ssize_t iface::read_solicit(address& saddr, address& daddr, address& taddr)
         return 0;
     }
 
-    struct ip6_hdr* ip6h =
-          (struct ip6_hdr* )(msg + ETH_HLEN);
+    // The Ethernet header is 14 bytes, so every IPv6 field in the buffer
+    // lands at an odd multiple of two and is never 4-byte aligned. Reading
+    // an in6_addr from there through a pointer means 32-bit loads from an
+    // unaligned address: on ARMv5/v6 those silently rotate the word instead
+    // of faulting, and the addresses come back scrambled. Copy the headers
+    // into aligned locals first -- memcpy is defined for any alignment, and
+    // compilers fold it back into direct loads wherever that is safe.
+    struct ip6_hdr ip6h;
+    struct nd_neighbor_solicit ns;
 
-    struct nd_neighbor_solicit*  ns =
-        (struct nd_neighbor_solicit*)(msg + ETH_HLEN + sizeof(struct ip6_hdr));
+    memcpy(&ip6h, msg + ETH_HLEN, sizeof(struct ip6_hdr));
+    memcpy(&ns, msg + ETH_HLEN + sizeof(struct ip6_hdr), sizeof(struct nd_neighbor_solicit));
 
-    taddr = ns->nd_ns_target;
-    daddr = ip6h->ip6_dst;
-    saddr = ip6h->ip6_src;
+    taddr = ns.nd_ns_target;
+    daddr = ip6h.ip6_dst;
+    saddr = ip6h.ip6_src;
     
     // Ignore packets sent from this machine
     if (iface::is_local(saddr) == true) {
