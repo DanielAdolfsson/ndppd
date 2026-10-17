@@ -25,18 +25,25 @@
 #include <netinet/ip6.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+
+#include <unistd.h>
 
 #ifdef __linux__
 #    include <linux/filter.h>
 #    include <linux/if_ether.h>
+#    include <linux/if_link.h>
 #    include <linux/if_packet.h>
+#    include <linux/netlink.h>
+#    include <linux/rtnetlink.h>
 #    include <netinet/if_ether.h>
 #else
 #    include <fcntl.h>
 #    include <net/bpf.h>
 #    include <net/ethernet.h>
+#    include <net/if_bridgevar.h>
 #    include <net/if_dl.h>
 #    include <sys/sysctl.h>
 #endif
@@ -761,3 +768,146 @@ void nd_iface_cleanup()
     if (ndL_io)
         nd_io_close(ndL_io);
 }
+
+const char *nd_iface_name(unsigned index, char *buf)
+{
+    if (!if_indextoname(index, buf))
+        snprintf(buf, IF_NAMESIZE, "#%u", index);
+
+    return buf;
+}
+
+#ifdef __linux__
+/* Asks the kernel for one link and reports whether it is a bridge, and what
+ * it is enslaved to.  sysfs would be simpler, but /sys/class/net shows the
+ * network namespace sysfs was mounted in rather than the one we run in --
+ * wrong under --netns, and wrong in the test suite. */
+static bool ndL_query_link(int fd, unsigned index, bool *is_bridge, unsigned *master)
+{
+    struct {
+        struct nlmsghdr hdr;
+        struct ifinfomsg msg;
+    } req = {
+        .hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+        .hdr.nlmsg_type = RTM_GETLINK,
+        .hdr.nlmsg_flags = NLM_F_REQUEST,
+        .msg.ifi_family = AF_UNSPEC,
+        .msg.ifi_index = (int)index,
+    };
+
+    if (send(fd, &req, sizeof(req), 0) < 0)
+        return false;
+
+    uint8_t buf[16384] ND_ALIGNED(4);
+    ssize_t len = recv(fd, buf, sizeof(buf), 0);
+
+    if (len < 0)
+        return false;
+
+    *is_bridge = false;
+    *master = 0;
+
+    for (struct nlmsghdr *hdr = (struct nlmsghdr *)buf; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
+        if (hdr->nlmsg_type != RTM_NEWLINK)
+            continue;
+
+        struct ifinfomsg *msg = NLMSG_DATA(hdr);
+        int rtl = IFLA_PAYLOAD(hdr);
+
+        for (struct rtattr *rta = IFLA_RTA(msg); RTA_OK(rta, rtl); rta = RTA_NEXT(rta, rtl)) {
+            if (rta->rta_type == IFLA_MASTER) {
+                *master = *(unsigned *)RTA_DATA(rta);
+            } else if (rta->rta_type == IFLA_LINKINFO) {
+                int nrtl = RTA_PAYLOAD(rta);
+
+                for (struct rtattr *n = RTA_DATA(rta); RTA_OK(n, nrtl); n = RTA_NEXT(n, nrtl)) {
+                    if (n->rta_type == IFLA_INFO_KIND && !strcmp(RTA_DATA(n), "bridge"))
+                        *is_bridge = true;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+unsigned nd_iface_bridge(unsigned index)
+{
+    int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    if (fd < 0)
+        return 0;
+
+    unsigned result = 0;
+
+    /* Follow masters upwards rather than stopping at the first, so that a
+     * NIC enslaved to a bond that is itself a bridge port is still found. */
+    for (int depth = 0; index && depth < 8; depth++) {
+        bool is_bridge;
+        unsigned master;
+
+        if (!ndL_query_link(fd, index, &is_bridge, &master))
+            break;
+
+        if (is_bridge) {
+            result = index;
+            break;
+        }
+
+        index = master;
+    }
+
+    close(fd);
+    return result;
+}
+#else
+/* Lists the members of `name` into `buf`, returning how many there are, or
+ * -1 if `name` is not a bridge. */
+static int ndL_bridge_members(int fd, const char *name, struct ifbreq *buf, size_t buflen)
+{
+    struct ifbifconf bifc = { .ifbic_len = (uint32_t)buflen, .ifbic_req = buf };
+    struct ifdrv ifd = { .ifd_cmd = BRDGGIFS, .ifd_len = sizeof(bifc), .ifd_data = &bifc };
+
+    strlcpy(ifd.ifd_name, name, sizeof(ifd.ifd_name));
+
+    if (ioctl(fd, SIOCGDRVSPEC, &ifd) < 0)
+        return -1;
+
+    return (int)(bifc.ifbic_len / sizeof(struct ifbreq));
+}
+
+unsigned nd_iface_bridge(unsigned index)
+{
+    int fd = socket(AF_LOCAL, SOCK_DGRAM, 0);
+
+    if (fd < 0)
+        return 0;
+
+    struct if_nameindex *ifs = if_nameindex();
+    unsigned result = 0;
+    struct ifbreq members[64];
+
+    for (struct if_nameindex *i = ifs; i && i->if_index && !result; i++) {
+        int count = ndL_bridge_members(fd, i->if_name, members, sizeof(members));
+
+        if (count < 0)
+            continue;
+
+        if (i->if_index == index)
+            result = index;
+
+        for (int j = 0; j < count && !result; j++) {
+            if (members[j].ifbr_portno == index)
+                result = i->if_index;
+        }
+    }
+
+    if (ifs)
+        if_freenameindex(ifs);
+
+    close(fd);
+    return result;
+}
+#endif

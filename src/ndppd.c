@@ -269,6 +269,7 @@ int main(int argc, char *argv[])
 
         if (querying_routes && !nd_rt_dump_timeout) {
             querying_routes = false;
+            nd_proxy_check_all_routes();
             nd_rt_remove_owned_routes();
             nd_rt_query_addresses();
         }

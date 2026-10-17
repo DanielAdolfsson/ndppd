@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with ndppd.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <net/if.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "ndppd.h"
@@ -82,6 +84,87 @@ void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t
     nd_session_handle_ns(session, src, src_ll);
 }
 
+/* Describes how interface `index` shares a link with the proxied interface,
+ * or returns NULL if it does not.  The proxy only works when the upstream link
+ * and the link the targets live on are separate: if they are bridged, the
+ * targets' own neighbor advertisements reach the upstream router directly and
+ * contradict the ones ndppd sends on their behalf.  See #81. */
+static const char *ndL_shared_link(const nd_proxy_t *proxy, unsigned index, char *buf, size_t buflen)
+{
+    if (index == proxy->iface->index) {
+        snprintf(buf, buflen, "which is %s itself", proxy->ifname);
+        return buf;
+    }
+
+    unsigned bridge = nd_iface_bridge(proxy->iface->index);
+
+    if (!bridge || bridge != nd_iface_bridge(index))
+        return NULL;
+
+    char name[IF_NAMESIZE];
+    snprintf(buf, buflen, "which is bridged with %s (bridge %s)", proxy->ifname, nd_iface_name(bridge, name));
+    return buf;
+}
+
+int nd_proxy_check_links(nd_proxy_t *proxy)
+{
+    int count = 0;
+    char why[IF_NAMESIZE * 2 + 64];
+
+    ND_LL_FOREACH (proxy->rules, rule, next) {
+        if (rule->mode != ND_MODE_IFACE || !rule->iface)
+            continue;
+
+        if (!ndL_shared_link(proxy, rule->iface->index, why, sizeof(why)))
+            continue;
+
+        nd_log_warning("proxy %s: rule %s/%d uses interface %s, %s. Upstream and downstream must be separate "
+                       "links for ndppd to work; take %s out of the bridge.",
+                       proxy->ifname, nd_ntoa(&rule->addr), rule->prefix, rule->iface->name, why, proxy->ifname);
+        count++;
+    }
+
+    return count;
+}
+
+int nd_proxy_check_routes(nd_proxy_t *proxy)
+{
+    int count = 0;
+    char why[IF_NAMESIZE * 2 + 64];
+    char name[IF_NAMESIZE];
+
+    if (!proxy->iface)
+        return 0;
+
+    /* Only static rules: they answer for every address in the prefix, so a
+     * route that sends the prefix back towards upstream is always wrong.  An
+     * auto rule resolves each target on its own, and already declines targets
+     * routed out the proxied interface. */
+    ND_LL_FOREACH (proxy->rules, rule, next) {
+        if (rule->mode != ND_MODE_STATIC)
+            continue;
+
+        nd_rt_route_t *route = nd_rt_find_route(&rule->addr, rule->table);
+
+        if (!route || !route->pflen || !ndL_shared_link(proxy, route->oif, why, sizeof(why)))
+            continue;
+
+        nd_log_warning("proxy %s: rule %s/%d is routed out %s (route %s/%d), %s. The proxied prefix must be "
+                       "routed to a link separate from upstream.",
+                       proxy->ifname, nd_ntoa(&rule->addr), rule->prefix, nd_iface_name(route->oif, name),
+                       nd_ntoa(&route->dst), route->pflen, why);
+        count++;
+    }
+
+    return count;
+}
+
+void nd_proxy_check_all_routes()
+{
+    ND_LL_FOREACH (ndL_proxies, proxy, next)
+        nd_proxy_check_routes(proxy);
+}
+
 bool nd_proxy_startup()
 {
     ND_LL_FOREACH (ndL_proxies, proxy, next) {
@@ -95,6 +178,8 @@ bool nd_proxy_startup()
                 return false;
             }
         }
+
+        nd_proxy_check_links(proxy);
     }
 
     return true;

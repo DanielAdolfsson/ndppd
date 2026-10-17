@@ -126,6 +126,16 @@ topo_add_down_addr() {
     topo_ns down ip -6 addr add "$1" dev down0 nodad
 }
 
+topo_bridge() {
+    local ns="$1" bridge="$2"; shift 2
+    topo_ns "$ns" ip link add name "$bridge" type bridge || return 1
+    topo_ns "$ns" ip link set "$bridge" up || return 1
+    local port
+    for port in "$@"; do
+        topo_ns "$ns" ip link set "$port" master "$bridge" || return 1
+    done
+}
+
 topo_mac() {
     topo_ns "$1" ip -o link show "$2" | sed -n 's/.*link\/ether \([0-9a-f:]*\).*/\1/p'
 }

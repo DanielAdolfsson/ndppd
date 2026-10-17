@@ -114,9 +114,14 @@ auto::
 
 static::
     Automatically respond. *This option is mutually exclusive with iface and auto*.
++
+The prefix must be routed to a link other than the proxy interface. *ndppd* logs a warning if the
+route for it points back out the proxy interface, or out an interface bridged with it.
 
 *iface* _interface_::
-    Forwards the *Neighbor Solicitation* message through this specific interface.
+    Forwards the *Neighbor Solicitation* message through this specific interface. This must be a
+    separate link from the proxy interface: *ndppd* logs a warning if it is the proxy interface
+    itself, or if the two are ports of the same bridge.
 
 *autowire* [ _yes|no_ ]::
     Add a host route (*/128*) to the target through the rule's interface for as long as the session

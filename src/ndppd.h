@@ -71,6 +71,7 @@ typedef enum {
 
 typedef enum {
     ND_LOG_ERROR,
+    ND_LOG_WARNING,
     ND_LOG_INFO,
     ND_LOG_DEBUG,
     ND_LOG_TRACE,
@@ -297,6 +298,9 @@ nd_proxy_t *nd_proxy_find(const char *ifname);
 void nd_proxy_handle_ns(nd_proxy_t *proxy, const nd_addr_t *src, const nd_addr_t *dst, const nd_addr_t *tgt,
                         const nd_lladdr_t *src_ll);
 bool nd_proxy_startup();
+int nd_proxy_check_links(nd_proxy_t *proxy);
+int nd_proxy_check_routes(nd_proxy_t *proxy);
+void nd_proxy_check_all_routes();
 
 /*
  * session.c
@@ -342,6 +346,8 @@ ssize_t nd_iface_send_na(nd_iface_t *iface, const nd_addr_t *dst, const nd_lladd
                          const nd_addr_t *tgt, const nd_lladdr_t *tgt_ll, bool router);
 bool nd_iface_startup();
 void nd_iface_cleanup();
+unsigned nd_iface_bridge(unsigned index);
+const char *nd_iface_name(unsigned index, char *buf);
 
 /*
  * io.c
@@ -373,6 +379,7 @@ void nd_log_printf(nd_loglevel_t level, const char *fmt, ...);
 #endif
 
 #define nd_log_error(fmt, ...) nd_log_printf(ND_LOG_ERROR, fmt, ##__VA_ARGS__)
+#define nd_log_warning(fmt, ...) nd_log_printf(ND_LOG_WARNING, fmt, ##__VA_ARGS__)
 #define nd_log_info(fmt, ...) nd_log_printf(ND_LOG_INFO, fmt, ##__VA_ARGS__)
 #define nd_log_debug(fmt, ...) nd_log_printf(ND_LOG_DEBUG, fmt, ##__VA_ARGS__)
 

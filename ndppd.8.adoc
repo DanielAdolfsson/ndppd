@@ -33,7 +33,7 @@ Default: /etc/ndppd.conf
 
 *-v*::
     Increase the verbosity of the logging. Multiple *-v* increases the verbosity even further.
-    The default level is _info_; *-v* adds _debug_ and *-vv* adds _trace_.
+    The default level is _info_, which includes _error_ and _warning_; *-v* adds _debug_ and *-vv* adds _trace_.
 
 *--netns*=_name_::
     (Linux only.) Enter the named network namespace, as created by *ip-netns*(8), before opening
