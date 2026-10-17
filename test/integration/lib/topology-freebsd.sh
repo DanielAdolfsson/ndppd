@@ -192,7 +192,11 @@ topo_add_down_addr() {
 topo_bridge() {
     local ns="$1" bridge="$2"; shift 2
     local b
-    b="$(topo_ns "$ns" ifconfig bridge create)" || return 1
+    # Created on the host and moved in, like the epairs: inside a jail
+    # ifconfig cannot autoload if_bridge.ko, and SIOCIFCREATE2 fails with a
+    # bare EINVAL when the module is not already there.
+    b="$(ifconfig bridge create)" || return 1
+    ifconfig "$b" vnet "$(_topo_jail "$ns")" || { ifconfig "$b" destroy; return 1; }
     topo_ns "$ns" ifconfig "$b" name "$bridge" >/dev/null || return 1
     # Destroyed with the links, before the jail goes.
     printf '%s %s\n' "$ns" "$bridge" >> "$TOPO_RUN/links"

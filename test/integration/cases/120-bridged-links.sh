@@ -51,7 +51,11 @@ topo_ndppd_stop
 # --- upstream and downstream in one bridge ---------------------------------
 
 topo_bridge rt br0 rt0 rt1
-assert_ok $? "rt0 and rt1 can be bridged together"
+assert_ok $? "rt0 and rt1 can be bridged together" || {
+    # Everything below needs the bridge; three more failures would only
+    # restate this one.
+    assert_summary
+}
 
 topo_ndppd_start "
 proxy rt0 {
