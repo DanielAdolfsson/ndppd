@@ -1,3 +1,17 @@
+2026-10-17  Daniel Adolfsson <daniel@ashen.se>
+
+    * Unreleased
+
+        * ndppd warns at startup when the upstream and downstream links
+          are not separate: an iface rule whose interface is the proxy
+          interface, or shares a bridge with it, and a static rule whose
+          prefix is routed back out the proxy interface or a bridge-mate
+          of it.  This is the usual first attempt on Proxmox, and it fails
+          intermittently rather than outright.  From benaryorg's analysis
+          in #81.
+
+        * New log level, warning, between error and info.
+
 2026-10-15  Daniel Adolfsson <daniel@ashen.se>
 
     * Version 1.0.0-rc1

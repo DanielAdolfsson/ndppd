@@ -79,6 +79,15 @@ extern nd_iface_t fake_iface_down;
 #define FAKE_IF_UP_INDEX 1
 #define FAKE_IF_DOWN_INDEX 2
 
+/* An interface that is never opened, only named: the bridge the other two
+ * can be made members of. */
+#define FAKE_IF_BRIDGE_INDEX 3
+#define FAKE_IF_MAX 4
+
+/* What nd_iface_bridge() answers for each index; zero means "not bridged".
+ * Cleared by fake_reset(). */
+extern unsigned fake_bridge_of[FAKE_IF_MAX];
+
 /* Clears recorded sends, recorded route operations and the fake routing
  * table, and resets both interface refcounts. Call at the top of each test. */
 void fake_reset(void);

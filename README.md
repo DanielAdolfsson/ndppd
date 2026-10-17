@@ -119,6 +119,14 @@ Most "ndppd isn't working" reports are one of these. None of them is a bug.
   solicited-node multicast only to ports that have reported interest, and
   ndppd does not report interest in the addresses it proxies for.
   ([#55][i55])
+- **Upstream and downstream must be separate links.** ndppd answers on
+  behalf of hosts the upstream router cannot reach directly. If the
+  upstream NIC is a port of the same bridge as the containers or VMs —
+  the usual first attempt on Proxmox, with everything on `vmbr0` — their
+  own advertisements reach the router too and contradict ndppd's, and
+  the result is intermittent rather than broken. Give the workloads a
+  bridge of their own and route to it. ndppd logs a warning at startup
+  when it can see this. ([#81][i81])
 - **Interfaces must exist at startup.** ndppd exits if a configured
   interface is missing, which at boot is a race against Docker and libvirt
   bridges. Order the unit after whatever creates them, or set
@@ -126,6 +134,7 @@ Most "ndppd isn't working" reports are one of these. None of them is a bug.
 
 [i55]: https://github.com/DanielAdolfsson/ndppd/issues/55
 [i72]: https://github.com/DanielAdolfsson/ndppd/issues/72
+[i81]: https://github.com/DanielAdolfsson/ndppd/issues/81
 
 ---
 

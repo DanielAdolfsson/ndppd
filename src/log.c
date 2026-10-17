@@ -62,10 +62,10 @@ void nd_log_printf(nd_loglevel_t level, const char *fmt, ...)
     va_end(va);
 
     if (ndL_syslog_opened) {
-        const int pris[] = { LOG_ERR, LOG_INFO, LOG_DEBUG, LOG_DEBUG };
+        const int pris[] = { LOG_ERR, LOG_WARNING, LOG_INFO, LOG_DEBUG, LOG_DEBUG };
         syslog(pris[level], "%s", buf);
     } else {
-        const char *names[] = { "error", "info", "debug", "trace" };
+        const char *names[] = { "error", "warning", "info", "debug", "trace" };
 
         time_t time = nd_current_time / 1000;
 

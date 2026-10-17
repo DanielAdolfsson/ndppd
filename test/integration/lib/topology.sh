@@ -43,6 +43,9 @@
 #   topo_ns <ns> <cmd...>     run a command inside one of the stacks
 #   topo_add_down_addr <cidr> give the downstream host another address
 #   topo_mac <ns> <iface>     the interface's hardware address
+#   topo_bridge <ns> <bridge> <port...>
+#                             create a bridge named <bridge> in <ns> and
+#                             make each <port> a member of it
 #   topo_ping <ns> <count> <wait-seconds> <addr>
 #                             ping, in the local ping's dialect
 #

@@ -62,6 +62,8 @@ nd_iface_t fake_iface_down = {
     .lladdr = { .u8 = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x02 } },
 };
 
+unsigned fake_bridge_of[FAKE_IF_MAX];
+
 static nd_rt_route_t *ndL_fake_routes;
 
 void fake_reset(void)
@@ -82,6 +84,8 @@ void fake_reset(void)
 
     fake_iface_up.refcount = 0;
     fake_iface_down.refcount = 0;
+
+    memset(fake_bridge_of, 0, sizeof(fake_bridge_of));
 }
 
 nd_addr_t fake_addr(const char *str)
@@ -203,6 +207,19 @@ bool nd_iface_startup(void)
 
 void nd_iface_cleanup(void)
 {
+}
+
+unsigned nd_iface_bridge(unsigned index)
+{
+    return index < FAKE_IF_MAX ? fake_bridge_of[index] : 0;
+}
+
+const char *nd_iface_name(unsigned index, char *buf)
+{
+    static const char *names[FAKE_IF_MAX] = { NULL, "up0", "down0", "br0" };
+
+    snprintf(buf, IF_NAMESIZE, "%s", index < FAKE_IF_MAX && names[index] ? names[index] : "?");
+    return buf;
 }
 
 /*

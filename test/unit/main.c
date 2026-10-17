@@ -26,6 +26,7 @@
 void test_addr(void);
 void test_alloc(void);
 void test_conf(void);
+void test_proxy(void);
 void test_session(void);
 
 int main(int argc, char *argv[])
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
     test_addr();
     test_alloc();
     test_conf();
+    test_proxy();
     test_session();
 
     printf("1..%d\n", tap_count);

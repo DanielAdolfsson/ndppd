@@ -2,8 +2,8 @@
 
 ```
 make check              # both layers
-make check-unit         # 228 assertions; no network, no privileges, no waiting
-make check-integration  #  55 assertions; a real daemon on real interfaces
+make check-unit         # 242 assertions; no network, no privileges, no waiting
+make check-integration  #  63 assertions; a real daemon on real interfaces
 ```
 
 Both layers emit [TAP 13](https://testanything.org), so either can be fed
@@ -41,6 +41,7 @@ What is covered:
 |---|---|
 | `test_addr.c` | every prefix length from 0 to 128, against an independent bitwise reference, for `nd_addr_match` and `nd_addr_combine`; netmask round-trips; classification; hashing; link-layer addresses |
 | `test_conf.c` | the real `nd_conf_load()` against temporary files — every rule mode, prefix handling, rewrite, target overrides, global bounds, structural errors, and the shipped `ndppd.conf-dist` |
+| `test_proxy.c` | the bridging checks: an `iface` rule on a bridge-mate of the proxy interface, and a `static` rule routed back towards upstream, are warned about; separate links, a downstream-only bridge and a covering upstream route are not |
 | `test_session.c` | the state machine: INCOMPLETE → VALID → STALE → INVALID → deleted, subscriber queueing, retransmission limits, auto-mode route resolution, rewrite, autowire, and both lookup tables |
 | `test_alloc.c` | the slab allocator: distinct blocks, free-list reuse, size bucketing |
 
@@ -82,6 +83,7 @@ network stack" lives in a backend behind a fixed contract:
 | --- | --- | --- |
 | separate stack | network namespace (`unshare -n`) | VNET jail (`jail -c vnet persist`) |
 | cable | `veth` pair | `epair` |
+| bridge | `ip link add type bridge` | `ifconfig bridge create` |
 | move an end | `ip link set X netns PID` | `ifconfig X vnet <jail>` |
 | run a command there | `nsenter -t PID -n` | `jexec <jail>` |
 | forwarding | `/proc/sys/net/ipv6/conf/all/forwarding` | `sysctl net.inet6.ip6.forwarding` |
@@ -169,6 +171,7 @@ there is a small stdlib-only packet tool for them:
 | `090-unicast-nud` | a unicast NS with no SLLAO gets a *solicited* NA, unicast back to the prober |
 | `100-rfc-validation` | hop limit ≠ 255 and multicast targets are discarded, and a discard does not break the next good packet |
 | `110-config-path` | the configuration path used when `-c` is absent is absolute, and `ndppd(8)` names it |
+| `120-bridged-links` | the same warnings against a real bridge: two ports of one bridge, a bridge proxied into its own port, and a static rule falling back to the upstream route |
 
 Several of these are regression tests for specific fixes in #93, and they
 discriminate: reverting the solicited-node MAC computation to its pre-#93
